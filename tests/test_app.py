@@ -52,13 +52,14 @@ def test_healthcheck(tmp_path: Path) -> None:
 def test_central_create_tenant_and_dashboard(tmp_path: Path) -> None:
     client = load_test_client(tmp_path)
     headers = central_auth_headers(client)
+    workspace_slug = f"acme-{tmp_path.name}".replace("_", "-")
 
     create_response = client.post(
         "/central/tenants",
         headers=headers,
         json={
             "company_name": "Acme Ltda",
-            "workspace_slug": "acme",
+            "workspace_slug": workspace_slug,
             "company_document": "123",
             "admin_name": "Acme Admin",
             "admin_email": "owner@acme.com",
@@ -84,16 +85,18 @@ def test_central_create_tenant_and_dashboard(tmp_path: Path) -> None:
 def test_tenant_role_templates_crud(tmp_path: Path) -> None:
     client = load_test_client(tmp_path)
     headers = central_auth_headers(client)
+    workspace_slug = f"beta-{tmp_path.name}".replace("_", "-")
+    admin_email = f"owner+{tmp_path.name}@beta.com"
 
     create_response = client.post(
         "/central/tenants",
         headers=headers,
         json={
             "company_name": "Beta Ltda",
-            "workspace_slug": "beta",
+            "workspace_slug": workspace_slug,
             "company_document": "456",
             "admin_name": "Beta Admin",
-            "admin_email": "owner@beta.com",
+            "admin_email": admin_email,
             "admin_password": "1234",
             "plan_code": "starter",
             "billing_day": 10,
@@ -104,19 +107,19 @@ def test_tenant_role_templates_crud(tmp_path: Path) -> None:
     )
     assert create_response.status_code == 201
 
-    tenant_headers = tenant_auth_headers(client, "beta", "owner@beta.com", "1234")
+    tenant_headers = tenant_auth_headers(client, workspace_slug, admin_email, "1234")
 
-    list_response = client.get("/tenant/beta/roles", headers=tenant_headers)
+    list_response = client.get(f"/tenant/{workspace_slug}/roles", headers=tenant_headers)
     assert list_response.status_code == 200
     assert any(item["role_name"] == "admin" for item in list_response.json())
 
     upsert_response = client.post(
-        "/tenant/beta/roles",
+        f"/tenant/{workspace_slug}/roles",
         headers=tenant_headers,
         json={"role_name": "custom_sales", "permissions": {"sales.write": True}},
     )
     assert upsert_response.status_code == 201
     assert upsert_response.json()["role_name"] == "custom_sales"
 
-    delete_response = client.delete("/tenant/beta/roles/custom_sales", headers=tenant_headers)
+    delete_response = client.delete(f"/tenant/{workspace_slug}/roles/custom_sales", headers=tenant_headers)
     assert delete_response.status_code == 204

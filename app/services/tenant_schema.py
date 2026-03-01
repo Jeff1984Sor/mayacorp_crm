@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from sqlalchemy import inspect, text
 
 from app.db.base import TenantBase
@@ -112,7 +114,7 @@ def migrate_tenant_schema(engine) -> None:
                         "INSERT INTO role_templates (role_name, permissions, created_at, updated_at) "
                         "VALUES (:role_name, :permissions, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
                     ),
-                    {"role_name": role_name, "permissions": str(permissions).replace("'", '"')},
+                    {"role_name": role_name, "permissions": json.dumps(permissions)},
                 )
 
         existing_versions = {

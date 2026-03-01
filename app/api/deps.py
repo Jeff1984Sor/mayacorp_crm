@@ -20,10 +20,10 @@ def central_session_dep(session: Session = Depends(get_central_session)) -> Sess
 
 def tenant_context_dep(
     request: Request,
-    workspace_slug: str | None = Header(default=None, alias="X-Workspace-Slug"),
+    x_workspace_slug: str | None = Header(default=None, alias="X-Workspace-Slug"),
     session: Session = Depends(get_central_session),
 ) -> Tenant:
-    slug = workspace_slug or request.path_params.get("workspace_slug")
+    slug = x_workspace_slug or request.path_params.get("workspace_slug")
     if not slug:
         raise HTTPException(status_code=400, detail="Workspace slug is required.")
 
@@ -91,3 +91,15 @@ def tenant_manager_user_dep(current_user: User = Depends(tenant_current_user_dep
     if current_user.role not in {"admin", "manager"} and not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Manager permission required.")
     return current_user
+
+
+def tenant_permission_dep(permission: str):
+    def dependency(current_user: User = Depends(tenant_current_user_dep)) -> User:
+        if current_user.is_admin or current_user.role == "admin":
+            return current_user
+        granted = current_user.permissions or {}
+        if not granted.get(permission, False):
+            raise HTTPException(status_code=403, detail=f"Permission required: {permission}")
+        return current_user
+
+    return dependency
