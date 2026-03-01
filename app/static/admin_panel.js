@@ -68,6 +68,19 @@ function renderSummary(summary) {
     meta.push("WhatsApp: sem sessao");
   }
   renderList("workspaceMeta", meta, (item) => item);
+  renderList("receivablesList", summary.receivables || [], (item) =>
+    `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
+    <button onclick="updateReceivableStatus(${item.id})">Atualizar status</button>
+    <button onclick="deleteReceivable(${item.id})">Excluir</button>`
+  );
+  renderList("payablesList", summary.payables || [], (item) =>
+    `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
+    <button onclick="updatePayableStatus(${item.id})">Atualizar status</button>
+    <button onclick="deletePayable(${item.id})">Excluir</button>`
+  );
+  renderList("messagesList", summary.messages || [], (item) =>
+    `#${item.id} | ${item.direction} | ${item.status}<br>${item.body}`
+  );
 }
 
 async function showResult(response) {
@@ -304,6 +317,7 @@ async function createReceivable() {
     })
   });
   await showResult(response);
+  await loadWorkspaceSummary();
 }
 
 async function createPayable() {
@@ -321,6 +335,7 @@ async function createPayable() {
     })
   });
   await showResult(response);
+  await loadWorkspaceSummary();
 }
 
 async function connectWhatsapp() {
@@ -349,6 +364,59 @@ async function sendWhatsapp() {
     })
   });
   await showResult(response);
+  await loadWorkspaceSummary();
+}
+
+async function updateReceivableStatus(id) {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const status = window.prompt("Novo status da conta a receber:", "paid");
+  if (!status) {
+    return;
+  }
+  const response = await fetch(`/admin/panel/${slug}/finance/receivable/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ status })
+  });
+  await showResult(response);
+  await loadWorkspaceSummary();
+}
+
+async function deleteReceivable(id) {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch(`/admin/panel/${slug}/finance/receivable/${id}`, {
+    method: "DELETE",
+    credentials: "same-origin"
+  });
+  await showResult(response);
+  await loadWorkspaceSummary();
+}
+
+async function updatePayableStatus(id) {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const status = window.prompt("Novo status da conta a pagar:", "paid");
+  if (!status) {
+    return;
+  }
+  const response = await fetch(`/admin/panel/${slug}/finance/payable/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ status })
+  });
+  await showResult(response);
+  await loadWorkspaceSummary();
+}
+
+async function deletePayable(id) {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch(`/admin/panel/${slug}/finance/payable/${id}`, {
+    method: "DELETE",
+    credentials: "same-origin"
+  });
+  await showResult(response);
+  await loadWorkspaceSummary();
 }
 
 async function renameLead(id) {

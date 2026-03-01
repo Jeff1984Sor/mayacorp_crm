@@ -4,17 +4,16 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 
-from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
+from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import central_session_dep, tenant_context_dep, tenant_session_dep
 from app.api.routes import _write_document_file, _write_signed_contract_file, router
 from app.core.middleware import TenantResolutionMiddleware
-from app.core.security import decode_token, verify_password
+from app.core.security import verify_password
 from app.models.central import CentralUser, Tenant
 from app.models.tenant import (
     AccountsPayable,
@@ -30,90 +29,31 @@ from app.models.tenant import (
     TenantWhatsappAccount,
     User,
 )
+from app.panel_common import (
+    PanelCentralLoginRequest,
+    PanelClientRequest,
+    PanelContractRequest,
+    PanelContractSignRequest,
+    PanelFinanceCategoryRequest,
+    PanelFinanceEntryRequest,
+    PanelLeadRequest,
+    PanelProposalRequest,
+    PanelSalesOrderRequest,
+    PanelStatusRequest,
+    PanelTenantCreateRequest,
+    PanelTenantLoginRequest,
+    PanelWhatsappSendRequest,
+    PanelWhatsappSessionRequest,
+    panel_central_user_dep,
+    panel_cookie_options,
+    panel_response,
+    panel_tenant_permission_dep,
+    panel_tenant_user_dep,
+)
 from app.schemas.tenant import TenantCreateRequest
 from app.services.bootstrap import bootstrap_central_database
 from app.services.tenant_auth import issue_tenant_token_pair
 from app.services.tenants import create_tenant
-
-
-class PanelCentralLoginRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=4, max_length=128)
-
-
-class PanelTenantLoginRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=4, max_length=128)
-
-
-class PanelTenantCreateRequest(BaseModel):
-    company_name: str = Field(min_length=2, max_length=255)
-    workspace_slug: str = Field(min_length=2, max_length=80)
-    admin_name: str = Field(min_length=2, max_length=255)
-    admin_email: EmailStr
-    admin_password: str = Field(min_length=4, max_length=128)
-
-
-class PanelSalesOrderRequest(BaseModel):
-    title: str = Field(min_length=2, max_length=255)
-    quantity: float = Field(default=1, gt=0)
-    unit_price: float = Field(gt=0)
-    first_due_date: str
-
-
-class PanelProposalRequest(BaseModel):
-    title: str = Field(min_length=2, max_length=255)
-    sales_order_id: int | None = None
-
-
-class PanelContractRequest(BaseModel):
-    title: str = Field(min_length=2, max_length=255)
-    sales_order_id: int | None = None
-
-
-class PanelContractSignRequest(BaseModel):
-    contract_id: int
-    file_name: str = Field(min_length=3, max_length=255)
-    content: str = Field(min_length=1)
-
-
-class PanelFinanceCategoryRequest(BaseModel):
-    name: str = Field(min_length=2, max_length=120)
-    entry_type: str = Field(default="both", max_length=20)
-
-
-class PanelWhatsappSessionRequest(BaseModel):
-    provider_session_id: str | None = Field(default=None, max_length=120)
-
-
-class PanelLeadRequest(BaseModel):
-    name: str = Field(min_length=2, max_length=255)
-    email: EmailStr | None = None
-    phone: str | None = Field(default=None, max_length=40)
-
-
-class PanelClientRequest(BaseModel):
-    name: str = Field(min_length=2, max_length=255)
-    email: EmailStr | None = None
-    phone: str | None = Field(default=None, max_length=40)
-
-
-class PanelStatusRequest(BaseModel):
-    status: str = Field(min_length=2, max_length=40)
-
-
-class PanelFinanceEntryRequest(BaseModel):
-    amount: float = Field(gt=0)
-    due_date: str
-    category: str | None = Field(default=None, max_length=80)
-    cost_center: str | None = Field(default=None, max_length=80)
-    status: str = Field(default="pending", max_length=40)
-
-
-class PanelWhatsappSendRequest(BaseModel):
-    body: str = Field(min_length=1)
-    lead_id: int | None = None
-    client_id: int | None = None
 
 
 bootstrap_central_database()
@@ -144,71 +84,6 @@ app.mount("/static", StaticFiles(directory=Path(__file__).resolve().parent / "st
 app.include_router(router)
 
 
-def _panel_cookie_options() -> dict:
-    return {
-        "httponly": True,
-        "samesite": "lax",
-        "secure": False,
-        "max_age": 3600,
-    }
-
-
-def _panel_response(message: str, data: dict | list | None = None, ok: bool = True) -> dict:
-    return {"ok": ok, "message": message, "data": data}
-
-
-def panel_central_user_dep(
-    panel_central_token: str | None = Cookie(default=None),
-    session: Session = Depends(central_session_dep),
-) -> CentralUser:
-    if not panel_central_token:
-        raise HTTPException(status_code=401, detail="Panel central session required.")
-    try:
-        payload = decode_token(panel_central_token)
-    except ValueError:
-        raise HTTPException(status_code=401, detail="Invalid panel central session.")
-    if payload.get("scope") != "central":
-        raise HTTPException(status_code=403, detail="Invalid panel central scope.")
-    user = session.query(CentralUser).filter(CentralUser.email == payload.get("sub")).one_or_none()
-    if user is None or not user.is_active:
-        raise HTTPException(status_code=401, detail="User not found.")
-    return user
-
-
-def panel_tenant_user_dep(
-    panel_tenant_token: str | None = Cookie(default=None),
-    panel_tenant_slug: str | None = Cookie(default=None),
-    tenant: Tenant = Depends(tenant_context_dep),
-    session: Session = Depends(tenant_session_dep),
-) -> User:
-    if not panel_tenant_token:
-        raise HTTPException(status_code=401, detail="Panel tenant session required.")
-    if panel_tenant_slug != tenant.slug:
-        raise HTTPException(status_code=403, detail="Panel tenant workspace mismatch.")
-    try:
-        payload = decode_token(panel_tenant_token)
-    except ValueError:
-        raise HTTPException(status_code=401, detail="Invalid panel tenant session.")
-    if payload.get("scope") != "tenant" or payload.get("type") != "access":
-        raise HTTPException(status_code=403, detail="Invalid panel tenant scope.")
-    user = session.query(User).filter(User.email == payload.get("sub")).one_or_none()
-    if user is None or not user.is_active:
-        raise HTTPException(status_code=401, detail="User not found.")
-    return user
-
-
-def panel_tenant_permission_dep(permission: str):
-    def dependency(current_user: User = Depends(panel_tenant_user_dep)) -> User:
-        if current_user.is_admin or current_user.role == "admin":
-            return current_user
-        granted = current_user.permissions or {}
-        if not granted.get(permission, False):
-            raise HTTPException(status_code=403, detail=f"Permission required: {permission}")
-        return current_user
-
-    return dependency
-
-
 @app.get("/admin/panel", response_class=HTMLResponse, tags=["health"])
 def admin_panel() -> str:
     template_path = Path(__file__).resolve().parent / "templates" / "admin_panel.html"
@@ -227,8 +102,8 @@ def admin_panel_login(
     from app.core.security import build_token
 
     token = build_token(user.email, expires_in_minutes=60, extra={"scope": "central"}, token_type="access")
-    response.set_cookie("panel_central_token", token, **_panel_cookie_options())
-    return _panel_response(
+    response.set_cookie("panel_central_token", token, **panel_cookie_options())
+    return panel_response(
         "Sessao central iniciada.",
         {"email": user.email, "full_name": user.full_name, "must_change_password": user.must_change_password},
     )
@@ -239,7 +114,7 @@ def admin_panel_logout(response: Response) -> dict:
     response.delete_cookie("panel_central_token", samesite="lax")
     response.delete_cookie("panel_tenant_token", samesite="lax")
     response.delete_cookie("panel_tenant_slug", samesite="lax")
-    return _panel_response("Sessao encerrada.", {"status": "logged_out"})
+    return panel_response("Sessao encerrada.", {"status": "logged_out"})
 
 
 @app.get("/admin/panel/central/dashboard", tags=["health"])
@@ -252,7 +127,7 @@ def admin_panel_central_dashboard(
     tenants = session.query(Tenant).all()
     invoices = session.query(SaasInvoice).all()
     open_tasks = session.query(CentralTask).filter(CentralTask.status == "open").count()
-    return _panel_response("Dashboard central carregado.", {
+    return panel_response("Dashboard central carregado.", {
         "tenant_count": len(tenants),
         "active_tenant_count": sum(1 for tenant in tenants if tenant.status == "active"),
         "open_task_count": open_tasks,
@@ -285,7 +160,7 @@ def admin_panel_create_tenant(
         ),
         actor_email=current_user.email,
     )
-    return _panel_response(
+    return panel_response(
         "Tenant criado.",
         {"tenant_id": tenant.id, "workspace_slug": tenant.slug, "status": tenant.status},
     )
@@ -307,9 +182,9 @@ def admin_panel_tenant_login(
         must_change_password=user.must_change_password,
         role=user.role,
     )
-    response.set_cookie("panel_tenant_token", token, **_panel_cookie_options())
-    response.set_cookie("panel_tenant_slug", workspace_slug, **_panel_cookie_options())
-    return _panel_response(
+    response.set_cookie("panel_tenant_token", token, **panel_cookie_options())
+    response.set_cookie("panel_tenant_slug", workspace_slug, **panel_cookie_options())
+    return panel_response(
         "Sessao do tenant iniciada.",
         {"email": user.email, "role": user.role, "workspace_slug": workspace_slug},
     )
@@ -326,7 +201,7 @@ def admin_panel_tenant_health(
 
     whatsapp = session.query(TenantWhatsappAccount).order_by(TenantWhatsappAccount.id.asc()).first()
     versions = session.query(TenantSchemaVersion).order_by(TenantSchemaVersion.id.asc()).all()
-    return _panel_response("Health do tenant carregado.", {
+    return panel_response("Health do tenant carregado.", {
         "workspace_slug": workspace_slug,
         "tenant_status": tenant.status,
         "plan_code": tenant.plan_code,
@@ -345,7 +220,7 @@ def admin_panel_create_lead(
     session.add(lead)
     session.commit()
     session.refresh(lead)
-    return _panel_response("Lead criado.", {"id": lead.id, "name": lead.name, "email": lead.email, "phone": lead.phone})
+    return panel_response("Lead criado.", {"id": lead.id, "name": lead.name, "email": lead.email, "phone": lead.phone})
 
 
 @app.patch("/admin/panel/{workspace_slug}/lead/{lead_id}", tags=["health"])
@@ -362,7 +237,7 @@ def admin_panel_update_lead(
     lead.email = payload.email
     lead.phone = payload.phone
     session.commit()
-    return _panel_response("Lead atualizado.", {"id": lead.id, "name": lead.name, "email": lead.email, "phone": lead.phone})
+    return panel_response("Lead atualizado.", {"id": lead.id, "name": lead.name, "email": lead.email, "phone": lead.phone})
 
 
 @app.delete("/admin/panel/{workspace_slug}/lead/{lead_id}", tags=["health"])
@@ -376,7 +251,7 @@ def admin_panel_delete_lead(
         raise HTTPException(status_code=404, detail="Lead not found.")
     session.delete(lead)
     session.commit()
-    return _panel_response("Lead removido.", {"status": "deleted", "id": lead_id})
+    return panel_response("Lead removido.", {"status": "deleted", "id": lead_id})
 
 
 @app.post("/admin/panel/{workspace_slug}/client", status_code=201, tags=["health"])
@@ -389,7 +264,7 @@ def admin_panel_create_client(
     session.add(client)
     session.commit()
     session.refresh(client)
-    return _panel_response("Client criado.", {"id": client.id, "name": client.name, "email": client.email, "phone": client.phone})
+    return panel_response("Client criado.", {"id": client.id, "name": client.name, "email": client.email, "phone": client.phone})
 
 
 @app.patch("/admin/panel/{workspace_slug}/client/{client_id}", tags=["health"])
@@ -406,7 +281,7 @@ def admin_panel_update_client(
     client.email = payload.email
     client.phone = payload.phone
     session.commit()
-    return _panel_response("Client atualizado.", {"id": client.id, "name": client.name, "email": client.email, "phone": client.phone})
+    return panel_response("Client atualizado.", {"id": client.id, "name": client.name, "email": client.email, "phone": client.phone})
 
 
 @app.delete("/admin/panel/{workspace_slug}/client/{client_id}", tags=["health"])
@@ -420,7 +295,7 @@ def admin_panel_delete_client(
         raise HTTPException(status_code=404, detail="Client not found.")
     session.delete(client)
     session.commit()
-    return _panel_response("Client removido.", {"status": "deleted", "id": client_id})
+    return panel_response("Client removido.", {"status": "deleted", "id": client_id})
 
 
 @app.post("/admin/panel/{workspace_slug}/sales-order", tags=["health"])
@@ -446,7 +321,7 @@ def admin_panel_create_sales_order(
         )
     )
     session.commit()
-    return _panel_response(
+    return panel_response(
         "Pedido criado.",
         {"id": order.id, "status": order.status, "total_amount": float(total_amount), "workspace_slug": workspace_slug},
     )
@@ -464,7 +339,7 @@ def admin_panel_update_sales_order(
         raise HTTPException(status_code=404, detail="Sales order not found.")
     order.status = payload.status
     session.commit()
-    return _panel_response("Pedido atualizado.", {"id": order.id, "status": order.status})
+    return panel_response("Pedido atualizado.", {"id": order.id, "status": order.status})
 
 
 @app.delete("/admin/panel/{workspace_slug}/sales-order/{order_id}", tags=["health"])
@@ -480,7 +355,7 @@ def admin_panel_delete_sales_order(
     session.query(SalesItem).filter(SalesItem.sales_order_id == order.id).delete()
     session.delete(order)
     session.commit()
-    return _panel_response("Pedido removido.", {"status": "deleted", "id": order_id})
+    return panel_response("Pedido removido.", {"status": "deleted", "id": order_id})
 
 
 @app.post("/admin/panel/{workspace_slug}/proposal", tags=["health"])
@@ -500,7 +375,7 @@ def admin_panel_create_proposal(
     session.refresh(proposal)
     proposal.pdf_path = _write_document_file(workspace_slug, "proposals", proposal.id, proposal.title)
     session.commit()
-    return _panel_response("Proposta criada.", {"id": proposal.id, "title": proposal.title, "pdf_path": proposal.pdf_path})
+    return panel_response("Proposta criada.", {"id": proposal.id, "title": proposal.title, "pdf_path": proposal.pdf_path})
 
 
 @app.patch("/admin/panel/{workspace_slug}/proposal/{proposal_id}", tags=["health"])
@@ -518,7 +393,7 @@ def admin_panel_update_proposal(
     proposal.sales_order_id = payload.sales_order_id
     proposal.pdf_path = _write_document_file(workspace_slug, "proposals", proposal.id, proposal.title)
     session.commit()
-    return _panel_response("Proposta atualizada.", {"id": proposal.id, "title": proposal.title, "pdf_path": proposal.pdf_path})
+    return panel_response("Proposta atualizada.", {"id": proposal.id, "title": proposal.title, "pdf_path": proposal.pdf_path})
 
 
 @app.delete("/admin/panel/{workspace_slug}/proposal/{proposal_id}", tags=["health"])
@@ -532,7 +407,7 @@ def admin_panel_delete_proposal(
         raise HTTPException(status_code=404, detail="Proposal not found.")
     session.delete(proposal)
     session.commit()
-    return _panel_response("Proposta removida.", {"status": "deleted", "id": proposal_id})
+    return panel_response("Proposta removida.", {"status": "deleted", "id": proposal_id})
 
 
 @app.post("/admin/panel/{workspace_slug}/contract", tags=["health"])
@@ -552,7 +427,7 @@ def admin_panel_create_contract(
     session.refresh(contract)
     contract.pdf_path = _write_document_file(workspace_slug, "contracts", contract.id, contract.title)
     session.commit()
-    return _panel_response(
+    return panel_response(
         "Contrato criado.",
         {"id": contract.id, "title": contract.title, "status": contract.status, "pdf_path": contract.pdf_path},
     )
@@ -573,7 +448,7 @@ def admin_panel_update_contract(
     contract.sales_order_id = payload.sales_order_id
     contract.pdf_path = _write_document_file(workspace_slug, "contracts", contract.id, contract.title)
     session.commit()
-    return _panel_response(
+    return panel_response(
         "Contrato atualizado.",
         {"id": contract.id, "title": contract.title, "status": contract.status, "pdf_path": contract.pdf_path},
     )
@@ -590,7 +465,7 @@ def admin_panel_delete_contract(
         raise HTTPException(status_code=404, detail="Contract not found.")
     session.delete(contract)
     session.commit()
-    return _panel_response("Contrato removido.", {"status": "deleted", "id": contract_id})
+    return panel_response("Contrato removido.", {"status": "deleted", "id": contract_id})
 
 
 @app.post("/admin/panel/{workspace_slug}/contract/sign", tags=["health"])
@@ -606,7 +481,7 @@ def admin_panel_sign_contract(
     contract.signed_file_path = _write_signed_contract_file(workspace_slug, contract.id, payload.file_name, payload.content)
     contract.status = "signed"
     session.commit()
-    return _panel_response(
+    return panel_response(
         "Contrato assinado.",
         {"id": contract.id, "status": contract.status, "signed_file_path": contract.signed_file_path},
     )
@@ -644,17 +519,23 @@ def admin_panel_workspace_summary(
     clients = clients_query.offset(offset).limit(page_size).all()
     whatsapp = session.query(TenantWhatsappAccount).order_by(TenantWhatsappAccount.id.asc()).first()
 
-    receivables = session.query(AccountsReceivable).all()
-    receivable_total = float(sum(float(item.amount) for item in receivables))
-    receivable_pending = float(sum(float(item.amount) for item in receivables if item.status == "pending"))
+    receivables = session.query(AccountsReceivable).order_by(AccountsReceivable.id.desc()).limit(5).all()
+    payables = session.query(AccountsPayable).order_by(AccountsPayable.id.desc()).limit(5).all()
+    messages = session.query(Message).order_by(Message.id.desc()).limit(5).all()
+    all_receivables = session.query(AccountsReceivable).all()
+    receivable_total = float(sum(float(item.amount) for item in all_receivables))
+    receivable_pending = float(sum(float(item.amount) for item in all_receivables if item.status == "pending"))
 
-    return _panel_response("Resumo carregado.", {
+    return panel_response("Resumo carregado.", {
         "workspace_slug": workspace_slug,
         "sales_orders": [{"id": item.id, "status": item.status, "total_amount": float(item.total_amount)} for item in sales_orders],
         "proposals": [{"id": item.id, "title": item.title, "pdf_path": item.pdf_path} for item in proposals],
         "contracts": [{"id": item.id, "title": item.title, "status": item.status, "signed_file_path": item.signed_file_path} for item in contracts],
         "leads": [{"id": item.id, "name": item.name, "email": item.email, "phone": item.phone} for item in leads],
         "clients": [{"id": item.id, "name": item.name, "email": item.email, "phone": item.phone} for item in clients],
+        "receivables": [{"id": item.id, "amount": float(item.amount), "status": item.status} for item in receivables],
+        "payables": [{"id": item.id, "amount": float(item.amount), "status": item.status} for item in payables],
+        "messages": [{"id": item.id, "direction": item.direction, "status": item.status, "body": item.body} for item in messages],
         "finance": {
             "category_count": len(categories),
             "categories": [{"id": item.id, "name": item.name, "entry_type": item.entry_type} for item in categories],
@@ -689,7 +570,7 @@ def admin_panel_create_finance_category(
     session.add(category)
     session.commit()
     session.refresh(category)
-    return _panel_response(
+    return panel_response(
         "Categoria criada.",
         {"id": category.id, "name": category.name, "entry_type": category.entry_type, "workspace_slug": workspace_slug},
     )
@@ -712,7 +593,7 @@ def admin_panel_upsert_whatsapp_session(
         account.last_qr_code = "qr-placeholder"
     session.commit()
     session.refresh(account)
-    return _panel_response("Sessao WhatsApp atualizada.", {
+    return panel_response("Sessao WhatsApp atualizada.", {
         "id": account.id,
         "workspace_slug": workspace_slug,
         "provider_session_id": account.provider_session_id,
@@ -737,7 +618,7 @@ def admin_panel_create_receivable(
     session.add(entry)
     session.commit()
     session.refresh(entry)
-    return _panel_response("Conta a receber criada.", {"id": entry.id, "status": entry.status, "amount": float(entry.amount)})
+    return panel_response("Conta a receber criada.", {"id": entry.id, "status": entry.status, "amount": float(entry.amount)})
 
 
 @app.patch("/admin/panel/{workspace_slug}/finance/receivable/{entry_id}", tags=["health"])
@@ -752,7 +633,7 @@ def admin_panel_update_receivable(
         raise HTTPException(status_code=404, detail="Accounts receivable not found.")
     entry.status = payload.status
     session.commit()
-    return _panel_response("Conta a receber atualizada.", {"id": entry.id, "status": entry.status})
+    return panel_response("Conta a receber atualizada.", {"id": entry.id, "status": entry.status})
 
 
 @app.delete("/admin/panel/{workspace_slug}/finance/receivable/{entry_id}", tags=["health"])
@@ -766,7 +647,7 @@ def admin_panel_delete_receivable(
         raise HTTPException(status_code=404, detail="Accounts receivable not found.")
     session.delete(entry)
     session.commit()
-    return _panel_response("Conta a receber removida.", {"id": entry_id, "status": "deleted"})
+    return panel_response("Conta a receber removida.", {"id": entry_id, "status": "deleted"})
 
 
 @app.post("/admin/panel/{workspace_slug}/finance/payable", status_code=201, tags=["health"])
@@ -785,7 +666,7 @@ def admin_panel_create_payable(
     session.add(entry)
     session.commit()
     session.refresh(entry)
-    return _panel_response("Conta a pagar criada.", {"id": entry.id, "status": entry.status, "amount": float(entry.amount)})
+    return panel_response("Conta a pagar criada.", {"id": entry.id, "status": entry.status, "amount": float(entry.amount)})
 
 
 @app.patch("/admin/panel/{workspace_slug}/finance/payable/{entry_id}", tags=["health"])
@@ -800,7 +681,7 @@ def admin_panel_update_payable(
         raise HTTPException(status_code=404, detail="Accounts payable not found.")
     entry.status = payload.status
     session.commit()
-    return _panel_response("Conta a pagar atualizada.", {"id": entry.id, "status": entry.status})
+    return panel_response("Conta a pagar atualizada.", {"id": entry.id, "status": entry.status})
 
 
 @app.delete("/admin/panel/{workspace_slug}/finance/payable/{entry_id}", tags=["health"])
@@ -814,7 +695,7 @@ def admin_panel_delete_payable(
         raise HTTPException(status_code=404, detail="Accounts payable not found.")
     session.delete(entry)
     session.commit()
-    return _panel_response("Conta a pagar removida.", {"id": entry_id, "status": "deleted"})
+    return panel_response("Conta a pagar removida.", {"id": entry_id, "status": "deleted"})
 
 
 @app.post("/admin/panel/{workspace_slug}/whatsapp/send", status_code=201, tags=["health"])
@@ -835,4 +716,4 @@ def admin_panel_send_whatsapp(
     session.add(message)
     session.commit()
     session.refresh(message)
-    return _panel_response("Mensagem enviada para fila imediata.", {"message_id": message.id, "status": message.status})
+    return panel_response("Mensagem enviada para fila imediata.", {"message_id": message.id, "status": message.status})

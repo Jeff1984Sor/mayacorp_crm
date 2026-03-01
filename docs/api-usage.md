@@ -115,6 +115,8 @@ O painel e propositalmente simples e cobre:
 - envio outbound de WhatsApp via painel
 - sessao do painel em cookies HttpOnly para central e tenant
 - endpoints do painel retornam envelope padrao: `ok`, `message`, `data`
+- painel agora lista visualmente contas a receber, contas a pagar e mensagens recentes
+- base comum do painel foi extraida para `app/panel_common.py`
 
 Implementacao:
 

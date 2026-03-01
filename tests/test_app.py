@@ -82,6 +82,7 @@ def test_healthcheck(tmp_path: Path) -> None:
     assert "createContract" in js_response.text
     assert "credentials: \"same-origin\"" in js_response.text
     assert "showToast" in js_response.text
+    assert "updateReceivableStatus" in js_response.text
 
 
 def test_central_create_tenant_and_dashboard(tmp_path: Path) -> None:
@@ -545,6 +546,9 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert summary_payload["contracts"]
     assert summary_payload["leads"]
     assert summary_payload["clients"]
+    assert summary_payload["receivables"]
+    assert summary_payload["payables"]
+    assert summary_payload["messages"]
     assert summary_payload["finance"]["category_count"] >= 1
     assert summary_payload["whatsapp"]["status"] == "connecting"
     assert summary_payload["page"] == 1
