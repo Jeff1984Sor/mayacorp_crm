@@ -173,6 +173,7 @@ def admin_panel_list_payables(
 
 @panel_finance_router.get("/admin/panel/{workspace_slug}/finance/export")
 def admin_panel_export_finance(
+    workspace_slug: str,
     entry_type: str = "receivable",
     status: str | None = None,
     category: str | None = None,
@@ -187,7 +188,8 @@ def admin_panel_export_finance(
     query = _apply_finance_filters(session.query(model), model, status=status, category=category, due_from=due_from, due_to=due_to)
     query = _apply_finance_sort(query, model, sort_by=sort_by, sort_dir=sort_dir)
     rows = _serialize_finance_entries(query.limit(200).all())
-    return _csv_response(["id", "amount", "status", "category", "cost_center", "due_date"], rows, f"{entry_type}s.csv")
+    suffix = "receivables" if entry_type != "payable" else "payables"
+    return _csv_response(["id", "amount", "status", "category", "cost_center", "due_date"], rows, f"{workspace_slug}-{suffix}.csv")
 
 
 @panel_finance_router.post("/admin/panel/{workspace_slug}/finance/receivable", status_code=201)

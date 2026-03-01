@@ -257,7 +257,90 @@ function buildFinanceQuery() {
 }
 
 function clearPanelCache(keys) {
+  if (!keys || keys.length === 0) {
+    return;
+  }
   keys.forEach((key) => setPanelCache(key, null));
+}
+
+function invalidatePanelDomains(...domains) {
+  const constants = window.PANEL_CONSTANTS || PANEL_CONSTANTS;
+  const keys = new Set();
+  domains.forEach((domain) => {
+    const mapped = constants.cacheKeysByDomain?.[domain] || [domain];
+    mapped.forEach((key) => keys.add(key));
+  });
+  clearPanelCache(Array.from(keys));
+}
+
+function setFilterValue(id, value) {
+  const element = document.getElementById(id);
+  if (element) {
+    element.value = value;
+  }
+}
+
+async function copyWhatsappQr() {
+  const qrElement = document.getElementById("whatsappQrValue");
+  const qrValue = qrElement ? (qrElement.textContent || "").trim() : "";
+  if (!qrValue) {
+    showToast("Nenhum QR disponivel para copiar.", "error");
+    return;
+  }
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(qrValue);
+      showToast("QR copiado.");
+      return;
+    }
+  } catch (error) {}
+  output.textContent = qrValue;
+  showToast("QR exibido no output para copia manual.");
+}
+
+async function quickFilterPendingOrders() {
+  setFilterValue("orderStatusFilter", "pending");
+  setFilterValue("summaryPage", "1");
+  await loadOrdersSummary();
+}
+
+async function quickFilterSignedContracts() {
+  setFilterValue("contractStatusFilter", "signed");
+  setFilterValue("contractsPage", "1");
+  await loadContractsOnly();
+}
+
+async function quickFilterOutboundMessages() {
+  setFilterValue("messageDirectionFilter", "outbound");
+  setFilterValue("messagesPage", "1");
+  await loadMessagesSummary();
+}
+
+async function quickFilterInboundMessages() {
+  setFilterValue("messageDirectionFilter", "inbound");
+  setFilterValue("messagesPage", "1");
+  await loadMessagesSummary();
+}
+
+async function quickFilterPendingFinance() {
+  setFilterValue("financeFilterStatus", "pending");
+  setFilterValue("financePage", "1");
+  setFilterValue("payablesPage", "1");
+  await Promise.all([loadReceivablesOnly(), loadPayablesOnly()]);
+}
+
+async function clearQuickFilters() {
+  setFilterValue("orderStatusFilter", "");
+  setFilterValue("contractStatusFilter", "");
+  setFilterValue("messageStatusFilter", "");
+  setFilterValue("messageDirectionFilter", "");
+  setFilterValue("financeFilterStatus", "");
+  setFilterValue("summaryPage", "1");
+  setFilterValue("documentsPage", "1");
+  setFilterValue("messagesPage", "1");
+  setFilterValue("financePage", "1");
+  setFilterValue("payablesPage", "1");
+  await loadWorkspaceSummary();
 }
 
 async function createReceivable() {
@@ -274,7 +357,7 @@ async function createReceivable() {
     })
   });
   await showResult(response);
-  clearPanelCache(["summary", "people"]);
+  invalidatePanelDomains("finance");
   await loadReceivables();
 }
 
@@ -313,7 +396,7 @@ async function createPayable() {
     })
   });
   await showResult(response);
-  clearPanelCache(["summary", "people"]);
+  invalidatePanelDomains("finance");
   await loadPayables();
 }
 
@@ -354,6 +437,7 @@ async function connectWhatsapp() {
     body: JSON.stringify({ provider_session_id: document.getElementById("whatsappSessionId").value })
   });
   await showResult(response);
+  invalidatePanelDomains("whatsapp");
 }
 
 async function sendWhatsapp() {
@@ -368,7 +452,7 @@ async function sendWhatsapp() {
     })
   });
   await showResult(response);
-  clearPanelCache(["summary", "finance"]);
+  invalidatePanelDomains("messages", "whatsapp");
   await loadMessagesSummary();
 }
 
@@ -380,7 +464,7 @@ async function updateWhatsappSessionStatus() {
     body: JSON.stringify({ status: selectedValue("whatsappSessionStatus", "connected") })
   });
   await showResult(response);
-  clearPanelCache(["summary", "finance"]);
+  invalidatePanelDomains("whatsapp");
   await loadWorkspaceSummary();
 }
 
@@ -392,7 +476,7 @@ async function updateReceivableStatus(id) {
     body: JSON.stringify({ status: selectedValue("receivableStatusUpdate", "paid") })
   });
   await showResult(response);
-  clearPanelCache(["summary", "messages"]);
+  invalidatePanelDomains("finance");
   await loadReceivables();
 }
 
@@ -402,7 +486,7 @@ async function deleteReceivable(id) {
     credentials: "same-origin"
   });
   await showResult(response);
-  clearPanelCache(["summary", "people"]);
+  invalidatePanelDomains("finance");
   await loadReceivables();
 }
 
@@ -414,7 +498,7 @@ async function updatePayableStatus(id) {
     body: JSON.stringify({ status: selectedValue("payableStatusUpdate", "paid") })
   });
   await showResult(response);
-  clearPanelCache(["summary", "people"]);
+  invalidatePanelDomains("finance");
   await loadPayables();
 }
 
@@ -424,7 +508,7 @@ async function deletePayable(id) {
     credentials: "same-origin"
   });
   await showResult(response);
-  clearPanelCache(["summary", "orders"]);
+  invalidatePanelDomains("finance");
   await loadPayables();
 }
 
@@ -436,7 +520,7 @@ async function updateMessageStatus(id) {
     body: JSON.stringify({ status: selectedValue("messageStatusUpdate", "read") })
   });
   await showResult(response);
-  clearPanelCache(["summary", "documents"]);
+  invalidatePanelDomains("messages");
   await loadMessagesSummary();
 }
 
@@ -453,14 +537,14 @@ async function renameLead(id) {
     body: JSON.stringify({ name, email: null, phone: null })
   });
   await showResult(response);
-  clearPanelCache(["summary", "documents"]);
+  invalidatePanelDomains("people");
   await loadLeadsOnly();
 }
 
 async function deleteLead(id) {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/lead/${id}`, { method: "DELETE", credentials: "same-origin" });
   await showResult(response);
-  clearPanelCache(["summary", "people"]);
+  invalidatePanelDomains("people");
   await loadLeadsOnly();
 }
 
@@ -477,14 +561,14 @@ async function renameClient(id) {
     body: JSON.stringify({ name, email: null, phone: null })
   });
   await showResult(response);
-  clearPanelCache(["summary", "people"]);
+  invalidatePanelDomains("people");
   await loadClientsOnly();
 }
 
 async function deleteClient(id) {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/client/${id}`, { method: "DELETE", credentials: "same-origin" });
   await showResult(response);
-  clearPanelCache(["summary", "people"]);
+  invalidatePanelDomains("people");
   await loadClientsOnly();
 }
 
@@ -496,14 +580,14 @@ async function updateSalesOrderStatus(id) {
     body: JSON.stringify({ status: selectedValue("salesOrderStatusUpdate", "confirmed") })
   });
   await showResult(response);
-  clearPanelCache(["summary", "orders"]);
+  invalidatePanelDomains("orders");
   await loadOrdersSummary();
 }
 
 async function deleteSalesOrder(id) {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/sales-order/${id}`, { method: "DELETE", credentials: "same-origin" });
   await showResult(response);
-  clearPanelCache(["summary", "orders"]);
+  invalidatePanelDomains("orders");
   await loadOrdersSummary();
 }
 
@@ -526,14 +610,14 @@ async function renameProposal(id) {
     })
   });
   await showResult(response);
-  clearPanelCache(["summary", "documents", "proposals"]);
+  invalidatePanelDomains("documents");
   await loadProposalsOnly();
 }
 
 async function deleteProposal(id) {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/proposal/${id}`, { method: "DELETE", credentials: "same-origin" });
   await showResult(response);
-  clearPanelCache(["summary", "documents", "proposals"]);
+  invalidatePanelDomains("documents");
   await loadProposalsOnly();
 }
 
@@ -556,14 +640,14 @@ async function renameContract(id) {
     })
   });
   await showResult(response);
-  clearPanelCache(["summary", "documents", "contracts"]);
+  invalidatePanelDomains("documents");
   await loadContractsOnly();
 }
 
 async function deleteContract(id) {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/contract/${id}`, { method: "DELETE", credentials: "same-origin" });
   await showResult(response);
-  clearPanelCache(["summary", "documents", "contracts"]);
+  invalidatePanelDomains("documents");
   await loadContractsOnly();
 }
 
@@ -575,7 +659,7 @@ async function updateContractStatus(id) {
     body: JSON.stringify({ status: selectedValue("contractStatusUpdate", "sent") })
   });
   await showResult(response);
-  clearPanelCache(["summary", "documents", "contracts"]);
+  invalidatePanelDomains("documents");
   await loadContractsOnly();
 }
 

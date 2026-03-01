@@ -18,6 +18,20 @@ function renderSummary(summary) {
   if (summary.message_status) activeFilters.push(`Msg status: ${summary.message_status}`);
   if (summary.message_direction) activeFilters.push(`Msg dir: ${summary.message_direction}`);
   renderList("activeFilters", activeFilters, (item) => item);
+  const qrBlock = document.getElementById("whatsappQrCard");
+  if (qrBlock) {
+    if (summary.whatsapp && summary.whatsapp.last_qr_code) {
+      qrBlock.innerHTML = `
+        <div class="qr-panel">
+          <div class="qr-label">QR WhatsApp</div>
+          <div class="qr-value" id="whatsappQrValue">${summary.whatsapp.last_qr_code}</div>
+          <button onclick="copyWhatsappQr()">Copiar QR</button>
+        </div>
+      `;
+    } else {
+      qrBlock.innerHTML = '<div class="list-item">Sem QR de WhatsApp disponivel.</div>';
+    }
+  }
   renderList("salesOrdersList", summary.sales_orders || [], (item) =>
     `#${item.id} | ${item.status} | R$ ${Number(item.total_amount).toFixed(2)}<br>
     <button onclick="updateSalesOrderStatus(${item.id})">Atualizar status</button>
@@ -60,7 +74,6 @@ function renderSummary(summary) {
   if (summary.whatsapp) {
     meta.push(
       `WhatsApp: ${summary.whatsapp.status} (${summary.whatsapp.provider_session_id || "-"})<br>
-      QR: ${summary.whatsapp.last_qr_code || "-"}<br>
       <button onclick="updateWhatsappSessionStatus()">Atualizar status</button>`
     );
   } else {

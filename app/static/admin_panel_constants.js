@@ -3,5 +3,15 @@ const PANEL_CONSTANTS = {
   financeStatuses: ["pending", "paid", "overdue", "cancelled"],
   whatsappSessionStatuses: ["connecting", "connected", "disconnected", "failed"],
   messageStatuses: ["sending", "sent", "delivered", "read", "failed"],
-  contractStatuses: ["draft", "sent", "signed", "cancelled"]
+  contractStatuses: ["draft", "sent", "signed", "cancelled"],
+  cacheKeysByDomain: {
+    summary: ["summary"],
+    people: ["summary", "people", "leads", "clients"],
+    orders: ["summary", "orders"],
+    documents: ["summary", "documents", "proposals", "contracts"],
+    finance: ["summary", "finance"],
+    messages: ["summary", "messages"],
+    whatsapp: ["summary", "messages"],
+    all: ["summary", "people", "orders", "documents", "proposals", "contracts", "finance", "messages", "leads", "clients"]
+  }
 };

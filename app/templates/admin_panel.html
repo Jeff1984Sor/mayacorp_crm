@@ -63,6 +63,14 @@
         <button onclick="loadContractsOnly()">Contratos</button>
         <button onclick="loadMessagesSummary()">Msgs</button>
         <button onclick="loadFinanceSummary()">Financeiro</button>
+        <div class="quick-actions">
+          <button onclick="quickFilterPendingOrders()">Pedidos pendentes</button>
+          <button onclick="quickFilterSignedContracts()">Contratos assinados</button>
+          <button onclick="quickFilterOutboundMessages()">Msgs outbound</button>
+          <button onclick="quickFilterInboundMessages()">Msgs inbound</button>
+          <button onclick="quickFilterPendingFinance()">Financeiro pendente</button>
+          <button onclick="clearQuickFilters()">Limpar filtros rapidos</button>
+        </div>
         <button onclick="exportOrdersCsv()">Exportar pedidos CSV</button>
         <button onclick="exportPeopleCsv()">Exportar pessoas CSV</button>
         <button onclick="exportLeadsCsv()">Exportar leads CSV</button>
@@ -493,6 +501,7 @@
       <div class="dashboard-card">
         <h3>Financeiro e WhatsApp</h3>
         <div id="workspaceMeta" class="listbox"></div>
+        <div id="whatsappQrCard" class="listbox"></div>
       </div>
       <div class="dashboard-card">
         <h3>Contas a Receber</h3>

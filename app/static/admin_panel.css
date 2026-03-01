@@ -175,8 +175,41 @@ button:hover { background: var(--brand-dark); }
   padding: 6px 10px;
   font-size: 12px;
 }
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.quick-actions button {
+  margin-top: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+.qr-panel {
+  display: grid;
+  gap: 8px;
+}
+.qr-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.qr-value {
+  border: 1px dashed #7dd3c7;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #f0fdfa;
+  color: #134e4a;
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-all;
+}
 @media (max-width: 640px) {
   .row {
+    grid-template-columns: 1fr;
+  }
+  .quick-actions {
     grid-template-columns: 1fr;
   }
 }
