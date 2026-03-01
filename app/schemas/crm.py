@@ -93,3 +93,31 @@ class AccountEntryResponse(BaseModel):
     status: str
     category: str | None
     cost_center: str | None
+
+
+class AccountEntryUpdateRequest(BaseModel):
+    amount: float | None = Field(default=None, gt=0)
+    due_date: str | None = None
+    status: str | None = Field(default=None, max_length=40)
+    category: str | None = Field(default=None, max_length=80)
+    cost_center: str | None = Field(default=None, max_length=80)
+
+
+class SalesOrderCreateRequest(BaseModel):
+    client_id: int | None = None
+    order_type: str = Field(default="one_time", max_length=20)
+    duration_months: int | None = Field(default=None, ge=1, le=24)
+    total_amount: float = Field(gt=0)
+    installments: int = Field(default=1, ge=1, le=24)
+    first_due_date: str
+    category: str | None = Field(default=None, max_length=80)
+    cost_center: str | None = Field(default=None, max_length=80)
+
+
+class SalesOrderResponse(BaseModel):
+    id: int
+    client_id: int | None
+    order_type: str
+    duration_months: int | None
+    total_amount: float
+    status: str

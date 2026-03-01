@@ -9,6 +9,7 @@ from app.db.session import get_tenant_session
 from app.models.central import CentralUser
 from app.db.session import get_central_session
 from app.models.central import Tenant
+from app.models.tenant import User
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -57,3 +58,30 @@ def central_current_user_dep(
 
 def tenant_session_dep(tenant: Tenant = Depends(tenant_context_dep)):
     yield from get_tenant_session(tenant.database_url)
+
+
+def tenant_current_user_dep(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    session: Session = Depends(tenant_session_dep),
+) -> User:
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Authorization token is required.")
+    try:
+        payload = decode_token(credentials.credentials)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid token.")
+
+    if payload.get("scope") != "tenant" or payload.get("type") != "access":
+        raise HTTPException(status_code=403, detail="Invalid token scope.")
+
+    email = payload.get("sub")
+    user = session.query(User).filter(User.email == email).one_or_none()
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=401, detail="User not found.")
+    return user
+
+
+def tenant_admin_user_dep(current_user: User = Depends(tenant_current_user_dep)) -> User:
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin permission required.")
+    return current_user

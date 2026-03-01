@@ -20,3 +20,8 @@ class CentralUserResponse(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class TenantLoginRequest(BaseModel):
+    email: EmailStr
+    password: str

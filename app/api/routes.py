@@ -3,15 +3,22 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.deps import central_current_user_dep, central_session_dep, tenant_context_dep, tenant_session_dep
-from app.core.security import verify_password
+from app.api.deps import (
+    central_current_user_dep,
+    central_session_dep,
+    tenant_admin_user_dep,
+    tenant_context_dep,
+    tenant_current_user_dep,
+    tenant_session_dep,
+)
+from app.core.security import build_token, verify_password
 from app.models.central import CentralUser, Tenant
-from app.models.tenant import Client, Lead, User
-from app.models.tenant import AccountsPayable, AccountsReceivable
-from app.schemas.auth import CentralUserResponse, LoginRequest, RefreshRequest, TokenResponse
+from app.models.tenant import AccountsPayable, AccountsReceivable, Client, Lead, SalesOrder, User
+from app.schemas.auth import CentralUserResponse, LoginRequest, RefreshRequest, TenantLoginRequest, TokenResponse
 from app.schemas.crm import (
     AccountEntryCreateRequest,
     AccountEntryResponse,
+    AccountEntryUpdateRequest,
     ClientCreateRequest,
     ClientResponse,
     ClientUpdateRequest,
@@ -19,6 +26,8 @@ from app.schemas.crm import (
     LeadCreateRequest,
     LeadResponse,
     LeadUpdateRequest,
+    SalesOrderCreateRequest,
+    SalesOrderResponse,
     TenantUserCreateRequest,
     TenantUserResponse,
     TenantUserUpdateRequest,
@@ -65,6 +74,23 @@ def central_me(current_user: CentralUser = Depends(central_current_user_dep)) ->
     )
 
 
+@router.post("/tenant/{workspace_slug}/auth/login", response_model=TokenResponse)
+def tenant_login(
+    payload: TenantLoginRequest,
+    session: Session = Depends(tenant_session_dep),
+) -> TokenResponse:
+    user = session.query(User).filter(User.email == payload.email).one_or_none()
+    if user is None or not verify_password(payload.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid credentials.")
+    token = build_token(
+        user.email,
+        expires_in_minutes=30,
+        extra={"scope": "tenant", "is_admin": user.is_admin, "must_change_password": user.must_change_password},
+        token_type="access",
+    )
+    return TokenResponse(access_token=token)
+
+
 @router.post("/central/tenants", response_model=TenantCreateResponse, status_code=201)
 def central_create_tenant(
     payload: TenantCreateRequest,
@@ -104,7 +130,11 @@ def list_tenant_users(session: Session = Depends(tenant_session_dep)) -> list[Te
 
 
 @router.post("/tenant/{workspace_slug}/users", response_model=TenantUserResponse, status_code=201)
-def create_tenant_user(payload: TenantUserCreateRequest, session: Session = Depends(tenant_session_dep)) -> TenantUserResponse:
+def create_tenant_user(
+    payload: TenantUserCreateRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_admin_user_dep),
+) -> TenantUserResponse:
     existing = session.query(User).filter(User.email == payload.email).one_or_none()
     if existing is not None:
         raise HTTPException(status_code=409, detail="User email already exists.")
@@ -132,7 +162,10 @@ def create_tenant_user(payload: TenantUserCreateRequest, session: Session = Depe
 
 @router.patch("/tenant/{workspace_slug}/users/{user_id}", response_model=TenantUserResponse)
 def update_tenant_user(
-    user_id: int, payload: TenantUserUpdateRequest, session: Session = Depends(tenant_session_dep)
+    user_id: int,
+    payload: TenantUserUpdateRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_admin_user_dep),
 ) -> TenantUserResponse:
     user = session.query(User).filter(User.id == user_id).one_or_none()
     if user is None:
@@ -155,7 +188,9 @@ def update_tenant_user(
 
 
 @router.delete("/tenant/{workspace_slug}/users/{user_id}", status_code=204)
-def delete_tenant_user(user_id: int, session: Session = Depends(tenant_session_dep)) -> None:
+def delete_tenant_user(
+    user_id: int, session: Session = Depends(tenant_session_dep), _: User = Depends(tenant_admin_user_dep)
+) -> None:
     user = session.query(User).filter(User.id == user_id).one_or_none()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found.")
@@ -360,8 +395,25 @@ def create_account_receivable(
 
 
 @router.get("/tenant/{workspace_slug}/finance/accounts-receivable", response_model=list[AccountEntryResponse])
-def list_accounts_receivable(session: Session = Depends(tenant_session_dep)) -> list[AccountEntryResponse]:
-    entries = session.query(AccountsReceivable).order_by(AccountsReceivable.id.desc()).all()
+def list_accounts_receivable(
+    due_date_from: str | None = None,
+    due_date_to: str | None = None,
+    category: str | None = None,
+    cost_center: str | None = None,
+    session: Session = Depends(tenant_session_dep),
+) -> list[AccountEntryResponse]:
+    from datetime import date
+
+    query = session.query(AccountsReceivable)
+    if due_date_from:
+        query = query.filter(AccountsReceivable.due_date >= date.fromisoformat(due_date_from))
+    if due_date_to:
+        query = query.filter(AccountsReceivable.due_date <= date.fromisoformat(due_date_to))
+    if category:
+        query = query.filter(AccountsReceivable.category == category)
+    if cost_center:
+        query = query.filter(AccountsReceivable.cost_center == cost_center)
+    entries = query.order_by(AccountsReceivable.id.desc()).all()
     return [
         AccountEntryResponse(
             id=entry.id,
@@ -373,6 +425,49 @@ def list_accounts_receivable(session: Session = Depends(tenant_session_dep)) -> 
         )
         for entry in entries
     ]
+
+
+@router.patch(
+    "/tenant/{workspace_slug}/finance/accounts-receivable/{entry_id}",
+    response_model=AccountEntryResponse,
+)
+def update_account_receivable(
+    entry_id: int, payload: AccountEntryUpdateRequest, session: Session = Depends(tenant_session_dep)
+) -> AccountEntryResponse:
+    from datetime import date
+
+    entry = session.query(AccountsReceivable).filter(AccountsReceivable.id == entry_id).one_or_none()
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Accounts receivable entry not found.")
+    if payload.amount is not None:
+        entry.amount = payload.amount
+    if payload.due_date is not None:
+        entry.due_date = date.fromisoformat(payload.due_date)
+    if payload.status is not None:
+        entry.status = payload.status
+    if payload.category is not None:
+        entry.category = payload.category
+    if payload.cost_center is not None:
+        entry.cost_center = payload.cost_center
+    session.commit()
+    session.refresh(entry)
+    return AccountEntryResponse(
+        id=entry.id,
+        amount=float(entry.amount),
+        due_date=entry.due_date.isoformat(),
+        status=entry.status,
+        category=entry.category,
+        cost_center=entry.cost_center,
+    )
+
+
+@router.delete("/tenant/{workspace_slug}/finance/accounts-receivable/{entry_id}", status_code=204)
+def delete_account_receivable(entry_id: int, session: Session = Depends(tenant_session_dep)) -> None:
+    entry = session.query(AccountsReceivable).filter(AccountsReceivable.id == entry_id).one_or_none()
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Accounts receivable entry not found.")
+    session.delete(entry)
+    session.commit()
 
 
 @router.post("/tenant/{workspace_slug}/finance/accounts-payable", response_model=AccountEntryResponse, status_code=201)
@@ -401,8 +496,25 @@ def create_account_payable(
 
 
 @router.get("/tenant/{workspace_slug}/finance/accounts-payable", response_model=list[AccountEntryResponse])
-def list_accounts_payable(session: Session = Depends(tenant_session_dep)) -> list[AccountEntryResponse]:
-    entries = session.query(AccountsPayable).order_by(AccountsPayable.id.desc()).all()
+def list_accounts_payable(
+    due_date_from: str | None = None,
+    due_date_to: str | None = None,
+    category: str | None = None,
+    cost_center: str | None = None,
+    session: Session = Depends(tenant_session_dep),
+) -> list[AccountEntryResponse]:
+    from datetime import date
+
+    query = session.query(AccountsPayable)
+    if due_date_from:
+        query = query.filter(AccountsPayable.due_date >= date.fromisoformat(due_date_from))
+    if due_date_to:
+        query = query.filter(AccountsPayable.due_date <= date.fromisoformat(due_date_to))
+    if category:
+        query = query.filter(AccountsPayable.category == category)
+    if cost_center:
+        query = query.filter(AccountsPayable.cost_center == cost_center)
+    entries = query.order_by(AccountsPayable.id.desc()).all()
     return [
         AccountEntryResponse(
             id=entry.id,
@@ -413,4 +525,113 @@ def list_accounts_payable(session: Session = Depends(tenant_session_dep)) -> lis
             cost_center=entry.cost_center,
         )
         for entry in entries
+    ]
+
+
+@router.patch("/tenant/{workspace_slug}/finance/accounts-payable/{entry_id}", response_model=AccountEntryResponse)
+def update_account_payable(
+    entry_id: int, payload: AccountEntryUpdateRequest, session: Session = Depends(tenant_session_dep)
+) -> AccountEntryResponse:
+    from datetime import date
+
+    entry = session.query(AccountsPayable).filter(AccountsPayable.id == entry_id).one_or_none()
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Accounts payable entry not found.")
+    if payload.amount is not None:
+        entry.amount = payload.amount
+    if payload.due_date is not None:
+        entry.due_date = date.fromisoformat(payload.due_date)
+    if payload.status is not None:
+        entry.status = payload.status
+    if payload.category is not None:
+        entry.category = payload.category
+    if payload.cost_center is not None:
+        entry.cost_center = payload.cost_center
+    session.commit()
+    session.refresh(entry)
+    return AccountEntryResponse(
+        id=entry.id,
+        amount=float(entry.amount),
+        due_date=entry.due_date.isoformat(),
+        status=entry.status,
+        category=entry.category,
+        cost_center=entry.cost_center,
+    )
+
+
+@router.delete("/tenant/{workspace_slug}/finance/accounts-payable/{entry_id}", status_code=204)
+def delete_account_payable(entry_id: int, session: Session = Depends(tenant_session_dep)) -> None:
+    entry = session.query(AccountsPayable).filter(AccountsPayable.id == entry_id).one_or_none()
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Accounts payable entry not found.")
+    session.delete(entry)
+    session.commit()
+
+
+@router.post("/tenant/{workspace_slug}/sales-orders", response_model=SalesOrderResponse, status_code=201)
+def create_sales_order(
+    payload: SalesOrderCreateRequest, session: Session = Depends(tenant_session_dep)
+) -> SalesOrderResponse:
+    from datetime import date
+    from decimal import Decimal
+
+    if payload.client_id is not None:
+        client = session.query(Client).filter(Client.id == payload.client_id).one_or_none()
+        if client is None:
+            raise HTTPException(status_code=404, detail="Client not found.")
+
+    order = SalesOrder(
+        client_id=payload.client_id,
+        order_type=payload.order_type,
+        duration_months=payload.duration_months,
+        total_amount=payload.total_amount,
+        status="confirmed",
+    )
+    session.add(order)
+    session.flush()
+
+    installment_amount = (Decimal(str(payload.total_amount)) / Decimal(payload.installments)).quantize(Decimal("0.01"))
+    first_due = date.fromisoformat(payload.first_due_date)
+
+    for index in range(payload.installments):
+        due_month = first_due.month - 1 + index
+        due_year = first_due.year + due_month // 12
+        due_month_normalized = due_month % 12 + 1
+        due_date = date(due_year, due_month_normalized, min(first_due.day, 28))
+        session.add(
+            AccountsReceivable(
+                sales_order_id=order.id,
+                due_date=due_date,
+                amount=installment_amount,
+                status="pending",
+                category=payload.category,
+                cost_center=payload.cost_center,
+            )
+        )
+
+    session.commit()
+    session.refresh(order)
+    return SalesOrderResponse(
+        id=order.id,
+        client_id=order.client_id,
+        order_type=order.order_type,
+        duration_months=order.duration_months,
+        total_amount=float(order.total_amount),
+        status=order.status,
+    )
+
+
+@router.get("/tenant/{workspace_slug}/sales-orders", response_model=list[SalesOrderResponse])
+def list_sales_orders(session: Session = Depends(tenant_session_dep)) -> list[SalesOrderResponse]:
+    orders = session.query(SalesOrder).order_by(SalesOrder.id.desc()).all()
+    return [
+        SalesOrderResponse(
+            id=order.id,
+            client_id=order.client_id,
+            order_type=order.order_type,
+            duration_months=order.duration_months,
+            total_amount=float(order.total_amount),
+            status=order.status,
+        )
+        for order in orders
     ]
