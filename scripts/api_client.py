@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 from urllib import request
+from urllib.parse import urlencode
 
 
 def _call(method: str, url: str, payload: dict | None = None, token: str | None = None) -> dict | str:
@@ -19,6 +21,33 @@ def _call(method: str, url: str, payload: dict | None = None, token: str | None 
             return json.loads(body)
         except json.JSONDecodeError:
             return body
+
+
+def _parse_sales_items(raw_items: list[str]) -> list[dict]:
+    items: list[dict] = []
+    for raw_item in raw_items:
+        try:
+            description, quantity, unit_price = raw_item.split(":", 2)
+            items.append(
+                {
+                    "description": description,
+                    "quantity": float(quantity),
+                    "unit_price": float(unit_price),
+                }
+            )
+        except ValueError as exc:
+            raise SystemExit(f"Invalid --item value '{raw_item}'. Use description:quantity:unit_price.") from exc
+    if not items:
+        raise SystemExit("At least one --item is required.")
+    return items
+
+
+def _read_file_content(path: str | None, inline_content: str | None) -> str:
+    if path:
+        return Path(path).read_text(encoding="utf-8")
+    if inline_content:
+        return inline_content
+    raise SystemExit("Provide --content or --content-file.")
 
 
 def main() -> None:
@@ -46,6 +75,50 @@ def main() -> None:
     health_parser = subparsers.add_parser("tenant-health")
     health_parser.add_argument("--workspace-slug", required=True)
     health_parser.add_argument("--token", required=True)
+
+    tenant_login_parser = subparsers.add_parser("tenant-login")
+    tenant_login_parser.add_argument("--workspace-slug", required=True)
+    tenant_login_parser.add_argument("--email", required=True)
+    tenant_login_parser.add_argument("--password", required=True)
+
+    sales_order_parser = subparsers.add_parser("create-sales-order")
+    sales_order_parser.add_argument("--workspace-slug", required=True)
+    sales_order_parser.add_argument("--token", required=True)
+    sales_order_parser.add_argument("--first-due-date", required=True)
+    sales_order_parser.add_argument("--client-id", type=int)
+    sales_order_parser.add_argument("--order-type", default="one_time")
+    sales_order_parser.add_argument("--duration-months", type=int)
+    sales_order_parser.add_argument("--installments", type=int, default=1)
+    sales_order_parser.add_argument("--category")
+    sales_order_parser.add_argument("--cost-center")
+    sales_order_parser.add_argument(
+        "--item",
+        action="append",
+        default=[],
+        help="Format: description:quantity:unit_price. Repeat for multiple items.",
+    )
+
+    marketplace_parser = subparsers.add_parser("marketplace-webhook")
+    marketplace_parser.add_argument("--workspace-slug", required=True)
+    marketplace_parser.add_argument("--token", required=True)
+    marketplace_parser.add_argument("--channel", required=True)
+    marketplace_parser.add_argument("--external-order-id", required=True)
+    marketplace_parser.add_argument("--client-name", required=True)
+    marketplace_parser.add_argument("--client-email")
+    marketplace_parser.add_argument("--client-phone")
+    marketplace_parser.add_argument("--total-amount", required=True, type=float)
+    marketplace_parser.add_argument("--first-due-date", required=True)
+
+    storage_parser = subparsers.add_parser("upload-file")
+    storage_parser.add_argument("--workspace-slug", required=True)
+    storage_parser.add_argument("--token", required=True)
+    storage_parser.add_argument("--bucket", required=True)
+    storage_parser.add_argument("--file-name", required=True)
+    storage_parser.add_argument("--content")
+    storage_parser.add_argument("--content-file")
+
+    signed_storage_parser = subparsers.add_parser("download-file")
+    signed_storage_parser.add_argument("--signed-url", required=True)
 
     args = parser.parse_args()
 
@@ -75,12 +148,76 @@ def main() -> None:
             },
             token=args.token,
         )
-    else:
+    elif args.command == "tenant-health":
         result = _call(
             "GET",
             f"{args.base_url}/tenant/{args.workspace_slug}/health",
             token=args.token,
         )
+    elif args.command == "tenant-login":
+        result = _call(
+            "POST",
+            f"{args.base_url}/tenant/{args.workspace_slug}/auth/login",
+            {"email": args.email, "password": args.password},
+        )
+    elif args.command == "create-sales-order":
+        result = _call(
+            "POST",
+            f"{args.base_url}/tenant/{args.workspace_slug}/sales-orders",
+            {
+                "client_id": args.client_id,
+                "order_type": args.order_type,
+                "duration_months": args.duration_months,
+                "installments": args.installments,
+                "first_due_date": args.first_due_date,
+                "category": args.category,
+                "cost_center": args.cost_center,
+                "items": _parse_sales_items(args.item),
+            },
+            token=args.token,
+        )
+    elif args.command == "marketplace-webhook":
+        result = _call(
+            "POST",
+            f"{args.base_url}/tenant/{args.workspace_slug}/marketplace/webhook",
+            {
+                "channel": args.channel,
+                "external_order_id": args.external_order_id,
+                "client_name": args.client_name,
+                "client_email": args.client_email,
+                "client_phone": args.client_phone,
+                "total_amount": args.total_amount,
+                "first_due_date": args.first_due_date,
+            },
+            token=args.token,
+        )
+    elif args.command == "upload-file":
+        result = _call(
+            "POST",
+            f"{args.base_url}/tenant/{args.workspace_slug}/storage/files",
+            {
+                "bucket": args.bucket,
+                "file_name": args.file_name,
+                "content": _read_file_content(args.content_file, args.content),
+            },
+            token=args.token,
+        )
+    else:
+        download_url = args.signed_url
+        if download_url.startswith("/"):
+            download_url = f"{args.base_url}{download_url}"
+        with request.urlopen(download_url) as response:
+            body = response.read()
+            content_type = response.headers.get("Content-Type", "application/octet-stream")
+        if content_type.startswith("application/json"):
+            result = json.loads(body.decode("utf-8"))
+        elif content_type.startswith("text/") or content_type == "application/pdf":
+            result = body.decode("utf-8", errors="replace")
+        else:
+            result = {
+                "content_type": content_type,
+                "size": len(body),
+            }
 
     print(json.dumps(result, indent=2, ensure_ascii=False) if isinstance(result, dict) else result)
 

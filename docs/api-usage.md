@@ -73,5 +73,17 @@ Exemplos:
 python scripts/api_client.py central-login --email admin@mayacorp.com --password 1234
 python scripts/api_client.py central-dashboard --token CENTRAL_TOKEN
 python scripts/api_client.py create-tenant --token CENTRAL_TOKEN --company-name Acme --workspace-slug acme --admin-name Owner --admin-email owner@acme.com --admin-password 1234
+python scripts/api_client.py tenant-login --workspace-slug acme --email owner@acme.com --password 1234
 python scripts/api_client.py tenant-health --workspace-slug acme --token TENANT_TOKEN
+python scripts/api_client.py create-sales-order --workspace-slug acme --token TENANT_TOKEN --first-due-date 2026-03-01 --item "Servico:1:250" --item "Setup:1:90"
+python scripts/api_client.py marketplace-webhook --workspace-slug acme --token TENANT_TOKEN --channel shopee --external-order-id order-1001 --client-name Cliente --client-email cliente@acme.com --total-amount 199 --first-due-date 2026-03-01
+python scripts/api_client.py upload-file --workspace-slug acme --token TENANT_TOKEN --bucket proposals --file-name proposta.txt --content "conteudo inicial"
+python scripts/api_client.py download-file --signed-url "http://127.0.0.1/storage/signed?path=...&token=..."
 ```
+
+## Documentacao funcional por modulo
+
+- `docs/modules/crm.md`
+- `docs/modules/finance.md`
+- `docs/modules/whatsapp.md`
+- `docs/modules/ai.md`
