@@ -41,6 +41,7 @@ def panel_central_login(client: TestClient) -> None:
         json={"email": "admin@mayacorp.com", "password": "1234"},
     )
     assert response.status_code == 200
+    assert "panel_central_token=" in response.headers.get("set-cookie", "")
 
 
 def tenant_auth_headers(client: TestClient, workspace_slug: str, email: str, password: str) -> dict[str, str]:
@@ -394,9 +395,14 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
         json={"email": admin_email, "password": "1234"},
     )
     assert panel_tenant_login.status_code == 200
+    tenant_set_cookie = panel_tenant_login.headers.get("set-cookie", "")
+    assert "panel_tenant_token=" in tenant_set_cookie or "panel_tenant_slug=" in tenant_set_cookie
 
     panel_health = client.get(f"/admin/panel/{workspace_slug}/health")
     assert panel_health.status_code == 200
+
+    wrong_workspace = client.get("/admin/panel/wrong-workspace/summary")
+    assert wrong_workspace.status_code == 404 or wrong_workspace.status_code == 403
 
     panel_lead = client.post(
         f"/admin/panel/{workspace_slug}/lead",

@@ -123,6 +123,15 @@ app.mount("/static", StaticFiles(directory=Path(__file__).resolve().parent / "st
 app.include_router(router)
 
 
+def _panel_cookie_options() -> dict:
+    return {
+        "httponly": True,
+        "samesite": "lax",
+        "secure": False,
+        "max_age": 3600,
+    }
+
+
 def panel_central_user_dep(
     panel_central_token: str | None = Cookie(default=None),
     session: Session = Depends(central_session_dep),
@@ -143,10 +152,14 @@ def panel_central_user_dep(
 
 def panel_tenant_user_dep(
     panel_tenant_token: str | None = Cookie(default=None),
+    panel_tenant_slug: str | None = Cookie(default=None),
+    tenant: Tenant = Depends(tenant_context_dep),
     session: Session = Depends(tenant_session_dep),
 ) -> User:
     if not panel_tenant_token:
         raise HTTPException(status_code=401, detail="Panel tenant session required.")
+    if panel_tenant_slug != tenant.slug:
+        raise HTTPException(status_code=403, detail="Panel tenant workspace mismatch.")
     try:
         payload = decode_token(panel_tenant_token)
     except ValueError:
@@ -189,15 +202,15 @@ def admin_panel_login(
     from app.core.security import build_token
 
     token = build_token(user.email, expires_in_minutes=60, extra={"scope": "central"}, token_type="access")
-    response.set_cookie("panel_central_token", token, httponly=True, samesite="lax")
+    response.set_cookie("panel_central_token", token, **_panel_cookie_options())
     return {"email": user.email, "full_name": user.full_name, "must_change_password": user.must_change_password}
 
 
 @app.post("/admin/panel/logout", tags=["health"])
 def admin_panel_logout(response: Response) -> dict:
-    response.delete_cookie("panel_central_token")
-    response.delete_cookie("panel_tenant_token")
-    response.delete_cookie("panel_tenant_slug")
+    response.delete_cookie("panel_central_token", samesite="lax")
+    response.delete_cookie("panel_tenant_token", samesite="lax")
+    response.delete_cookie("panel_tenant_slug", samesite="lax")
     return {"status": "logged_out"}
 
 
@@ -263,8 +276,8 @@ def admin_panel_tenant_login(
         must_change_password=user.must_change_password,
         role=user.role,
     )
-    response.set_cookie("panel_tenant_token", token, httponly=True, samesite="lax")
-    response.set_cookie("panel_tenant_slug", workspace_slug, httponly=True, samesite="lax")
+    response.set_cookie("panel_tenant_token", token, **_panel_cookie_options())
+    response.set_cookie("panel_tenant_slug", workspace_slug, **_panel_cookie_options())
     return {"email": user.email, "role": user.role, "workspace_slug": workspace_slug}
 
 
