@@ -59,3 +59,9 @@ class TenantAiGenerateResponse(BaseModel):
     content: str
     request_count: int
     token_count: int
+
+
+class TenantAiSummaryResponse(BaseModel):
+    workspace_slug: str
+    request_count: int
+    token_count: int

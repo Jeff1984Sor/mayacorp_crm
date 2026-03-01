@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     app_port: int = Field(default=8011, alias="APP_PORT")
     central_db_url: str | None = Field(default=None, alias="CENTRAL_DB_URL")
     bootstrap_jwt_secret: str = Field(default="dev-bootstrap-secret", alias="BOOTSTRAP_JWT_SECRET")
+    app_encryption_key: str = Field(default="dev-encryption-key", alias="APP_ENCRYPTION_KEY")
 
     @property
     def central_database_url(self) -> str:

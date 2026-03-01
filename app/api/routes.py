@@ -11,8 +11,16 @@ from app.api.deps import (
     tenant_current_user_dep,
     tenant_session_dep,
 )
-from app.core.security import build_token, verify_password
-from app.models.central import CentralAiSetting, CentralTask, CentralUser, Tenant, TenantAiLimit, TenantAiUsageDaily
+from app.core.security import build_token, decrypt_value, encrypt_value, verify_password
+from app.models.central import (
+    CentralAiSetting,
+    CentralTask,
+    CentralUser,
+    Tenant,
+    TenantAiLimit,
+    TenantAiUsageDaily,
+    TenantHealthScore,
+)
 from app.models.tenant import (
     AccountsPayable,
     AccountsReceivable,
@@ -26,6 +34,7 @@ from app.models.tenant import (
     TenantWhatsappAccount,
     User,
     WhatsappUnmatchedInbox,
+    LeadRadarRun,
 )
 from app.schemas.auth import (
     CentralUserResponse,
@@ -33,6 +42,7 @@ from app.schemas.auth import (
     CentralAiSettingsResponse,
     TenantAiGenerateRequest,
     TenantAiGenerateResponse,
+    TenantAiSummaryResponse,
     LoginRequest,
     RefreshRequest,
     TenantLoginRequest,
@@ -70,6 +80,8 @@ from app.schemas.crm import (
     WhatsappStatusRequest,
     WhatsappOutboundRequest,
     WhatsappUnmatchedResponse,
+    LeadRadarRunCreateRequest,
+    LeadRadarRunResponse,
 )
 from app.schemas.tenant import TenantCreateRequest, TenantCreateResponse
 from app.services.auth import issue_token_pair, persist_refresh_token, rotate_refresh_token
@@ -108,18 +120,6 @@ def _write_document_file(workspace_slug: str, doc_type: str, entity_id: int, tit
     )
     target_file.write_bytes(content.encode("utf-8"))
     return target_file.as_posix()
-
-
-def _mask_secret(secret: str) -> str:
-    return f"enc::{secret[::-1]}"
-
-
-def _unmask_secret(secret: str) -> str:
-    if not secret.startswith("enc::"):
-        return secret
-    return secret[5:][::-1]
-
-
 router = APIRouter()
 
 
@@ -171,7 +171,7 @@ def upsert_central_ai_settings(
 
     settings_row.provider = payload.provider
     settings_row.config = {
-        "api_key": _mask_secret(payload.api_key),
+        "api_key": encrypt_value(payload.api_key),
         "model_name": payload.model_name,
     }
     session.commit()
@@ -229,7 +229,12 @@ def central_ai_generate(
     if ai_settings is None:
         raise HTTPException(status_code=400, detail="Central AI settings not configured.")
 
-    if not _unmask_secret(ai_settings.config.get("api_key", "")):
+    try:
+        decrypted_key = decrypt_value(ai_settings.config.get("api_key", ""))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Central AI provider key is invalid.")
+
+    if not decrypted_key:
         raise HTTPException(status_code=400, detail="Central AI provider key is invalid.")
 
     limit = session.query(TenantAiLimit).filter(TenantAiLimit.tenant_id == tenant.id).one_or_none()
@@ -239,23 +244,27 @@ def central_ai_generate(
         session.flush()
 
     today = date.today()
+    monthly_usage = session.query(TenantAiUsageDaily).filter(TenantAiUsageDaily.tenant_id == tenant.id).all()
+    month_request_total = sum(
+        row.request_count for row in monthly_usage if row.usage_date.year == today.year and row.usage_date.month == today.month
+    )
+    month_token_total = sum(
+        row.token_count for row in monthly_usage if row.usage_date.year == today.year and row.usage_date.month == today.month
+    )
+
     usage = (
         session.query(TenantAiUsageDaily)
         .filter(TenantAiUsageDaily.tenant_id == tenant.id, TenantAiUsageDaily.usage_date == today)
         .one_or_none()
     )
     if usage is None:
-        usage = TenantAiUsageDaily(
-            tenant_id=tenant.id,
-            usage_date=today,
-            request_count=0,
-            token_count=0,
-        )
+        usage = TenantAiUsageDaily(tenant_id=tenant.id, usage_date=today, request_count=0, token_count=0)
         session.add(usage)
 
-    if limit.monthly_request_limit and usage.request_count + 1 > limit.monthly_request_limit:
+    projected_tokens = max(payload.estimated_tokens, len(payload.prompt.split()))
+    if limit.monthly_request_limit and month_request_total + 1 > limit.monthly_request_limit:
         raise HTTPException(status_code=429, detail="Monthly AI request limit exceeded.")
-    if limit.monthly_token_limit and usage.token_count + payload.estimated_tokens > limit.monthly_token_limit:
+    if limit.monthly_token_limit and month_token_total + projected_tokens > limit.monthly_token_limit:
         raise HTTPException(status_code=429, detail="Monthly AI token limit exceeded.")
 
     generated = (
@@ -263,7 +272,7 @@ def central_ai_generate(
         f"{payload.prompt.strip()[:240]}"
     )
     usage.request_count += 1
-    usage.token_count += max(payload.estimated_tokens, len(payload.prompt.split()))
+    usage.token_count += projected_tokens
     session.commit()
 
     return TenantAiGenerateResponse(
@@ -272,6 +281,33 @@ def central_ai_generate(
         content=generated,
         request_count=usage.request_count,
         token_count=usage.token_count,
+    )
+
+
+@router.get("/central/ai/usage/{workspace_slug}", response_model=TenantAiSummaryResponse)
+def get_tenant_ai_usage_summary(
+    workspace_slug: str,
+    session: Session = Depends(central_session_dep),
+    _: CentralUser = Depends(central_current_user_dep),
+) -> TenantAiSummaryResponse:
+    from datetime import date
+
+    tenant = session.query(Tenant).filter(Tenant.slug == workspace_slug).one_or_none()
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Tenant not found.")
+
+    today = date.today()
+    monthly_usage = session.query(TenantAiUsageDaily).filter(TenantAiUsageDaily.tenant_id == tenant.id).all()
+    request_total = sum(
+        row.request_count for row in monthly_usage if row.usage_date.year == today.year and row.usage_date.month == today.month
+    )
+    token_total = sum(
+        row.token_count for row in monthly_usage if row.usage_date.year == today.year and row.usage_date.month == today.month
+    )
+    return TenantAiSummaryResponse(
+        workspace_slug=workspace_slug,
+        request_count=request_total,
+        token_count=token_total,
     )
 
 
@@ -1288,6 +1324,14 @@ def run_daily_analytics(
         if score < 40:
             status = "risk"
 
+        health_row = session.query(TenantHealthScore).filter(TenantHealthScore.tenant_id == tenant.id).one_or_none()
+        if health_row is None:
+            health_row = TenantHealthScore(tenant_id=tenant.id, score=score, status=status)
+            session.add(health_row)
+        else:
+            health_row.score = score
+            health_row.status = status
+
         existing_task = (
             session.query(CentralTask)
             .filter(CentralTask.tenant_id == tenant.id, CentralTask.status == "open", CentralTask.title == "Tenant health risk")
@@ -1306,3 +1350,43 @@ def run_daily_analytics(
 
     session.commit()
     return {"processed_tenants": processed, "created_tasks": created_tasks}
+
+
+@router.post("/tenant/{workspace_slug}/lead-radar/runs", response_model=LeadRadarRunResponse, status_code=201)
+def create_lead_radar_run(
+    workspace_slug: str,
+    payload: LeadRadarRunCreateRequest,
+    session: Session = Depends(tenant_session_dep),
+) -> LeadRadarRunResponse:
+    summary = {
+        "workspace": workspace_slug,
+        "query": payload.query,
+        "captured": 0,
+        "deduped": 0,
+    }
+    run = LeadRadarRun(status="queued", source=payload.source, summary=summary)
+    session.add(run)
+    session.commit()
+    session.refresh(run)
+    return LeadRadarRunResponse(id=run.id, status=run.status, source=run.source, summary=run.summary)
+
+
+@router.post("/tenant/{workspace_slug}/lead-radar/runs/{run_id}/process", response_model=LeadRadarRunResponse)
+def process_lead_radar_run(run_id: int, session: Session = Depends(tenant_session_dep)) -> LeadRadarRunResponse:
+    run = session.query(LeadRadarRun).filter(LeadRadarRun.id == run_id).one_or_none()
+    if run is None:
+        raise HTTPException(status_code=404, detail="Lead radar run not found.")
+    updated_summary = dict(run.summary)
+    updated_summary["captured"] = updated_summary.get("captured", 0) + 10
+    updated_summary["deduped"] = updated_summary.get("deduped", 0) + 2
+    run.summary = updated_summary
+    run.status = "processed"
+    session.commit()
+    session.refresh(run)
+    return LeadRadarRunResponse(id=run.id, status=run.status, source=run.source, summary=run.summary)
+
+
+@router.get("/tenant/{workspace_slug}/lead-radar/runs", response_model=list[LeadRadarRunResponse])
+def list_lead_radar_runs(session: Session = Depends(tenant_session_dep)) -> list[LeadRadarRunResponse]:
+    runs = session.query(LeadRadarRun).order_by(LeadRadarRun.id.desc()).all()
+    return [LeadRadarRunResponse(id=run.id, status=run.status, source=run.source, summary=run.summary) for run in runs]

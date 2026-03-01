@@ -218,3 +218,15 @@ class WhatsappOutboundRequest(BaseModel):
 class WhatsappStatusRequest(BaseModel):
     message_id: int
     status: str = Field(min_length=3, max_length=20)
+
+
+class LeadRadarRunCreateRequest(BaseModel):
+    source: str = Field(default="google_places", max_length=80)
+    query: str = Field(min_length=2, max_length=255)
+
+
+class LeadRadarRunResponse(BaseModel):
+    id: int
+    status: str
+    source: str
+    summary: dict
