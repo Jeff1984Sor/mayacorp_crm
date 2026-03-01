@@ -230,3 +230,26 @@ class LeadRadarRunResponse(BaseModel):
     status: str
     source: str
     summary: dict
+
+
+class LeadRadarCallbackItem(BaseModel):
+    name: str = Field(min_length=2, max_length=255)
+    phone: str | None = Field(default=None, max_length=40)
+    email: EmailStr | None = None
+    cnpj: str | None = Field(default=None, max_length=40)
+
+
+class LeadRadarCallbackRequest(BaseModel):
+    source: str = Field(default="google_places", max_length=80)
+    query: str = Field(min_length=2, max_length=255)
+    items: list[LeadRadarCallbackItem] = Field(min_length=1)
+
+
+class MarketplaceWebhookRequest(BaseModel):
+    channel: str = Field(min_length=2, max_length=80)
+    external_order_id: str = Field(min_length=2, max_length=120)
+    client_name: str = Field(min_length=2, max_length=255)
+    client_email: EmailStr | None = None
+    client_phone: str | None = Field(default=None, max_length=40)
+    total_amount: float = Field(gt=0)
+    first_due_date: str

@@ -68,6 +68,7 @@ from app.schemas.crm import (
     ProposalCreateRequest,
     ProposalResponse,
     ProposalUpdateRequest,
+    MarketplaceWebhookRequest,
     SalesItemCreateRequest,
     SalesItemResponse,
     SalesOrderCreateRequest,
@@ -82,6 +83,7 @@ from app.schemas.crm import (
     WhatsappStatusRequest,
     WhatsappOutboundRequest,
     WhatsappUnmatchedResponse,
+    LeadRadarCallbackRequest,
     LeadRadarRunCreateRequest,
     LeadRadarRunResponse,
 )
@@ -1482,7 +1484,120 @@ def process_lead_radar_run(run_id: int, session: Session = Depends(tenant_sessio
     return LeadRadarRunResponse(id=run.id, status=run.status, source=run.source, summary=run.summary)
 
 
+@router.post("/tenant/{workspace_slug}/lead-radar/callback", response_model=LeadRadarRunResponse, status_code=201)
+def lead_radar_callback(
+    workspace_slug: str,
+    payload: LeadRadarCallbackRequest,
+    session: Session = Depends(tenant_session_dep),
+) -> LeadRadarRunResponse:
+    created = 0
+    deduped = 0
+    for item in payload.items:
+        existing_client = None
+        existing_lead = None
+
+        if item.phone:
+            existing_client = session.query(Client).filter(Client.phone == item.phone).one_or_none()
+            existing_lead = session.query(Lead).filter(Lead.phone == item.phone).one_or_none()
+        if existing_client is None and existing_lead is None and item.email:
+            existing_client = session.query(Client).filter(Client.email == item.email).one_or_none()
+            existing_lead = session.query(Lead).filter(Lead.email == item.email).one_or_none()
+
+        if existing_client is not None or existing_lead is not None:
+            deduped += 1
+            continue
+
+        session.add(
+            Lead(
+                name=item.name,
+                phone=item.phone,
+                email=item.email,
+                source=payload.source,
+                manual_classification="radar",
+                metadata_json={"cnpj": item.cnpj, "workspace": workspace_slug},
+            )
+        )
+        created += 1
+
+    run = LeadRadarRun(
+        status="processed",
+        source=payload.source,
+        summary={
+            "workspace": workspace_slug,
+            "query": payload.query,
+            "captured": created,
+            "deduped": deduped,
+            "mode": "callback",
+        },
+    )
+    session.add(run)
+    session.commit()
+    session.refresh(run)
+    return LeadRadarRunResponse(id=run.id, status=run.status, source=run.source, summary=run.summary)
+
+
 @router.get("/tenant/{workspace_slug}/lead-radar/runs", response_model=list[LeadRadarRunResponse])
 def list_lead_radar_runs(session: Session = Depends(tenant_session_dep)) -> list[LeadRadarRunResponse]:
     runs = session.query(LeadRadarRun).order_by(LeadRadarRun.id.desc()).all()
     return [LeadRadarRunResponse(id=run.id, status=run.status, source=run.source, summary=run.summary) for run in runs]
+
+
+@router.post("/tenant/{workspace_slug}/marketplace/webhook", response_model=SalesOrderResponse, status_code=201)
+def marketplace_webhook(
+    payload: MarketplaceWebhookRequest,
+    session: Session = Depends(tenant_session_dep),
+) -> SalesOrderResponse:
+    from datetime import date
+
+    client = None
+    if payload.client_email:
+        client = session.query(Client).filter(Client.email == payload.client_email).one_or_none()
+    if client is None and payload.client_phone:
+        client = session.query(Client).filter(Client.phone == payload.client_phone).one_or_none()
+    if client is None:
+        client = Client(
+            name=payload.client_name,
+            email=payload.client_email,
+            phone=payload.client_phone,
+        )
+        session.add(client)
+        session.flush()
+
+    order = SalesOrder(
+        client_id=client.id,
+        order_type="one_time",
+        duration_months=None,
+        total_amount=payload.total_amount,
+        status="confirmed",
+    )
+    session.add(order)
+    session.flush()
+
+    session.add(
+        SalesItem(
+            sales_order_id=order.id,
+            description=f"Marketplace {payload.channel} order {payload.external_order_id}",
+            quantity=1,
+            unit_price=payload.total_amount,
+        )
+    )
+    session.add(
+        AccountsReceivable(
+            sales_order_id=order.id,
+            due_date=date.fromisoformat(payload.first_due_date),
+            amount=payload.total_amount,
+            status="pending",
+            category="marketplace",
+            cost_center=payload.channel,
+        )
+    )
+    session.commit()
+    session.refresh(order)
+    return SalesOrderResponse(
+        id=order.id,
+        client_id=order.client_id,
+        order_type=order.order_type,
+        duration_months=order.duration_months,
+        total_amount=float(order.total_amount),
+        status=order.status,
+    )
