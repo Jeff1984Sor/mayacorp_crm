@@ -10,7 +10,7 @@ from app.core.config import DATA_DIR, settings
 from app.core.security import hash_password
 from app.db.base import TenantBase
 from app.db.session import build_tenant_engine
-from app.models.central import CentralAuditLog, SaasInvoice, Tenant, TenantSubscription
+from app.models.central import Addon, CentralAuditLog, Plan, PlanPrice, SaasInvoice, Tenant, TenantSubscription
 from app.models.tenant import BankAccount, CostCenter, FinanceCategory, RoleTemplate, User
 from app.schemas.tenant import TenantCreateRequest
 from app.services.tenant_schema import migrate_tenant_schema
@@ -92,10 +92,25 @@ def create_tenant(session: Session, payload: TenantCreateRequest, actor_email: s
     )
 
     if payload.generate_invoice:
+        plan = session.query(Plan).filter(Plan.code == payload.plan_code).one_or_none()
+        plan_price = None
+        if plan is not None:
+            plan_price = (
+                session.query(PlanPrice)
+                .filter(PlanPrice.plan_id == plan.id, PlanPrice.billing_cycle == "monthly")
+                .one_or_none()
+            )
+        addon_total = 0.0
+        if payload.addon_codes:
+            addons = session.query(Addon).filter(Addon.code.in_(payload.addon_codes)).all()
+            addon_total = float(sum(float(addon.amount) for addon in addons))
+        base_amount = float(plan_price.amount) if plan_price is not None else 0.0
+        gross_amount = base_amount + addon_total
+        final_amount = gross_amount * (1 - (payload.discount_percent / 100))
         session.add(
             SaasInvoice(
                 tenant_id=tenant.id,
-                amount=0,
+                amount=round(final_amount, 2),
                 due_date=date.today(),
                 status="pending",
                 external_reference="bootstrap",
@@ -111,6 +126,7 @@ def create_tenant(session: Session, payload: TenantCreateRequest, actor_email: s
             payload={
                 "slug": payload.workspace_slug,
                 "plan_code": payload.plan_code,
+                "addon_codes": payload.addon_codes,
                 "issue_fiscal_document": payload.issue_fiscal_document,
             },
         )

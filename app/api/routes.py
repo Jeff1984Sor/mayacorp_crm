@@ -88,6 +88,7 @@ from app.schemas.crm import (
     ProposalResponse,
     ProposalUpdateRequest,
     MarketplaceWebhookRequest,
+    RoleTemplateUpsertRequest,
     ContractSignedFileRequest,
     SalesItemCreateRequest,
     SalesItemResponse,
@@ -512,6 +513,38 @@ def list_role_templates(
 ) -> list[RoleTemplateResponse]:
     roles = session.query(RoleTemplate).order_by(RoleTemplate.role_name.asc()).all()
     return [RoleTemplateResponse(role_name=role.role_name, permissions=role.permissions or {}) for role in roles]
+
+
+@router.post("/tenant/{workspace_slug}/roles", response_model=RoleTemplateResponse, status_code=201)
+def upsert_role_template(
+    payload: RoleTemplateUpsertRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_admin_user_dep),
+) -> RoleTemplateResponse:
+    role = session.query(RoleTemplate).filter(RoleTemplate.role_name == payload.role_name).one_or_none()
+    if role is None:
+        role = RoleTemplate(role_name=payload.role_name, permissions=payload.permissions)
+        session.add(role)
+    else:
+        role.permissions = payload.permissions
+    session.commit()
+    session.refresh(role)
+    return RoleTemplateResponse(role_name=role.role_name, permissions=role.permissions or {})
+
+
+@router.delete("/tenant/{workspace_slug}/roles/{role_name}", status_code=204)
+def delete_role_template(
+    role_name: str,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_admin_user_dep),
+) -> None:
+    if role_name == "admin":
+        raise HTTPException(status_code=400, detail="Default admin role cannot be removed.")
+    role = session.query(RoleTemplate).filter(RoleTemplate.role_name == role_name).one_or_none()
+    if role is None:
+        raise HTTPException(status_code=404, detail="Role template not found.")
+    session.delete(role)
+    session.commit()
 
 
 @router.post("/tenant/{workspace_slug}/users", response_model=TenantUserResponse, status_code=201)

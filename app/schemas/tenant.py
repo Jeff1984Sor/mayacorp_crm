@@ -11,6 +11,7 @@ class TenantCreateRequest(BaseModel):
     admin_email: EmailStr
     admin_password: str = Field(min_length=4, max_length=128)
     plan_code: str = Field(min_length=2, max_length=80)
+    addon_codes: list[str] = Field(default_factory=list)
     billing_day: int = Field(default=1, ge=1, le=28)
     discount_percent: float = Field(default=0, ge=0, le=100)
     generate_invoice: bool = False

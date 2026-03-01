@@ -3,7 +3,7 @@ from __future__ import annotations
 from app.core.security import hash_password
 from app.db.base import CentralBase
 from app.db.session import get_central_engine, get_central_sessionmaker
-from app.models.central import CentralJwtKey, CentralRefreshToken, CentralSetting, CentralUser, Plan, PlanLimit, PlanPrice
+from app.models.central import Addon, CentralJwtKey, CentralRefreshToken, CentralSetting, CentralUser, Plan, PlanLimit, PlanPrice
 
 
 def bootstrap_central_database() -> None:
@@ -49,6 +49,15 @@ def bootstrap_central_database() -> None:
                     PlanPrice(plan_id=starter.id, billing_cycle="monthly", amount=199.90),
                 ]
             )
+
+        default_addons = {
+            "whatsapp": ("WhatsApp", 49.90),
+            "analytics_plus": ("Analytics Plus", 29.90),
+        }
+        for code, (name, amount) in default_addons.items():
+            addon = session.query(Addon).filter(Addon.code == code).one_or_none()
+            if addon is None:
+                session.add(Addon(code=code, name=name, amount=amount))
 
         jwt_key = session.query(CentralJwtKey).filter(CentralJwtKey.key_id == "bootstrap").one_or_none()
         if jwt_key is None:

@@ -347,3 +347,8 @@ class CommercialDashboardResponse(BaseModel):
 class RoleTemplateResponse(BaseModel):
     role_name: str
     permissions: dict
+
+
+class RoleTemplateUpsertRequest(BaseModel):
+    role_name: str = Field(min_length=2, max_length=40)
+    permissions: dict = Field(default_factory=dict)
