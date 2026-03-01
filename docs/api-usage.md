@@ -64,3 +64,14 @@ curl -X POST http://127.0.0.1/tenant/acme/sales-orders \
 ```bash
 python -m pytest tests -q
 ```
+
+## CLI simples
+
+Exemplos:
+
+```bash
+python scripts/api_client.py central-login --email admin@mayacorp.com --password 1234
+python scripts/api_client.py central-dashboard --token CENTRAL_TOKEN
+python scripts/api_client.py create-tenant --token CENTRAL_TOKEN --company-name Acme --workspace-slug acme --admin-name Owner --admin-email owner@acme.com --admin-password 1234
+python scripts/api_client.py tenant-health --workspace-slug acme --token TENANT_TOKEN
+```
