@@ -66,8 +66,12 @@
         <button onclick="exportOrdersCsv()">Exportar pedidos CSV</button>
         <button onclick="exportPeopleCsv()">Exportar pessoas CSV</button>
         <button onclick="exportDocumentsCsv()">Exportar docs CSV</button>
+        <button onclick="exportProposalsCsv()">Exportar propostas CSV</button>
+        <button onclick="exportContractsCsv()">Exportar contratos CSV</button>
         <button onclick="exportMessagesCsv()">Exportar msgs CSV</button>
         <button onclick="exportFinanceCsv()">Exportar financeiro CSV</button>
+        <button onclick="exportReceivablesCsv()">Exportar AR CSV</button>
+        <button onclick="exportPayablesCsv()">Exportar AP CSV</button>
         <label for="summaryQuery">Filtro</label>
         <input id="summaryQuery" placeholder="Nome ou titulo">
         <label for="peopleEmailFilter">Filtro email</label>
@@ -168,6 +172,26 @@
           <div>
             <label for="documentsPageSize">Itens docs</label>
             <input id="documentsPageSize" value="5">
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="proposalsPage">Pagina propostas</label>
+            <input id="proposalsPage" value="1">
+          </div>
+          <div>
+            <label for="proposalsPageSize">Itens propostas</label>
+            <input id="proposalsPageSize" value="5">
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="contractsPage">Pagina contratos</label>
+            <input id="contractsPage" value="1">
+          </div>
+          <div>
+            <label for="contractsPageSize">Itens contratos</label>
+            <input id="contractsPageSize" value="5">
           </div>
         </div>
         <div class="row">
@@ -417,10 +441,20 @@
           <button onclick="prevDocumentsPage()">Anterior</button>
           <button onclick="nextDocumentsPage()">Proxima</button>
         </div>
+        <div id="proposalsMeta" class="helper"></div>
+        <div class="row">
+          <button onclick="prevProposalsPage()">Anterior</button>
+          <button onclick="nextProposalsPage()">Proxima</button>
+        </div>
         <div id="proposalsList" class="listbox"></div>
       </div>
       <div class="dashboard-card">
         <h3>Contratos</h3>
+        <div id="contractsMeta" class="helper"></div>
+        <div class="row">
+          <button onclick="prevContractsPage()">Anterior</button>
+          <button onclick="nextContractsPage()">Proxima</button>
+        </div>
         <div id="contractsList" class="listbox"></div>
       </div>
       <div class="dashboard-card">

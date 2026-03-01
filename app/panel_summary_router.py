@@ -47,8 +47,11 @@ def _load_finance_snapshot(session: Session) -> dict:
     receivables = session.query(AccountsReceivable).order_by(AccountsReceivable.id.desc()).limit(5).all()
     payables = session.query(AccountsPayable).order_by(AccountsPayable.id.desc()).limit(5).all()
     all_receivables = session.query(AccountsReceivable).all()
+    all_payables = session.query(AccountsPayable).all()
     receivable_total = float(sum(float(item.amount) for item in all_receivables))
     receivable_pending = float(sum(float(item.amount) for item in all_receivables if item.status == "pending"))
+    payable_total = float(sum(float(item.amount) for item in all_payables))
+    payable_pending = float(sum(float(item.amount) for item in all_payables if item.status == "pending"))
     return {
         "receivables": serialize_finance_rows(receivables),
         "payables": serialize_finance_rows(payables),
@@ -57,6 +60,8 @@ def _load_finance_snapshot(session: Session) -> dict:
             "categories": [{"id": item.id, "name": item.name, "entry_type": item.entry_type} for item in categories],
             "receivable_total": receivable_total,
             "receivable_pending": receivable_pending,
+            "payable_total": payable_total,
+            "payable_pending": payable_pending,
         },
     }
 
@@ -189,6 +194,8 @@ def admin_panel_workspace_summary(
     )
     messages_total = messages_query.count()
     messages = messages_query.offset(messages_offset).limit(messages_page_size).all()
+    outbound_messages_total = messages_query.filter(Message.direction == "outbound").count()
+    inbound_messages_total = messages_query.filter(Message.direction == "inbound").count()
 
     finance_snapshot = _load_finance_snapshot(session)
 
@@ -231,6 +238,8 @@ def admin_panel_workspace_summary(
             "messages_page": messages_page,
             "messages_page_size": messages_page_size,
             "messages_total": messages_total,
+            "outbound_messages_total": outbound_messages_total,
+            "inbound_messages_total": inbound_messages_total,
             "query": q,
             "people_email": people_email,
             "people_phone": people_phone,

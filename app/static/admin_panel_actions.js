@@ -67,6 +67,7 @@ async function createLead() {
     })
   });
   await showResult(response);
+  await loadLeadsOnly();
 }
 
 async function createClient() {
@@ -80,6 +81,7 @@ async function createClient() {
     })
   });
   await showResult(response);
+  await loadClientsOnly();
 }
 
 async function createSalesOrder() {
@@ -99,6 +101,7 @@ async function createSalesOrder() {
     document.getElementById("proposalOrderId").value = payload.id;
     document.getElementById("contractOrderId").value = payload.id;
   }
+  await loadOrdersSummary();
 }
 
 async function createProposal() {
@@ -112,6 +115,7 @@ async function createProposal() {
     })
   });
   await showResult(response);
+  await loadProposalsOnly();
 }
 
 async function createContract() {
@@ -128,6 +132,7 @@ async function createContract() {
   if (payload && payload.id) {
     document.getElementById("signContractId").value = payload.id;
   }
+  await loadContractsOnly();
 }
 
 async function signContract() {
@@ -142,6 +147,7 @@ async function signContract() {
     })
   });
   await showResult(response);
+  await loadContractsOnly();
 }
 
 async function loadWorkspaceSummary() {
@@ -265,7 +271,7 @@ async function createReceivable() {
   });
   await showResult(response);
   clearPanelCache(["summary", "people"]);
-  await loadWorkspaceSummary();
+  await loadReceivables();
 }
 
 async function loadReceivables() {
@@ -300,7 +306,7 @@ async function createPayable() {
   });
   await showResult(response);
   clearPanelCache(["summary", "people"]);
-  await loadWorkspaceSummary();
+  await loadPayables();
 }
 
 async function loadPayables() {
@@ -367,7 +373,7 @@ async function updateReceivableStatus(id) {
   });
   await showResult(response);
   clearPanelCache(["summary", "messages"]);
-  await loadWorkspaceSummary();
+  await loadReceivables();
 }
 
 async function deleteReceivable(id) {
@@ -377,7 +383,7 @@ async function deleteReceivable(id) {
   });
   await showResult(response);
   clearPanelCache(["summary", "people"]);
-  await loadWorkspaceSummary();
+  await loadReceivables();
 }
 
 async function updatePayableStatus(id) {
@@ -389,7 +395,7 @@ async function updatePayableStatus(id) {
   });
   await showResult(response);
   clearPanelCache(["summary", "people"]);
-  await loadWorkspaceSummary();
+  await loadPayables();
 }
 
 async function deletePayable(id) {
@@ -399,7 +405,7 @@ async function deletePayable(id) {
   });
   await showResult(response);
   clearPanelCache(["summary", "orders"]);
-  await loadWorkspaceSummary();
+  await loadPayables();
 }
 
 async function updateMessageStatus(id) {
@@ -411,7 +417,7 @@ async function updateMessageStatus(id) {
   });
   await showResult(response);
   clearPanelCache(["summary", "documents"]);
-  await loadWorkspaceSummary();
+  await loadMessagesSummary();
 }
 
 async function renameLead(id) {
@@ -428,13 +434,14 @@ async function renameLead(id) {
   });
   await showResult(response);
   clearPanelCache(["summary", "documents"]);
-  await loadWorkspaceSummary();
+  await loadLeadsOnly();
 }
 
 async function deleteLead(id) {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/lead/${id}`, { method: "DELETE", credentials: "same-origin" });
   await showResult(response);
-  await loadWorkspaceSummary();
+  clearPanelCache(["summary", "people"]);
+  await loadLeadsOnly();
 }
 
 async function renameClient(id) {
@@ -450,13 +457,15 @@ async function renameClient(id) {
     body: JSON.stringify({ name, email: null, phone: null })
   });
   await showResult(response);
-  await loadWorkspaceSummary();
+  clearPanelCache(["summary", "people"]);
+  await loadClientsOnly();
 }
 
 async function deleteClient(id) {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/client/${id}`, { method: "DELETE", credentials: "same-origin" });
   await showResult(response);
-  await loadWorkspaceSummary();
+  clearPanelCache(["summary", "people"]);
+  await loadClientsOnly();
 }
 
 async function updateSalesOrderStatus(id) {
@@ -467,13 +476,15 @@ async function updateSalesOrderStatus(id) {
     body: JSON.stringify({ status: selectedValue("salesOrderStatusUpdate", "confirmed") })
   });
   await showResult(response);
-  await loadWorkspaceSummary();
+  clearPanelCache(["summary", "orders"]);
+  await loadOrdersSummary();
 }
 
 async function deleteSalesOrder(id) {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/sales-order/${id}`, { method: "DELETE", credentials: "same-origin" });
   await showResult(response);
-  await loadWorkspaceSummary();
+  clearPanelCache(["summary", "orders"]);
+  await loadOrdersSummary();
 }
 
 async function renameProposal(id) {
@@ -495,13 +506,15 @@ async function renameProposal(id) {
     })
   });
   await showResult(response);
-  await loadWorkspaceSummary();
+  clearPanelCache(["summary", "documents", "proposals"]);
+  await loadProposalsOnly();
 }
 
 async function deleteProposal(id) {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/proposal/${id}`, { method: "DELETE", credentials: "same-origin" });
   await showResult(response);
-  await loadWorkspaceSummary();
+  clearPanelCache(["summary", "documents", "proposals"]);
+  await loadProposalsOnly();
 }
 
 async function renameContract(id) {
@@ -523,13 +536,15 @@ async function renameContract(id) {
     })
   });
   await showResult(response);
-  await loadWorkspaceSummary();
+  clearPanelCache(["summary", "documents", "contracts"]);
+  await loadContractsOnly();
 }
 
 async function deleteContract(id) {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/contract/${id}`, { method: "DELETE", credentials: "same-origin" });
   await showResult(response);
-  await loadWorkspaceSummary();
+  clearPanelCache(["summary", "documents", "contracts"]);
+  await loadContractsOnly();
 }
 
 async function updateContractStatus(id) {
@@ -540,7 +555,8 @@ async function updateContractStatus(id) {
     body: JSON.stringify({ status: selectedValue("contractStatusUpdate", "sent") })
   });
   await showResult(response);
-  await loadWorkspaceSummary();
+  clearPanelCache(["summary", "documents", "contracts"]);
+  await loadContractsOnly();
 }
 
 async function loadDocumentsSummary() {
@@ -694,8 +710,8 @@ async function loadClientsOnly() {
 
 async function loadProposalsOnly() {
   const query = new URLSearchParams({
-    page: document.getElementById("documentsPage").value || "1",
-    page_size: document.getElementById("documentsPageSize").value || "5",
+    page: document.getElementById("proposalsPage").value || "1",
+    page_size: document.getElementById("proposalsPageSize").value || "5",
     sort_by: selectedValue("documentSortBy", "id"),
     sort_dir: selectedValue("documentSortDir", "desc")
   });
@@ -715,13 +731,17 @@ async function loadProposalsOnly() {
     if (docsMeta) {
       docsMeta.textContent = `Propostas: pagina ${payload.page}/${Math.max(1, Math.ceil((payload.total || 0) / Math.max(payload.page_size || 1, 1)))}, total ${payload.total || 0}`;
     }
+    const proposalsMeta = document.getElementById("proposalsMeta");
+    if (proposalsMeta) {
+      proposalsMeta.textContent = `Pagina ${payload.page} | total ${payload.total || 0}`;
+    }
   }
 }
 
 async function loadContractsOnly() {
   const query = new URLSearchParams({
-    page: document.getElementById("documentsPage").value || "1",
-    page_size: document.getElementById("documentsPageSize").value || "5",
+    page: document.getElementById("contractsPage").value || "1",
+    page_size: document.getElementById("contractsPageSize").value || "5",
     sort_by: selectedValue("documentSortBy", "id"),
     sort_dir: selectedValue("documentSortDir", "desc")
   });
@@ -743,6 +763,10 @@ async function loadContractsOnly() {
     const docsMeta = document.getElementById("documentsMeta");
     if (docsMeta) {
       docsMeta.textContent = `Contratos: pagina ${payload.page}/${Math.max(1, Math.ceil((payload.total || 0) / Math.max(payload.page_size || 1, 1)))}, total ${payload.total || 0}`;
+    }
+    const contractsMeta = document.getElementById("contractsMeta");
+    if (contractsMeta) {
+      contractsMeta.textContent = `Pagina ${payload.page} | total ${payload.total || 0}`;
     }
   }
 }
@@ -871,6 +895,26 @@ async function exportDocumentsCsv() {
   openPanelDownload("/summary/contracts/export", common);
 }
 
+async function exportProposalsCsv() {
+  const query = new URLSearchParams();
+  const documentFilter = document.getElementById("documentQuery").value.trim();
+  if (documentFilter) query.set("document_q", documentFilter);
+  query.set("sort_by", selectedValue("documentSortBy", "id"));
+  query.set("sort_dir", selectedValue("documentSortDir", "desc"));
+  openPanelDownload("/summary/proposals/export", query);
+}
+
+async function exportContractsCsv() {
+  const query = new URLSearchParams();
+  const documentFilter = document.getElementById("documentQuery").value.trim();
+  const contractStatus = selectedValue("contractStatusFilter");
+  if (documentFilter) query.set("document_q", documentFilter);
+  if (contractStatus) query.set("contract_status", contractStatus);
+  query.set("sort_by", selectedValue("documentSortBy", "id"));
+  query.set("sort_dir", selectedValue("documentSortDir", "desc"));
+  openPanelDownload("/summary/contracts/export", query);
+}
+
 async function exportMessagesCsv() {
   const query = new URLSearchParams();
   const messageStatus = selectedValue("messageStatusFilter");
@@ -889,6 +933,18 @@ async function exportFinanceCsv() {
   const payableQuery = buildFinanceQuery();
   payableQuery.set("entry_type", "payable");
   openPanelDownload("/finance/export", payableQuery);
+}
+
+async function exportReceivablesCsv() {
+  const query = buildFinanceQuery();
+  query.set("entry_type", "receivable");
+  openPanelDownload("/finance/export", query);
+}
+
+async function exportPayablesCsv() {
+  const query = buildFinanceQuery();
+  query.set("entry_type", "payable");
+  openPanelDownload("/finance/export", query);
 }
 
 function shiftNumericInput(id, delta, minimum = 1) {
@@ -918,6 +974,26 @@ async function prevDocumentsPage() {
 async function nextDocumentsPage() {
   shiftNumericInput("documentsPage", 1);
   await loadDocumentsSummary();
+}
+
+async function prevProposalsPage() {
+  shiftNumericInput("proposalsPage", -1);
+  await loadProposalsOnly();
+}
+
+async function nextProposalsPage() {
+  shiftNumericInput("proposalsPage", 1);
+  await loadProposalsOnly();
+}
+
+async function prevContractsPage() {
+  shiftNumericInput("contractsPage", -1);
+  await loadContractsOnly();
+}
+
+async function nextContractsPage() {
+  shiftNumericInput("contractsPage", 1);
+  await loadContractsOnly();
 }
 
 async function prevMessagesPage() {
