@@ -28,6 +28,7 @@ class User(TenantTimestampMixin, TenantBase):
     password_hash: Mapped[str] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=True)
+    role: Mapped[str] = mapped_column(String(40), default="admin")
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
@@ -133,6 +134,21 @@ class AccountsPayable(TenantTimestampMixin, TenantBase):
     status: Mapped[str] = mapped_column(String(40), default="pending")
     category: Mapped[str | None] = mapped_column(String(80))
     cost_center: Mapped[str | None] = mapped_column(String(80))
+
+
+class FinanceCategory(TenantTimestampMixin, TenantBase):
+    __tablename__ = "finance_categories"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), unique=True)
+    entry_type: Mapped[str] = mapped_column(String(20), default="both")
+
+
+class CostCenter(TenantTimestampMixin, TenantBase):
+    __tablename__ = "cost_centers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), unique=True)
 
 
 class BankAccount(TenantTimestampMixin, TenantBase):

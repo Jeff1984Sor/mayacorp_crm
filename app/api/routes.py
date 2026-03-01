@@ -7,6 +7,7 @@ from app.api.deps import (
     central_current_user_dep,
     central_session_dep,
     tenant_admin_user_dep,
+    tenant_manager_user_dep,
     tenant_context_dep,
     tenant_current_user_dep,
     tenant_session_dep,
@@ -27,6 +28,8 @@ from app.models.tenant import (
     AccountsReceivable,
     Client,
     Contract,
+    CostCenter,
+    FinanceCategory,
     Lead,
     Message,
     MarketplaceEvent,
@@ -61,6 +64,11 @@ from app.schemas.crm import (
     ClientResponse,
     ClientUpdateRequest,
     ContractUpdateRequest,
+    CostCenterCreateRequest,
+    CostCenterResponse,
+    FinanceCategoryCreateRequest,
+    FinanceCategoryResponse,
+    FinanceExportResponse,
     LeadConversionRequest,
     LeadCreateRequest,
     LeadResponse,
@@ -346,7 +354,7 @@ def tenant_login(
     if user is None or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials.")
     access_token, refresh_token = issue_tenant_token_pair(
-        user.email, is_admin=user.is_admin, must_change_password=user.must_change_password
+        user.email, is_admin=user.is_admin, must_change_password=user.must_change_password, role=user.role
     )
     persist_tenant_refresh_token(session, refresh_token)
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
@@ -364,7 +372,9 @@ def tenant_refresh(
         user = session.query(User).filter(User.email == current["sub"]).one_or_none()
         if user is None:
             raise ValueError
-        access_token, refresh_token = rotate_tenant_refresh_token(session, payload.refresh_token, is_admin=user.is_admin)
+        access_token, refresh_token = rotate_tenant_refresh_token(
+            session, payload.refresh_token, is_admin=user.is_admin, role=user.role
+        )
     except ValueError:
         raise HTTPException(status_code=401, detail="Invalid refresh token.")
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
@@ -452,6 +462,7 @@ def create_tenant_user(
         full_name=payload.full_name,
         password_hash=hash_password(payload.password),
         is_admin=payload.is_admin,
+        role=payload.role,
         must_change_password=True,
     )
     session.add(user)
@@ -462,6 +473,7 @@ def create_tenant_user(
         email=user.email,
         full_name=user.full_name,
         is_admin=user.is_admin,
+        role=user.role,
         must_change_password=user.must_change_password,
     )
 
@@ -480,6 +492,8 @@ def update_tenant_user(
         user.full_name = payload.full_name
     if payload.is_admin is not None:
         user.is_admin = payload.is_admin
+    if payload.role is not None:
+        user.role = payload.role
     if payload.is_active is not None:
         user.is_active = payload.is_active
     session.commit()
@@ -489,6 +503,7 @@ def update_tenant_user(
         email=user.email,
         full_name=user.full_name,
         is_admin=user.is_admin,
+        role=user.role,
         must_change_password=user.must_change_password,
     )
 
@@ -1373,6 +1388,94 @@ def upload_workspace_file(
         signed_url=signed_url,
         expires_at=expires_at.isoformat(),
     )
+
+
+@router.get("/storage/signed", response_model=StorageFileResponse)
+def resolve_signed_storage(path: str, token: str) -> StorageFileResponse:
+    from datetime import UTC, datetime
+    from pathlib import Path
+    from urllib.parse import unquote
+
+    decoded_path = unquote(path)
+    decoded_token = unquote(token)
+    try:
+        token_file, token_expiry = decoded_token.split(":")
+        expiry_ts = int(token_expiry)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid signed token.")
+
+    if Path(decoded_path).name != token_file:
+        raise HTTPException(status_code=403, detail="Signed token does not match file.")
+    if datetime.now(UTC).timestamp() > expiry_ts:
+        raise HTTPException(status_code=403, detail="Signed token expired.")
+
+    signed_url, expires_at = generate_signed_url(decoded_path)
+    return StorageFileResponse(
+        file_path=decoded_path,
+        signed_url=signed_url,
+        expires_at=expires_at.isoformat(),
+    )
+
+
+@router.post("/tenant/{workspace_slug}/finance/categories", response_model=FinanceCategoryResponse, status_code=201)
+def create_finance_category(
+    payload: FinanceCategoryCreateRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
+) -> FinanceCategoryResponse:
+    category = FinanceCategory(name=payload.name, entry_type=payload.entry_type)
+    session.add(category)
+    session.commit()
+    session.refresh(category)
+    return FinanceCategoryResponse(id=category.id, name=category.name, entry_type=category.entry_type)
+
+
+@router.get("/tenant/{workspace_slug}/finance/categories", response_model=list[FinanceCategoryResponse])
+def list_finance_categories(session: Session = Depends(tenant_session_dep)) -> list[FinanceCategoryResponse]:
+    items = session.query(FinanceCategory).order_by(FinanceCategory.name.asc()).all()
+    return [FinanceCategoryResponse(id=item.id, name=item.name, entry_type=item.entry_type) for item in items]
+
+
+@router.post("/tenant/{workspace_slug}/finance/cost-centers", response_model=CostCenterResponse, status_code=201)
+def create_cost_center(
+    payload: CostCenterCreateRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
+) -> CostCenterResponse:
+    center = CostCenter(name=payload.name)
+    session.add(center)
+    session.commit()
+    session.refresh(center)
+    return CostCenterResponse(id=center.id, name=center.name)
+
+
+@router.get("/tenant/{workspace_slug}/finance/cost-centers", response_model=list[CostCenterResponse])
+def list_cost_centers(session: Session = Depends(tenant_session_dep)) -> list[CostCenterResponse]:
+    items = session.query(CostCenter).order_by(CostCenter.name.asc()).all()
+    return [CostCenterResponse(id=item.id, name=item.name) for item in items]
+
+
+@router.get("/tenant/{workspace_slug}/finance/export", response_model=FinanceExportResponse)
+def export_finance(
+    export_format: str = "csv",
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
+) -> FinanceExportResponse:
+    receivables = session.query(AccountsReceivable).order_by(AccountsReceivable.id.asc()).all()
+    payables = session.query(AccountsPayable).order_by(AccountsPayable.id.asc()).all()
+    if export_format not in {"csv", "txt"}:
+        raise HTTPException(status_code=422, detail="Invalid export format.")
+
+    lines = ["type,id,due_date,amount,status,category,cost_center"]
+    for row in receivables:
+        lines.append(
+            f"receivable,{row.id},{row.due_date.isoformat()},{float(row.amount)},{row.status},{row.category or ''},{row.cost_center or ''}"
+        )
+    for row in payables:
+        lines.append(
+            f"payable,{row.id},{row.due_date.isoformat()},{float(row.amount)},{row.status},{row.category or ''},{row.cost_center or ''}"
+        )
+    return FinanceExportResponse(format=export_format, content="\n".join(lines))
 
 
 @router.post("/tenant/{workspace_slug}/ai/usage", status_code=201)

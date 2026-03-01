@@ -24,6 +24,11 @@ def migrate_tenant_schema(engine) -> None:
             if "status" not in columns:
                 conn.execute(text("ALTER TABLE contracts ADD COLUMN status VARCHAR(40) DEFAULT 'draft'"))
 
+        if "users" in inspector.get_table_names():
+            columns = {column["name"] for column in inspector.get_columns("users")}
+            if "role" not in columns:
+                conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(40) DEFAULT 'admin'"))
+
         if "proposals" in inspector.get_table_names():
             columns = {column["name"] for column in inspector.get_columns("proposals")}
             if "sales_order_id" not in columns:
@@ -33,6 +38,29 @@ def migrate_tenant_schema(engine) -> None:
             columns = {column["name"] for column in inspector.get_columns("contracts")}
             if "sales_order_id" not in columns:
                 conn.execute(text("ALTER TABLE contracts ADD COLUMN sales_order_id INTEGER"))
+
+        if "finance_categories" not in inspector.get_table_names():
+            conn.execute(
+                text(
+                    "CREATE TABLE finance_categories ("
+                    "id INTEGER PRIMARY KEY, "
+                    "name VARCHAR(120) UNIQUE, "
+                    "entry_type VARCHAR(20), "
+                    "created_at TIMESTAMP, "
+                    "updated_at TIMESTAMP)"
+                )
+            )
+
+        if "cost_centers" not in inspector.get_table_names():
+            conn.execute(
+                text(
+                    "CREATE TABLE cost_centers ("
+                    "id INTEGER PRIMARY KEY, "
+                    "name VARCHAR(120) UNIQUE, "
+                    "created_at TIMESTAMP, "
+                    "updated_at TIMESTAMP)"
+                )
+            )
 
         if "tenant_schema_versions" not in inspector.get_table_names():
             TenantSchemaVersion.__table__.create(bind=conn, checkfirst=True)

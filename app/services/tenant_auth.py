@@ -8,17 +8,22 @@ from app.core.security import build_token, decode_token
 from app.models.tenant import TenantRefreshToken
 
 
-def issue_tenant_token_pair(user_email: str, is_admin: bool, must_change_password: bool) -> tuple[str, str]:
+def issue_tenant_token_pair(
+    user_email: str,
+    is_admin: bool,
+    must_change_password: bool,
+    role: str,
+) -> tuple[str, str]:
     access_token = build_token(
         user_email,
         expires_in_minutes=30,
-        extra={"scope": "tenant", "is_admin": is_admin, "must_change_password": must_change_password},
+        extra={"scope": "tenant", "is_admin": is_admin, "must_change_password": must_change_password, "role": role},
         token_type="access",
     )
     refresh_token = build_token(
         user_email,
         expires_in_minutes=60 * 24 * 7,
-        extra={"scope": "tenant", "is_admin": is_admin},
+        extra={"scope": "tenant", "is_admin": is_admin, "role": role},
         token_type="refresh",
     )
     return access_token, refresh_token
@@ -36,7 +41,7 @@ def persist_tenant_refresh_token(session: Session, refresh_token: str) -> None:
     session.commit()
 
 
-def rotate_tenant_refresh_token(session: Session, refresh_token: str, is_admin: bool) -> tuple[str, str]:
+def rotate_tenant_refresh_token(session: Session, refresh_token: str, is_admin: bool, role: str) -> tuple[str, str]:
     payload = decode_token(refresh_token)
     if payload.get("type") != "refresh" or payload.get("scope") != "tenant":
         raise ValueError("Invalid refresh token.")
@@ -50,7 +55,9 @@ def rotate_tenant_refresh_token(session: Session, refresh_token: str, is_admin: 
         raise ValueError("Refresh token expired or revoked.")
 
     db_token.revoked_at = datetime.now(UTC)
-    access_token, new_refresh_token = issue_tenant_token_pair(payload["sub"], is_admin=is_admin, must_change_password=False)
+    access_token, new_refresh_token = issue_tenant_token_pair(
+        payload["sub"], is_admin=is_admin, must_change_password=False, role=role
+    )
     new_payload = decode_token(new_refresh_token)
     session.add(
         TenantRefreshToken(

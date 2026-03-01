@@ -10,6 +10,7 @@ class TenantUserCreateRequest(BaseModel):
     full_name: str = Field(min_length=2, max_length=255)
     password: str = Field(min_length=4, max_length=128)
     is_admin: bool = False
+    role: str = Field(default="staff", max_length=40)
 
 
 class TenantUserResponse(BaseModel):
@@ -17,12 +18,14 @@ class TenantUserResponse(BaseModel):
     email: EmailStr
     full_name: str
     is_admin: bool
+    role: str
     must_change_password: bool
 
 
 class TenantUserUpdateRequest(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=255)
     is_admin: bool | None = None
+    role: str | None = Field(default=None, max_length=40)
     is_active: bool | None = None
 
 
@@ -285,3 +288,28 @@ class StorageFileResponse(BaseModel):
     file_path: str
     signed_url: str
     expires_at: str
+
+
+class FinanceCategoryCreateRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    entry_type: str = Field(default="both", max_length=20)
+
+
+class FinanceCategoryResponse(BaseModel):
+    id: int
+    name: str
+    entry_type: str
+
+
+class CostCenterCreateRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+
+
+class CostCenterResponse(BaseModel):
+    id: int
+    name: str
+
+
+class FinanceExportResponse(BaseModel):
+    format: str
+    content: str
