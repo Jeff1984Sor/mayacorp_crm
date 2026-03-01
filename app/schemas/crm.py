@@ -265,3 +265,23 @@ class MarketplaceWebhookRequest(BaseModel):
 class ContractSignedFileRequest(BaseModel):
     file_name: str = Field(min_length=3, max_length=255)
     content: str = Field(min_length=1)
+
+
+class WorkspaceHealthResponse(BaseModel):
+    workspace_slug: str
+    tenant_status: str
+    plan_code: str
+    schema_versions: list[str]
+    whatsapp_status: str | None
+
+
+class StorageFileRequest(BaseModel):
+    bucket: str = Field(min_length=2, max_length=80)
+    file_name: str = Field(min_length=2, max_length=255)
+    content: str = Field(min_length=1)
+
+
+class StorageFileResponse(BaseModel):
+    file_path: str
+    signed_url: str
+    expires_at: str

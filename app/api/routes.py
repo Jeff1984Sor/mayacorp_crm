@@ -34,6 +34,7 @@ from app.models.tenant import (
     SalesItem,
     SalesOrder,
     TenantWhatsappAccount,
+    TenantSchemaVersion,
     User,
     WhatsappUnmatchedInbox,
     LeadRadarRun,
@@ -88,6 +89,9 @@ from app.schemas.crm import (
     LeadRadarCallbackRequest,
     LeadRadarRunCreateRequest,
     LeadRadarRunResponse,
+    StorageFileRequest,
+    StorageFileResponse,
+    WorkspaceHealthResponse,
 )
 from app.schemas.tenant import TenantCreateRequest, TenantCreateResponse
 from app.services.auth import issue_token_pair, persist_refresh_token, rotate_refresh_token
@@ -98,6 +102,7 @@ from app.services.tenant_auth import (
     rotate_tenant_refresh_token,
 )
 from app.services.tenants import create_tenant
+from app.services.storage import generate_signed_url, save_workspace_file
 
 
 def _write_document_file(workspace_slug: str, doc_type: str, entity_id: int, title: str) -> str:
@@ -397,6 +402,22 @@ def central_create_tenant(
 @router.get("/tenant/{workspace_slug}/context")
 def tenant_context(tenant: Tenant = Depends(tenant_context_dep)) -> dict[str, str]:
     return {"workspace": tenant.slug, "status": tenant.status, "plan": tenant.plan_code}
+
+
+@router.get("/tenant/{workspace_slug}/health", response_model=WorkspaceHealthResponse)
+def tenant_workspace_health(
+    tenant: Tenant = Depends(tenant_context_dep),
+    session: Session = Depends(tenant_session_dep),
+) -> WorkspaceHealthResponse:
+    schema_versions = [row.version for row in session.query(TenantSchemaVersion).order_by(TenantSchemaVersion.id.asc()).all()]
+    whatsapp = session.query(TenantWhatsappAccount).order_by(TenantWhatsappAccount.id.asc()).first()
+    return WorkspaceHealthResponse(
+        workspace_slug=tenant.slug,
+        tenant_status=tenant.status,
+        plan_code=tenant.plan_code,
+        schema_versions=schema_versions,
+        whatsapp_status=whatsapp.status if whatsapp else None,
+    )
 
 
 @router.get("/tenant/{workspace_slug}/users", response_model=list[TenantUserResponse])
@@ -1152,6 +1173,8 @@ def update_contract(
     if payload.template_name is not None:
         contract.template_name = payload.template_name
     if payload.status is not None:
+        if payload.status not in {"draft", "sent", "signed", "cancelled"}:
+            raise HTTPException(status_code=422, detail="Invalid contract status.")
         contract.status = payload.status
     contract.pdf_path = _write_document_file(workspace_slug, "contracts", contract.id, contract.title)
     session.commit()
@@ -1312,6 +1335,8 @@ def whatsapp_outbound(
 def whatsapp_status(
     payload: WhatsappStatusRequest, session: Session = Depends(tenant_session_dep)
 ) -> dict[str, str]:
+    if payload.status not in {"sending", "sent", "delivered", "read", "failed"}:
+        raise HTTPException(status_code=422, detail="Invalid message status.")
     message = session.query(Message).filter(Message.id == payload.message_id).one_or_none()
     if message is None:
         raise HTTPException(status_code=404, detail="Message not found.")
@@ -1332,6 +1357,22 @@ def list_unmatched_inbox(session: Session = Depends(tenant_session_dep)) -> list
         )
         for item in items
     ]
+
+
+@router.post("/tenant/{workspace_slug}/storage/files", response_model=StorageFileResponse, status_code=201)
+def upload_workspace_file(
+    workspace_slug: str,
+    payload: StorageFileRequest,
+    session: Session = Depends(tenant_session_dep),
+) -> StorageFileResponse:
+    _ = session
+    file_path = save_workspace_file(workspace_slug, payload.bucket, payload.file_name, payload.content)
+    signed_url, expires_at = generate_signed_url(file_path)
+    return StorageFileResponse(
+        file_path=file_path,
+        signed_url=signed_url,
+        expires_at=expires_at.isoformat(),
+    )
 
 
 @router.post("/tenant/{workspace_slug}/ai/usage", status_code=201)
