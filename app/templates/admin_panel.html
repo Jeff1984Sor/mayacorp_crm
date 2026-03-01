@@ -65,6 +65,8 @@
         <button onclick="loadFinanceSummary()">Financeiro</button>
         <button onclick="exportOrdersCsv()">Exportar pedidos CSV</button>
         <button onclick="exportPeopleCsv()">Exportar pessoas CSV</button>
+        <button onclick="exportLeadsCsv()">Exportar leads CSV</button>
+        <button onclick="exportClientsCsv()">Exportar clients CSV</button>
         <button onclick="exportDocumentsCsv()">Exportar docs CSV</button>
         <button onclick="exportProposalsCsv()">Exportar propostas CSV</button>
         <button onclick="exportContractsCsv()">Exportar contratos CSV</button>
@@ -482,6 +484,7 @@
       <div class="dashboard-card">
         <h3>Contas a Receber</h3>
         <div id="financeMeta" class="helper"></div>
+        <div id="receivablesMeta" class="helper"></div>
         <div class="row">
           <button onclick="prevFinancePage()">Anterior</button>
           <button onclick="nextFinancePage()">Proxima</button>
@@ -490,6 +493,7 @@
       </div>
       <div class="dashboard-card">
         <h3>Contas a Pagar</h3>
+        <div id="payablesMeta" class="helper"></div>
         <div id="payablesList" class="listbox"></div>
       </div>
       <div class="dashboard-card">

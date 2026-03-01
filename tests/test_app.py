@@ -97,6 +97,11 @@ def test_healthcheck(tmp_path: Path) -> None:
     assert "proposalsMeta" in render_js_response.text
     assert "contractsMeta" in render_js_response.text
     assert "last_qr_code" in render_js_response.text
+    assert "receivablesMeta" in render_js_response.text
+    assert "payablesMeta" in render_js_response.text
+    assert "proposalsMeta" in render_js_response.text
+    assert "contractsMeta" in render_js_response.text
+    assert "last_qr_code" in render_js_response.text
 
     actions_js_response = client.get("/static/admin_panel_actions.js")
     assert actions_js_response.status_code == 200
@@ -116,6 +121,8 @@ def test_healthcheck(tmp_path: Path) -> None:
     assert "nextContractsPage" in actions_js_response.text
     assert "exportOrdersCsv" in actions_js_response.text
     assert "exportPeopleCsv" in actions_js_response.text
+    assert "exportLeadsCsv" in actions_js_response.text
+    assert "exportClientsCsv" in actions_js_response.text
     assert "exportDocumentsCsv" in actions_js_response.text
     assert "exportProposalsCsv" in actions_js_response.text
     assert "exportContractsCsv" in actions_js_response.text
@@ -739,6 +746,16 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert "text/csv" in people_export.headers["content-type"]
     assert "kind,id,name,email,phone" in people_export.text
     assert f'{workspace_slug}-people.csv' in people_export.headers["content-disposition"]
+
+    leads_export = client.get(f"/admin/panel/{workspace_slug}/summary/leads/export?q=Editado&email=example.com&phone=5511")
+    assert leads_export.status_code == 200
+    assert "id,name,email,phone" in leads_export.text
+    assert f'{workspace_slug}-leads.csv' in leads_export.headers["content-disposition"]
+
+    clients_export = client.get(f"/admin/panel/{workspace_slug}/summary/clients/export?q=Editado&email=example.com&phone=5511")
+    assert clients_export.status_code == 200
+    assert "id,name,email,phone" in clients_export.text
+    assert f'{workspace_slug}-clients.csv' in clients_export.headers["content-disposition"]
 
     proposals_export = client.get(f"/admin/panel/{workspace_slug}/summary/proposals/export?document_q=Proposta")
     assert proposals_export.status_code == 200

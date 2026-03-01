@@ -97,10 +97,18 @@ function renderSummary(summary) {
   }
   const messagesMeta = document.getElementById("messagesMeta");
   if (messagesMeta) {
-    messagesMeta.textContent = `Msgs: pagina ${summary.messages_page}/${Math.max(1, Math.ceil((summary.messages_total || 0) / Math.max(summary.messages_page_size || 1, 1)))}, total ${summary.messages_total || 0}`;
+    messagesMeta.textContent = `Msgs: pagina ${summary.messages_page}/${Math.max(1, Math.ceil((summary.messages_total || 0) / Math.max(summary.messages_page_size || 1, 1)))}, total ${summary.messages_total || 0}, out ${summary.outbound_messages_total || 0}, in ${summary.inbound_messages_total || 0}`;
   }
   const financeMeta = document.getElementById("financeMeta");
   if (financeMeta) {
     financeMeta.textContent = `AR total: R$ ${Number(summary.finance?.receivable_total || 0).toFixed(2)} | AR pendente: R$ ${Number(summary.finance?.receivable_pending || 0).toFixed(2)} | AP total: R$ ${Number(summary.finance?.payable_total || 0).toFixed(2)} | AP pendente: R$ ${Number(summary.finance?.payable_pending || 0).toFixed(2)}`;
+  }
+  const receivablesMeta = document.getElementById("receivablesMeta");
+  if (receivablesMeta) {
+    receivablesMeta.textContent = `AR itens: ${summary.receivables?.length || 0}`;
+  }
+  const payablesMeta = document.getElementById("payablesMeta");
+  if (payablesMeta) {
+    payablesMeta.textContent = `AP itens: ${summary.payables?.length || 0}`;
   }
 }

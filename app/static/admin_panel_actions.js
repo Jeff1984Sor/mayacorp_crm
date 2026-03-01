@@ -289,6 +289,10 @@ async function loadReceivables() {
   if (financeMeta && payload) {
     financeMeta.textContent = `Financeiro: pagina ${payload.page}/${Math.max(1, Math.ceil((payload.total || 0) / Math.max(payload.page_size || 1, 1)))}, total ${payload.total || 0}`;
   }
+  const receivablesMeta = document.getElementById("receivablesMeta");
+  if (receivablesMeta && payload) {
+    receivablesMeta.textContent = `AR pagina ${payload.page} | itens ${payload.items?.length || 0} | total ${payload.total || 0}`;
+  }
 }
 
 async function createPayable() {
@@ -324,6 +328,10 @@ async function loadPayables() {
   if (financeMeta && payload) {
     financeMeta.textContent = `Financeiro: pagina ${payload.page}/${Math.max(1, Math.ceil((payload.total || 0) / Math.max(payload.page_size || 1, 1)))}, total ${payload.total || 0}`;
   }
+  const payablesMeta = document.getElementById("payablesMeta");
+  if (payablesMeta && payload) {
+    payablesMeta.textContent = `AP pagina ${payload.page} | itens ${payload.items?.length || 0} | total ${payload.total || 0}`;
+  }
 }
 
 async function connectWhatsapp() {
@@ -349,7 +357,7 @@ async function sendWhatsapp() {
   });
   await showResult(response);
   clearPanelCache(["summary", "finance"]);
-  await loadWorkspaceSummary();
+  await loadMessagesSummary();
 }
 
 async function updateWhatsappSessionStatus() {
@@ -623,7 +631,9 @@ async function loadMessagesSummary() {
     );
     const messagesMeta = document.getElementById("messagesMeta");
     if (messagesMeta) {
-      messagesMeta.textContent = `Msgs: pagina ${payload.messages_page}/${Math.max(1, Math.ceil((payload.messages_total || 0) / Math.max(payload.messages_page_size || 1, 1)))}, total ${payload.messages_total || 0}`;
+      const outbound = (payload.messages || []).filter((item) => item.direction === "outbound").length;
+      const inbound = (payload.messages || []).filter((item) => item.direction === "inbound").length;
+      messagesMeta.textContent = `Msgs: pagina ${payload.messages_page}/${Math.max(1, Math.ceil((payload.messages_total || 0) / Math.max(payload.messages_page_size || 1, 1)))}, total ${payload.messages_total || 0}, out ${outbound}, in ${inbound}`;
     }
   }
 }
@@ -881,6 +891,32 @@ async function exportPeopleCsv() {
   query.set("sort_by", selectedValue("peopleSortBy", "id"));
   query.set("sort_dir", selectedValue("peopleSortDir", "desc"));
   openPanelDownload("/summary/people/export", query);
+}
+
+async function exportLeadsCsv() {
+  const query = new URLSearchParams();
+  const filterValue = document.getElementById("summaryQuery").value.trim();
+  const email = document.getElementById("peopleEmailFilter").value.trim();
+  const phone = document.getElementById("peoplePhoneFilter").value.trim();
+  if (filterValue) query.set("q", filterValue);
+  if (email) query.set("email", email);
+  if (phone) query.set("phone", phone);
+  query.set("sort_by", selectedValue("peopleSortBy", "id"));
+  query.set("sort_dir", selectedValue("peopleSortDir", "desc"));
+  openPanelDownload("/summary/leads/export", query);
+}
+
+async function exportClientsCsv() {
+  const query = new URLSearchParams();
+  const filterValue = document.getElementById("summaryQuery").value.trim();
+  const email = document.getElementById("peopleEmailFilter").value.trim();
+  const phone = document.getElementById("peoplePhoneFilter").value.trim();
+  if (filterValue) query.set("q", filterValue);
+  if (email) query.set("email", email);
+  if (phone) query.set("phone", phone);
+  query.set("sort_by", selectedValue("peopleSortBy", "id"));
+  query.set("sort_dir", selectedValue("peopleSortDir", "desc"));
+  openPanelDownload("/summary/clients/export", query);
 }
 
 async function exportDocumentsCsv() {

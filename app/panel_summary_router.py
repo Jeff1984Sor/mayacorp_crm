@@ -527,6 +527,38 @@ def admin_panel_people_export(
     return _csv_response(["kind", "id", "name", "email", "phone"], rows, f"{workspace_slug}-people.csv")
 
 
+@panel_summary_router.get("/admin/panel/{workspace_slug}/summary/leads/export")
+def admin_panel_leads_export(
+    workspace_slug: str,
+    q: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> PlainTextResponse:
+    leads = apply_people_filters(session.query(Lead), Lead, q=q, email=email, phone=phone, sort_by=sort_by, sort_dir=sort_dir).limit(200).all()
+    rows = serialize_people(leads)
+    return _csv_response(["id", "name", "email", "phone"], rows, f"{workspace_slug}-leads.csv")
+
+
+@panel_summary_router.get("/admin/panel/{workspace_slug}/summary/clients/export")
+def admin_panel_clients_export(
+    workspace_slug: str,
+    q: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> PlainTextResponse:
+    clients = apply_people_filters(session.query(Client), Client, q=q, email=email, phone=phone, sort_by=sort_by, sort_dir=sort_dir).limit(200).all()
+    rows = serialize_people(clients)
+    return _csv_response(["id", "name", "email", "phone"], rows, f"{workspace_slug}-clients.csv")
+
+
 @panel_summary_router.get("/admin/panel/{workspace_slug}/summary/proposals/export")
 def admin_panel_proposals_export(
     workspace_slug: str,
