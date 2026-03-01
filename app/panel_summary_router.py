@@ -95,6 +95,54 @@ def _orders_payload(query: Query, *, page: int, page_size: int, order_status: st
     }
 
 
+def _messages_payload(
+    query: Query,
+    *,
+    page: int,
+    page_size: int,
+    message_status: str | None,
+    message_direction: str | None,
+    sort_by: str,
+    sort_dir: str,
+) -> dict:
+    page = bounded_page(page)
+    page_size = bounded_page(page_size)
+    offset = (page - 1) * page_size
+    query = apply_message_sort(query, sort_by=sort_by, sort_dir=sort_dir)
+    total = query.count()
+    items = query.offset(offset).limit(page_size).all()
+    return {
+        "messages": serialize_messages(items),
+        "messages_page": page,
+        "messages_page_size": page_size,
+        "messages_total": total,
+        "message_status": message_status,
+        "message_direction": message_direction,
+        "sort_by": sort_by,
+        "sort_dir": sort_dir,
+    }
+
+
+def _finance_entries_payload(
+    query: Query,
+    *,
+    page: int,
+    page_size: int,
+    item_key: str,
+) -> dict:
+    page = bounded_page(page)
+    page_size = bounded_page(page_size)
+    offset = (page - 1) * page_size
+    total = query.count()
+    items = query.offset(offset).limit(page_size).all()
+    return {
+        item_key: serialize_finance_rows(items),
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+    }
+
+
 @panel_summary_router.get("/admin/panel/{workspace_slug}/summary")
 def admin_panel_workspace_summary(
     workspace_slug: str,
@@ -196,6 +244,11 @@ def admin_panel_workspace_summary(
     messages = messages_query.offset(messages_offset).limit(messages_page_size).all()
     outbound_messages_total = messages_query.filter(Message.direction == "outbound").count()
     inbound_messages_total = messages_query.filter(Message.direction == "inbound").count()
+    failed_messages_total = messages_query.filter(Message.status == "failed").count()
+    pending_orders_total = sales_orders_query.filter(SalesOrder.status == "pending").count()
+    contracts_signed_total = contracts_query.filter(Contract.status == "signed").count()
+    contracts_pending_signature_total = contracts_query.filter(Contract.status == "sent").count()
+    proposals_sendable_total = proposals_query.filter(Proposal.is_sendable.is_(True)).count()
 
     finance_snapshot = _load_finance_snapshot(session)
 
@@ -240,6 +293,11 @@ def admin_panel_workspace_summary(
             "messages_total": messages_total,
             "outbound_messages_total": outbound_messages_total,
             "inbound_messages_total": inbound_messages_total,
+            "failed_messages_total": failed_messages_total,
+            "pending_orders_total": pending_orders_total,
+            "contracts_signed_total": contracts_signed_total,
+            "contracts_pending_signature_total": contracts_pending_signature_total,
+            "proposals_sendable_total": proposals_sendable_total,
             "query": q,
             "people_email": people_email,
             "people_phone": people_phone,
@@ -254,6 +312,7 @@ def admin_panel_workspace_summary(
             "document_sort_dir": document_sort_dir,
             "message_status": message_status,
             "message_direction": message_direction,
+            "whatsapp_connected": bool(whatsapp is not None and whatsapp.status == "connected"),
         },
     )
 
@@ -358,25 +417,68 @@ def admin_panel_messages_summary(
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> dict:
-    messages_page = bounded_page(messages_page)
-    messages_page_size = bounded_page(messages_page_size)
-    messages_offset = (messages_page - 1) * messages_page_size
     messages_query = apply_message_filters(session.query(Message), message_status=message_status, message_direction=message_direction)
-    messages_query = apply_message_sort(messages_query, sort_by=sort_by, sort_dir=sort_dir)
-    messages_total = messages_query.count()
-    messages = messages_query.offset(messages_offset).limit(messages_page_size).all()
     return panel_response(
         "Resumo de mensagens carregado.",
-        {
-            "messages": serialize_messages(messages),
-            "messages_page": messages_page,
-            "messages_page_size": messages_page_size,
-            "messages_total": messages_total,
-            "message_status": message_status,
-            "message_direction": message_direction,
-            "sort_by": sort_by,
-            "sort_dir": sort_dir,
-        },
+        _messages_payload(
+            messages_query,
+            page=messages_page,
+            page_size=messages_page_size,
+            message_status=message_status,
+            message_direction=message_direction,
+            sort_by=sort_by,
+            sort_dir=sort_dir,
+        ),
+    )
+
+
+@panel_summary_router.get("/admin/panel/{workspace_slug}/summary/messages/outbound")
+def admin_panel_outbound_messages_summary(
+    messages_page: int = 1,
+    messages_page_size: int = 5,
+    message_status: str | None = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> dict:
+    messages_query = apply_message_filters(session.query(Message), message_status=message_status, message_direction="outbound")
+    return panel_response(
+        "Resumo de mensagens outbound carregado.",
+        _messages_payload(
+            messages_query,
+            page=messages_page,
+            page_size=messages_page_size,
+            message_status=message_status,
+            message_direction="outbound",
+            sort_by=sort_by,
+            sort_dir=sort_dir,
+        ),
+    )
+
+
+@panel_summary_router.get("/admin/panel/{workspace_slug}/summary/messages/inbound")
+def admin_panel_inbound_messages_summary(
+    messages_page: int = 1,
+    messages_page_size: int = 5,
+    message_status: str | None = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> dict:
+    messages_query = apply_message_filters(session.query(Message), message_status=message_status, message_direction="inbound")
+    return panel_response(
+        "Resumo de mensagens inbound carregado.",
+        _messages_payload(
+            messages_query,
+            page=messages_page,
+            page_size=messages_page_size,
+            message_status=message_status,
+            message_direction="inbound",
+            sort_by=sort_by,
+            sort_dir=sort_dir,
+        ),
     )
 
 
@@ -386,6 +488,28 @@ def admin_panel_finance_summary(
     _: User = Depends(panel_tenant_permission_dep("finance.write")),
 ) -> dict:
     return panel_response("Resumo financeiro carregado.", _load_finance_snapshot(session))
+
+
+@panel_summary_router.get("/admin/panel/{workspace_slug}/summary/receivables")
+def admin_panel_receivables_summary(
+    page: int = 1,
+    page_size: int = 5,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("finance.write")),
+) -> dict:
+    query = session.query(AccountsReceivable).order_by(AccountsReceivable.id.desc())
+    return panel_response("Resumo de contas a receber carregado.", _finance_entries_payload(query, page=page, page_size=page_size, item_key="receivables"))
+
+
+@panel_summary_router.get("/admin/panel/{workspace_slug}/summary/payables")
+def admin_panel_payables_summary(
+    page: int = 1,
+    page_size: int = 5,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("finance.write")),
+) -> dict:
+    query = session.query(AccountsPayable).order_by(AccountsPayable.id.desc())
+    return panel_response("Resumo de contas a pagar carregado.", _finance_entries_payload(query, page=page, page_size=page_size, item_key="payables"))
 
 
 @panel_summary_router.get("/admin/panel/{workspace_slug}/summary/leads")
@@ -615,4 +739,9 @@ def admin_panel_messages_export(
     messages_query = apply_message_filters(session.query(Message), message_status=message_status, message_direction=message_direction)
     messages_query = apply_message_sort(messages_query, sort_by=sort_by, sort_dir=sort_dir)
     rows = serialize_messages(messages_query.limit(200).all())
-    return _csv_response(["id", "direction", "status", "body"], rows, f"{workspace_slug}-messages.csv")
+    suffix = "messages"
+    if message_direction == "outbound":
+        suffix = "messages-outbound"
+    elif message_direction == "inbound":
+        suffix = "messages-inbound"
+    return _csv_response(["id", "direction", "status", "body"], rows, f"{workspace_slug}-{suffix}.csv")

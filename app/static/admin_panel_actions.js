@@ -310,6 +310,12 @@ async function quickFilterSignedContracts() {
   await loadContractsOnly();
 }
 
+async function quickFilterCancelledContracts() {
+  setFilterValue("contractStatusFilter", "cancelled");
+  setFilterValue("contractsPage", "1");
+  await loadContractsOnly();
+}
+
 async function quickFilterOutboundMessages() {
   setFilterValue("messageDirectionFilter", "outbound");
   setFilterValue("messagesPage", "1");
@@ -322,11 +328,24 @@ async function quickFilterInboundMessages() {
   await loadMessagesSummary();
 }
 
+async function quickFilterFailedMessages() {
+  setFilterValue("messageStatusFilter", "failed");
+  setFilterValue("messagesPage", "1");
+  await loadMessagesSummary();
+}
+
 async function quickFilterPendingFinance() {
   setFilterValue("financeFilterStatus", "pending");
   setFilterValue("financePage", "1");
   setFilterValue("payablesPage", "1");
-  await Promise.all([loadReceivablesOnly(), loadPayablesOnly()]);
+  await Promise.all([loadReceivables(), loadPayables()]);
+}
+
+async function quickFilterPaidFinance() {
+  setFilterValue("financeFilterStatus", "paid");
+  setFilterValue("financePage", "1");
+  setFilterValue("payablesPage", "1");
+  await Promise.all([loadReceivables(), loadPayables()]);
 }
 
 async function clearQuickFilters() {
@@ -422,11 +441,103 @@ async function loadPayables() {
 }
 
 async function loadReceivablesOnly() {
-  await loadReceivables();
+  const query = new URLSearchParams({
+    page: document.getElementById("financePage").value || "1",
+    page_size: document.getElementById("financePageSize").value || "5"
+  });
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/receivables?${query.toString()}`, {
+    credentials: "same-origin"
+  });
+  const payload = await showResult(response);
+  if (payload) {
+    setPanelCache("finance", payload);
+    renderList("receivablesList", payload.receivables || [], (item) =>
+      `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
+      ${item.category || "-"} | ${item.due_date || "-"}<br>
+      <button onclick="updateReceivableStatus(${item.id})">Atualizar status</button>
+      <button onclick="deleteReceivable(${item.id})">Excluir</button>`
+    );
+    const receivablesMeta = document.getElementById("receivablesMeta");
+    if (receivablesMeta) {
+      receivablesMeta.textContent = `AR pagina ${payload.page}/${Math.max(1, Math.ceil((payload.total || 0) / Math.max(payload.page_size || 1, 1)))}, total ${payload.total || 0}`;
+    }
+  }
 }
 
 async function loadPayablesOnly() {
-  await loadPayables();
+  const query = new URLSearchParams({
+    page: document.getElementById("payablesPage").value || "1",
+    page_size: document.getElementById("payablesPageSize").value || "5"
+  });
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/payables?${query.toString()}`, {
+    credentials: "same-origin"
+  });
+  const payload = await showResult(response);
+  if (payload) {
+    setPanelCache("finance", payload);
+    renderList("payablesList", payload.payables || [], (item) =>
+      `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
+      ${item.category || "-"} | ${item.due_date || "-"}<br>
+      <button onclick="updatePayableStatus(${item.id})">Atualizar status</button>
+      <button onclick="deletePayable(${item.id})">Excluir</button>`
+    );
+    const payablesMeta = document.getElementById("payablesMeta");
+    if (payablesMeta) {
+      payablesMeta.textContent = `AP pagina ${payload.page}/${Math.max(1, Math.ceil((payload.total || 0) / Math.max(payload.page_size || 1, 1)))}, total ${payload.total || 0}`;
+    }
+  }
+}
+
+async function loadOutboundMessagesOnly() {
+  const query = new URLSearchParams({
+    messages_page: document.getElementById("messagesPage").value || "1",
+    messages_page_size: document.getElementById("messagesPageSize").value || "5",
+    sort_by: selectedValue("messageSortBy", "id"),
+    sort_dir: selectedValue("messageSortDir", "desc")
+  });
+  const messageStatus = selectedValue("messageStatusFilter");
+  if (messageStatus) {
+    query.set("message_status", messageStatus);
+  }
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/messages/outbound?${query.toString()}`, { credentials: "same-origin" });
+  const payload = await showResult(response);
+  if (payload) {
+    setPanelCache("messages", payload);
+    renderList("messagesList", payload.messages || [], (item) =>
+      `#${item.id} | ${item.direction} | ${item.status}<br>${item.body}<br>
+      <button onclick="updateMessageStatus(${item.id})">Atualizar status</button>`
+    );
+    const messagesMeta = document.getElementById("messagesMeta");
+    if (messagesMeta) {
+      messagesMeta.textContent = `Msgs OUT: pagina ${payload.messages_page}/${Math.max(1, Math.ceil((payload.messages_total || 0) / Math.max(payload.messages_page_size || 1, 1)))}, total ${payload.messages_total || 0}`;
+    }
+  }
+}
+
+async function loadInboundMessagesOnly() {
+  const query = new URLSearchParams({
+    messages_page: document.getElementById("messagesPage").value || "1",
+    messages_page_size: document.getElementById("messagesPageSize").value || "5",
+    sort_by: selectedValue("messageSortBy", "id"),
+    sort_dir: selectedValue("messageSortDir", "desc")
+  });
+  const messageStatus = selectedValue("messageStatusFilter");
+  if (messageStatus) {
+    query.set("message_status", messageStatus);
+  }
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/messages/inbound?${query.toString()}`, { credentials: "same-origin" });
+  const payload = await showResult(response);
+  if (payload) {
+    setPanelCache("messages", payload);
+    renderList("messagesList", payload.messages || [], (item) =>
+      `#${item.id} | ${item.direction} | ${item.status}<br>${item.body}<br>
+      <button onclick="updateMessageStatus(${item.id})">Atualizar status</button>`
+    );
+    const messagesMeta = document.getElementById("messagesMeta");
+    if (messagesMeta) {
+      messagesMeta.textContent = `Msgs IN: pagina ${payload.messages_page}/${Math.max(1, Math.ceil((payload.messages_total || 0) / Math.max(payload.messages_page_size || 1, 1)))}, total ${payload.messages_total || 0}`;
+    }
+  }
 }
 
 async function connectWhatsapp() {

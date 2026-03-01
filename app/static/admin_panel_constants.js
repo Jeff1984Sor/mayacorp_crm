@@ -11,6 +11,8 @@ const PANEL_CONSTANTS = {
     documents: ["summary", "documents", "proposals", "contracts"],
     finance: ["summary", "finance"],
     messages: ["summary", "messages"],
+    outboundMessages: ["summary", "messages"],
+    inboundMessages: ["summary", "messages"],
     whatsapp: ["summary", "messages"],
     all: ["summary", "people", "orders", "documents", "proposals", "contracts", "finance", "messages", "leads", "clients"]
   }

@@ -66,9 +66,16 @@
         <div class="quick-actions">
           <button onclick="quickFilterPendingOrders()">Pedidos pendentes</button>
           <button onclick="quickFilterSignedContracts()">Contratos assinados</button>
+          <button onclick="quickFilterCancelledContracts()">Contratos cancelados</button>
           <button onclick="quickFilterOutboundMessages()">Msgs outbound</button>
           <button onclick="quickFilterInboundMessages()">Msgs inbound</button>
+          <button onclick="quickFilterFailedMessages()">Msgs com falha</button>
           <button onclick="quickFilterPendingFinance()">Financeiro pendente</button>
+          <button onclick="quickFilterPaidFinance()">Financeiro pago</button>
+          <button onclick="loadReceivablesOnly()">Somente AR</button>
+          <button onclick="loadPayablesOnly()">Somente AP</button>
+          <button onclick="loadOutboundMessagesOnly()">Somente Msgs OUT</button>
+          <button onclick="loadInboundMessagesOnly()">Somente Msgs IN</button>
           <button onclick="clearQuickFilters()">Limpar filtros rapidos</button>
         </div>
         <button onclick="exportOrdersCsv()">Exportar pedidos CSV</button>

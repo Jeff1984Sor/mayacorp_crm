@@ -1,12 +1,17 @@
 function renderSummary(summary) {
   renderList("topMetrics", [
     `Pedidos: ${summary.sales_orders_total || 0}`,
+    `Pendentes: ${summary.pending_orders_total || 0}`,
     `Leads: ${summary.leads_total || 0}`,
     `Clients: ${summary.clients_total || 0}`,
     `Docs: ${summary.documents_total || 0}`,
+    `Prop send: ${summary.proposals_sendable_total || 0}`,
+    `Ctr assin: ${summary.contracts_signed_total || 0}`,
+    `Ctr pend: ${summary.contracts_pending_signature_total || 0}`,
     `Msgs: ${summary.messages_total || 0}`,
     `Out: ${summary.outbound_messages_total || 0}`,
     `In: ${summary.inbound_messages_total || 0}`,
+    `Falhas: ${summary.failed_messages_total || 0}`,
     `AP: R$ ${Number(summary.finance?.payable_total || 0).toFixed(2)}`
   ], (item) => item);
   const activeFilters = [];
@@ -24,6 +29,7 @@ function renderSummary(summary) {
       qrBlock.innerHTML = `
         <div class="qr-panel">
           <div class="qr-label">QR WhatsApp</div>
+          <div class="tiny">${summary.whatsapp.status || "-"}</div>
           <div class="qr-value" id="whatsappQrValue">${summary.whatsapp.last_qr_code}</div>
           <button onclick="copyWhatsappQr()">Copiar QR</button>
         </div>
@@ -74,6 +80,7 @@ function renderSummary(summary) {
   if (summary.whatsapp) {
     meta.push(
       `WhatsApp: ${summary.whatsapp.status} (${summary.whatsapp.provider_session_id || "-"})<br>
+      Sessao ativa: ${summary.whatsapp_connected ? "sim" : "nao"}<br>
       <button onclick="updateWhatsappSessionStatus()">Atualizar status</button>`
     );
   } else {
