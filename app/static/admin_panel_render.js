@@ -4,6 +4,10 @@ function renderSummary(summary) {
     <button onclick="updateSalesOrderStatus(${item.id})">Atualizar status</button>
     <button onclick="deleteSalesOrder(${item.id})">Excluir</button>`
   );
+  const ordersMeta = document.getElementById("ordersMeta");
+  if (ordersMeta) {
+    ordersMeta.textContent = `Pedidos: pagina ${summary.page}/${Math.max(1, Math.ceil((summary.sales_orders_total || 0) / Math.max(summary.page_size || 1, 1)))}, total ${summary.sales_orders_total || 0}`;
+  }
   renderList("proposalsList", summary.proposals || [], (item) =>
     `#${item.id} | ${item.title}<br>${item.pdf_path || "sem pdf"}<br>
     <input id="proposalTitleEdit-${item.id}" placeholder="Novo titulo">
@@ -67,5 +71,9 @@ function renderSummary(summary) {
   const messagesMeta = document.getElementById("messagesMeta");
   if (messagesMeta) {
     messagesMeta.textContent = `Msgs: pagina ${summary.messages_page}/${Math.max(1, Math.ceil((summary.messages_total || 0) / Math.max(summary.messages_page_size || 1, 1)))}, total ${summary.messages_total || 0}`;
+  }
+  const financeMeta = document.getElementById("financeMeta");
+  if (financeMeta) {
+    financeMeta.textContent = `AR total: R$ ${Number(summary.finance?.receivable_total || 0).toFixed(2)} | pendente: R$ ${Number(summary.finance?.receivable_pending || 0).toFixed(2)}`;
   }
 }

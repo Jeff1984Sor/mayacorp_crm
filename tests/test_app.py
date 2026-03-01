@@ -90,6 +90,7 @@ def test_healthcheck(tmp_path: Path) -> None:
     assert render_js_response.status_code == 200
     assert "renderSummary" in render_js_response.text
     assert "updateMessageStatus" in render_js_response.text
+    assert "ordersMeta" in render_js_response.text
 
     actions_js_response = client.get("/static/admin_panel_actions.js")
     assert actions_js_response.status_code == 200
@@ -100,6 +101,8 @@ def test_healthcheck(tmp_path: Path) -> None:
     assert "messages_page" in actions_js_response.text
     assert "loadDocumentsSummary" in actions_js_response.text
     assert "updateContractStatus" in actions_js_response.text
+    assert "prevOrdersPage" in actions_js_response.text
+    assert "nextMessagesPage" in actions_js_response.text
     assert "window.prompt(\"Novo nome do lead" not in actions_js_response.text
     assert "window.prompt(\"Novo nome do client" not in actions_js_response.text
 
@@ -537,6 +540,12 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert panel_sign.status_code == 200
     assert panel_data(panel_sign)["status"] == "signed"
 
+    invalid_transition = client.patch(
+        f"/admin/panel/{workspace_slug}/contract/{panel_contract_id}/status",
+        json={"status": "draft"},
+    )
+    assert invalid_transition.status_code == 409
+
     documents_summary = client.get(
         f"/admin/panel/{workspace_slug}/summary/documents?documents_page=1&documents_page_size=2&document_q=Editad&contract_status=signed"
     )
@@ -656,11 +665,12 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert invalid_message_status.status_code == 422
 
     panel_summary = client.get(
-        f"/admin/panel/{workspace_slug}/summary?page=1&page_size=3&documents_page=1&documents_page_size=2&messages_page=1&messages_page_size=2&document_q=Editad&contract_status=signed&message_status=read&message_direction=outbound"
+        f"/admin/panel/{workspace_slug}/summary?page=1&page_size=3&documents_page=1&documents_page_size=2&messages_page=1&messages_page_size=2&document_q=Editad&contract_status=signed&order_status=closed&message_status=read&message_direction=outbound"
     )
     assert panel_summary.status_code == 200
     summary_payload = panel_data(panel_summary)
     assert summary_payload["sales_orders"]
+    assert all(item["status"] == "closed" for item in summary_payload["sales_orders"])
     assert summary_payload["proposals"]
     assert summary_payload["contracts"]
     assert summary_payload["leads"]
@@ -682,6 +692,7 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert summary_payload["query"] is None
     assert summary_payload["document_query"] == "Editad"
     assert summary_payload["contract_status"] == "signed"
+    assert summary_payload["order_status"] == "closed"
     assert summary_payload["message_status"] == "read"
     assert summary_payload["message_direction"] == "outbound"
 

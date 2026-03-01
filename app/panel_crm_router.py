@@ -26,6 +26,13 @@ from app.panel_common import (
 
 panel_crm_router = APIRouter(tags=["health"])
 
+ALLOWED_CONTRACT_TRANSITIONS = {
+    "draft": {"sent", "cancelled"},
+    "sent": {"signed", "cancelled"},
+    "signed": set(),
+    "cancelled": set(),
+}
+
 
 @panel_crm_router.post("/admin/panel/{workspace_slug}/lead", status_code=201)
 def admin_panel_create_lead(
@@ -272,7 +279,10 @@ def admin_panel_update_contract_status(
     contract = session.query(Contract).filter(Contract.id == contract_id).one_or_none()
     if contract is None:
         raise HTTPException(status_code=404, detail="Contract not found.")
-    contract.status = ensure_panel_status(payload.status, PANEL_CONTRACT_STATUSES, "contract")
+    next_status = ensure_panel_status(payload.status, PANEL_CONTRACT_STATUSES, "contract")
+    if contract.status != next_status and next_status not in ALLOWED_CONTRACT_TRANSITIONS.get(contract.status, set()):
+        raise HTTPException(status_code=409, detail=f"Invalid contract transition: {contract.status} -> {next_status}")
+    contract.status = next_status
     session.commit()
     return panel_response("Status do contrato atualizado.", {"id": contract.id, "status": contract.status})
 

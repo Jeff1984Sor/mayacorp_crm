@@ -61,6 +61,14 @@
         <button onclick="loadFinanceSummary()">Financeiro</button>
         <label for="summaryQuery">Filtro</label>
         <input id="summaryQuery" placeholder="Nome ou titulo">
+        <label for="orderStatusFilter">Filtro status pedido</label>
+        <select id="orderStatusFilter">
+          <option value="">Todos</option>
+          <option value="pending">pending</option>
+          <option value="confirmed">confirmed</option>
+          <option value="closed">closed</option>
+          <option value="cancelled">cancelled</option>
+        </select>
         <label for="documentQuery">Filtro documentos</label>
         <input id="documentQuery" placeholder="Proposta ou contrato">
         <label for="contractStatusFilter">Filtro status contrato</label>
@@ -302,11 +310,20 @@
     <section class="dashboard">
       <div class="dashboard-card">
         <h3>Pedidos</h3>
+        <div id="ordersMeta" class="helper"></div>
+        <div class="row">
+          <button onclick="prevOrdersPage()">Anterior</button>
+          <button onclick="nextOrdersPage()">Proxima</button>
+        </div>
         <div id="salesOrdersList" class="listbox"></div>
       </div>
       <div class="dashboard-card">
         <h3>Propostas</h3>
         <div id="documentsMeta" class="helper"></div>
+        <div class="row">
+          <button onclick="prevDocumentsPage()">Anterior</button>
+          <button onclick="nextDocumentsPage()">Proxima</button>
+        </div>
         <div id="proposalsList" class="listbox"></div>
       </div>
       <div class="dashboard-card">
@@ -327,6 +344,11 @@
       </div>
       <div class="dashboard-card">
         <h3>Contas a Receber</h3>
+        <div id="financeMeta" class="helper"></div>
+        <div class="row">
+          <button onclick="prevFinancePage()">Anterior</button>
+          <button onclick="nextFinancePage()">Proxima</button>
+        </div>
         <div id="receivablesList" class="listbox"></div>
       </div>
       <div class="dashboard-card">
@@ -336,6 +358,10 @@
       <div class="dashboard-card">
         <h3>Mensagens</h3>
         <div id="messagesMeta" class="helper"></div>
+        <div class="row">
+          <button onclick="prevMessagesPage()">Anterior</button>
+          <button onclick="nextMessagesPage()">Proxima</button>
+        </div>
         <div id="messagesList" class="listbox"></div>
       </div>
     </section>

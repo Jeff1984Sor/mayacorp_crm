@@ -154,12 +154,16 @@ async function loadWorkspaceSummary() {
     messages_page_size: document.getElementById("messagesPageSize").value || "5"
   });
   const filterValue = document.getElementById("summaryQuery").value.trim();
+  const orderStatus = selectedValue("orderStatusFilter");
   const documentFilter = document.getElementById("documentQuery").value.trim();
   const contractStatus = selectedValue("contractStatusFilter");
   const messageStatus = selectedValue("messageStatusFilter");
   const messageDirection = selectedValue("messageDirectionFilter");
   if (filterValue) {
     query.set("q", filterValue);
+  }
+  if (orderStatus) {
+    query.set("order_status", orderStatus);
   }
   if (documentFilter) {
     query.set("document_q", documentFilter);
@@ -241,6 +245,10 @@ async function loadReceivables() {
     <button onclick="updateReceivableStatus(${item.id})">Atualizar status</button>
     <button onclick="deleteReceivable(${item.id})">Excluir</button>`
   );
+  const financeMeta = document.getElementById("financeMeta");
+  if (financeMeta && payload) {
+    financeMeta.textContent = `Financeiro: pagina ${payload.page}/${Math.max(1, Math.ceil((payload.total || 0) / Math.max(payload.page_size || 1, 1)))}, total ${payload.total || 0}`;
+  }
 }
 
 async function createPayable() {
@@ -271,6 +279,10 @@ async function loadPayables() {
     <button onclick="updatePayableStatus(${item.id})">Atualizar status</button>
     <button onclick="deletePayable(${item.id})">Excluir</button>`
   );
+  const financeMeta = document.getElementById("financeMeta");
+  if (financeMeta && payload) {
+    financeMeta.textContent = `Financeiro: pagina ${payload.page}/${Math.max(1, Math.ceil((payload.total || 0) / Math.max(payload.page_size || 1, 1)))}, total ${payload.total || 0}`;
+  }
 }
 
 async function connectWhatsapp() {
@@ -556,4 +568,53 @@ async function loadFinanceSummary() {
       <button onclick="deletePayable(${item.id})">Excluir</button>`
     );
   }
+}
+
+function shiftNumericInput(id, delta, minimum = 1) {
+  const element = document.getElementById(id);
+  if (!element) {
+    return;
+  }
+  const current = Number(element.value || minimum);
+  element.value = String(Math.max(minimum, current + delta));
+}
+
+async function prevOrdersPage() {
+  shiftNumericInput("summaryPage", -1);
+  await loadWorkspaceSummary();
+}
+
+async function nextOrdersPage() {
+  shiftNumericInput("summaryPage", 1);
+  await loadWorkspaceSummary();
+}
+
+async function prevDocumentsPage() {
+  shiftNumericInput("documentsPage", -1);
+  await loadDocumentsSummary();
+}
+
+async function nextDocumentsPage() {
+  shiftNumericInput("documentsPage", 1);
+  await loadDocumentsSummary();
+}
+
+async function prevMessagesPage() {
+  shiftNumericInput("messagesPage", -1);
+  await loadMessagesSummary();
+}
+
+async function nextMessagesPage() {
+  shiftNumericInput("messagesPage", 1);
+  await loadMessagesSummary();
+}
+
+async function prevFinancePage() {
+  shiftNumericInput("financePage", -1);
+  await loadReceivables();
+}
+
+async function nextFinancePage() {
+  shiftNumericInput("financePage", 1);
+  await loadReceivables();
 }
