@@ -12,7 +12,7 @@ from app.api.deps import (
     tenant_session_dep,
 )
 from app.core.security import build_token, verify_password
-from app.models.central import CentralAiSetting, CentralUser, Tenant, TenantAiLimit, TenantAiUsageDaily
+from app.models.central import CentralAiSetting, CentralTask, CentralUser, Tenant, TenantAiLimit, TenantAiUsageDaily
 from app.models.tenant import (
     AccountsPayable,
     AccountsReceivable,
@@ -31,6 +31,8 @@ from app.schemas.auth import (
     CentralUserResponse,
     CentralAiSettingsRequest,
     CentralAiSettingsResponse,
+    TenantAiGenerateRequest,
+    TenantAiGenerateResponse,
     LoginRequest,
     RefreshRequest,
     TenantLoginRequest,
@@ -108,6 +110,16 @@ def _write_document_file(workspace_slug: str, doc_type: str, entity_id: int, tit
     return target_file.as_posix()
 
 
+def _mask_secret(secret: str) -> str:
+    return f"enc::{secret[::-1]}"
+
+
+def _unmask_secret(secret: str) -> str:
+    if not secret.startswith("enc::"):
+        return secret
+    return secret[5:][::-1]
+
+
 router = APIRouter()
 
 
@@ -159,7 +171,7 @@ def upsert_central_ai_settings(
 
     settings_row.provider = payload.provider
     settings_row.config = {
-        "api_key": payload.api_key,
+        "api_key": _mask_secret(payload.api_key),
         "model_name": payload.model_name,
     }
     session.commit()
@@ -198,6 +210,68 @@ def get_central_ai_settings(
         model_name=settings_row.config.get("model_name"),
         monthly_request_limit=first_limit.monthly_request_limit if first_limit else 0,
         monthly_token_limit=first_limit.monthly_token_limit if first_limit else 0,
+    )
+
+
+@router.post("/central/ai/generate", response_model=TenantAiGenerateResponse)
+def central_ai_generate(
+    payload: TenantAiGenerateRequest,
+    session: Session = Depends(central_session_dep),
+    _: CentralUser = Depends(central_current_user_dep),
+) -> TenantAiGenerateResponse:
+    from datetime import date
+
+    tenant = session.query(Tenant).filter(Tenant.slug == payload.workspace_slug).one_or_none()
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Tenant not found.")
+
+    ai_settings = session.query(CentralAiSetting).order_by(CentralAiSetting.id.asc()).first()
+    if ai_settings is None:
+        raise HTTPException(status_code=400, detail="Central AI settings not configured.")
+
+    if not _unmask_secret(ai_settings.config.get("api_key", "")):
+        raise HTTPException(status_code=400, detail="Central AI provider key is invalid.")
+
+    limit = session.query(TenantAiLimit).filter(TenantAiLimit.tenant_id == tenant.id).one_or_none()
+    if limit is None:
+        limit = TenantAiLimit(tenant_id=tenant.id, monthly_request_limit=0, monthly_token_limit=0)
+        session.add(limit)
+        session.flush()
+
+    today = date.today()
+    usage = (
+        session.query(TenantAiUsageDaily)
+        .filter(TenantAiUsageDaily.tenant_id == tenant.id, TenantAiUsageDaily.usage_date == today)
+        .one_or_none()
+    )
+    if usage is None:
+        usage = TenantAiUsageDaily(
+            tenant_id=tenant.id,
+            usage_date=today,
+            request_count=0,
+            token_count=0,
+        )
+        session.add(usage)
+
+    if limit.monthly_request_limit and usage.request_count + 1 > limit.monthly_request_limit:
+        raise HTTPException(status_code=429, detail="Monthly AI request limit exceeded.")
+    if limit.monthly_token_limit and usage.token_count + payload.estimated_tokens > limit.monthly_token_limit:
+        raise HTTPException(status_code=429, detail="Monthly AI token limit exceeded.")
+
+    generated = (
+        f"[{payload.purpose.upper()}] Sugestao automatica para {payload.workspace_slug}: "
+        f"{payload.prompt.strip()[:240]}"
+    )
+    usage.request_count += 1
+    usage.token_count += max(payload.estimated_tokens, len(payload.prompt.split()))
+    session.commit()
+
+    return TenantAiGenerateResponse(
+        workspace_slug=payload.workspace_slug,
+        purpose=payload.purpose,
+        content=generated,
+        request_count=usage.request_count,
+        token_count=usage.token_count,
     )
 
 
@@ -1192,3 +1266,43 @@ def register_tenant_ai_usage(
         "request_count": usage.request_count,
         "token_count": usage.token_count,
     }
+
+
+@router.post("/central/analytics/run-daily", status_code=201)
+def run_daily_analytics(
+    session: Session = Depends(central_session_dep),
+    _: CentralUser = Depends(central_current_user_dep),
+) -> dict[str, int]:
+    processed = 0
+    created_tasks = 0
+
+    tenants = session.query(Tenant).all()
+    for tenant in tenants:
+        processed += 1
+        usage_rows = session.query(TenantAiUsageDaily).filter(TenantAiUsageDaily.tenant_id == tenant.id).all()
+        request_total = sum(row.request_count for row in usage_rows)
+        score = max(0, 100 - request_total)
+        status = "healthy"
+        if score < 70:
+            status = "warning"
+        if score < 40:
+            status = "risk"
+
+        existing_task = (
+            session.query(CentralTask)
+            .filter(CentralTask.tenant_id == tenant.id, CentralTask.status == "open", CentralTask.title == "Tenant health risk")
+            .one_or_none()
+        )
+        if status == "risk" and existing_task is None:
+            session.add(
+                CentralTask(
+                    tenant_id=tenant.id,
+                    title="Tenant health risk",
+                    description=f"Workspace {tenant.slug} entered risk status during daily analytics.",
+                    status="open",
+                )
+            )
+            created_tasks += 1
+
+    session.commit()
+    return {"processed_tenants": processed, "created_tasks": created_tasks}

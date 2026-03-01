@@ -44,3 +44,18 @@ class CentralAiSettingsResponse(BaseModel):
     model_name: str | None
     monthly_request_limit: int
     monthly_token_limit: int
+
+
+class TenantAiGenerateRequest(BaseModel):
+    workspace_slug: str
+    purpose: str
+    prompt: str
+    estimated_tokens: int = 0
+
+
+class TenantAiGenerateResponse(BaseModel):
+    workspace_slug: str
+    purpose: str
+    content: str
+    request_count: int
+    token_count: int
