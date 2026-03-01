@@ -4,7 +4,6 @@ import argparse
 import json
 from pathlib import Path
 from urllib import request
-from urllib.parse import urlencode
 
 
 def _call(method: str, url: str, payload: dict | None = None, token: str | None = None) -> dict | str:
@@ -50,7 +49,7 @@ def _read_file_content(path: str | None, inline_content: str | None) -> str:
     raise SystemExit("Provide --content or --content-file.")
 
 
-def main() -> None:
+def run_cli(argv: list[str] | None = None) -> str:
     parser = argparse.ArgumentParser(description="Simple API client for Mayacorp CRM")
     parser.add_argument("--base-url", default="http://127.0.0.1")
 
@@ -98,6 +97,31 @@ def main() -> None:
         help="Format: description:quantity:unit_price. Repeat for multiple items.",
     )
 
+    proposal_parser = subparsers.add_parser("create-proposal")
+    proposal_parser.add_argument("--workspace-slug", required=True)
+    proposal_parser.add_argument("--token", required=True)
+    proposal_parser.add_argument("--title", required=True)
+    proposal_parser.add_argument("--client-id", type=int)
+    proposal_parser.add_argument("--sales-order-id", type=int)
+    proposal_parser.add_argument("--template-name")
+    proposal_parser.add_argument("--is-sendable", action="store_true")
+
+    contract_parser = subparsers.add_parser("create-contract")
+    contract_parser.add_argument("--workspace-slug", required=True)
+    contract_parser.add_argument("--token", required=True)
+    contract_parser.add_argument("--title", required=True)
+    contract_parser.add_argument("--client-id", type=int)
+    contract_parser.add_argument("--sales-order-id", type=int)
+    contract_parser.add_argument("--template-name")
+
+    sign_contract_parser = subparsers.add_parser("sign-contract")
+    sign_contract_parser.add_argument("--workspace-slug", required=True)
+    sign_contract_parser.add_argument("--token", required=True)
+    sign_contract_parser.add_argument("--contract-id", required=True, type=int)
+    sign_contract_parser.add_argument("--file-name", required=True)
+    sign_contract_parser.add_argument("--content")
+    sign_contract_parser.add_argument("--content-file")
+
     marketplace_parser = subparsers.add_parser("marketplace-webhook")
     marketplace_parser.add_argument("--workspace-slug", required=True)
     marketplace_parser.add_argument("--token", required=True)
@@ -120,7 +144,17 @@ def main() -> None:
     signed_storage_parser = subparsers.add_parser("download-file")
     signed_storage_parser.add_argument("--signed-url", required=True)
 
-    args = parser.parse_args()
+    finance_dashboard_parser = subparsers.add_parser("finance-dashboard")
+    finance_dashboard_parser.add_argument("--workspace-slug", required=True)
+    finance_dashboard_parser.add_argument("--token", required=True)
+
+    finance_category_parser = subparsers.add_parser("create-finance-category")
+    finance_category_parser.add_argument("--workspace-slug", required=True)
+    finance_category_parser.add_argument("--token", required=True)
+    finance_category_parser.add_argument("--name", required=True)
+    finance_category_parser.add_argument("--entry-type", default="both")
+
+    args = parser.parse_args(argv)
 
     if args.command == "central-login":
         result = _call(
@@ -176,6 +210,41 @@ def main() -> None:
             },
             token=args.token,
         )
+    elif args.command == "create-proposal":
+        result = _call(
+            "POST",
+            f"{args.base_url}/tenant/{args.workspace_slug}/proposals",
+            {
+                "client_id": args.client_id,
+                "sales_order_id": args.sales_order_id,
+                "title": args.title,
+                "template_name": args.template_name,
+                "is_sendable": args.is_sendable,
+            },
+            token=args.token,
+        )
+    elif args.command == "create-contract":
+        result = _call(
+            "POST",
+            f"{args.base_url}/tenant/{args.workspace_slug}/contracts",
+            {
+                "client_id": args.client_id,
+                "sales_order_id": args.sales_order_id,
+                "title": args.title,
+                "template_name": args.template_name,
+            },
+            token=args.token,
+        )
+    elif args.command == "sign-contract":
+        result = _call(
+            "POST",
+            f"{args.base_url}/tenant/{args.workspace_slug}/contracts/{args.contract_id}/signed-file",
+            {
+                "file_name": args.file_name,
+                "content": _read_file_content(args.content_file, args.content),
+            },
+            token=args.token,
+        )
     elif args.command == "marketplace-webhook":
         result = _call(
             "POST",
@@ -189,6 +258,19 @@ def main() -> None:
                 "total_amount": args.total_amount,
                 "first_due_date": args.first_due_date,
             },
+            token=args.token,
+        )
+    elif args.command == "finance-dashboard":
+        result = _call(
+            "GET",
+            f"{args.base_url}/tenant/{args.workspace_slug}/finance/dashboard",
+            token=args.token,
+        )
+    elif args.command == "create-finance-category":
+        result = _call(
+            "POST",
+            f"{args.base_url}/tenant/{args.workspace_slug}/finance/categories",
+            {"name": args.name, "entry_type": args.entry_type},
             token=args.token,
         )
     elif args.command == "upload-file":
@@ -219,7 +301,11 @@ def main() -> None:
                 "size": len(body),
             }
 
-    print(json.dumps(result, indent=2, ensure_ascii=False) if isinstance(result, dict) else result)
+    return json.dumps(result, indent=2, ensure_ascii=False) if isinstance(result, dict) else result
+
+
+def main() -> None:
+    print(run_cli())
 
 
 if __name__ == "__main__":

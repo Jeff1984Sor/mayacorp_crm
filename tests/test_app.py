@@ -5,8 +5,10 @@ import os
 import sys
 from pathlib import Path
 from uuid import uuid4
+from unittest.mock import Mock, patch
 
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, inspect, text
 
 
 def load_test_client(tmp_path: Path) -> TestClient:
@@ -48,6 +50,10 @@ def test_healthcheck(tmp_path: Path) -> None:
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+    panel_response = client.get("/admin/panel")
+    assert panel_response.status_code == 200
+    assert "Mayacorp Admin Panel" in panel_response.text
 
 
 def test_central_create_tenant_and_dashboard(tmp_path: Path) -> None:
@@ -347,3 +353,85 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     commercial_dashboard = client.get(f"/tenant/{workspace_slug}/dashboard/commercial", headers=tenant_headers)
     assert commercial_dashboard.status_code == 200
     assert commercial_dashboard.json()["sales_total"] >= 250
+
+
+def test_cli_command_mapping_and_download(tmp_path: Path) -> None:
+    sys.modules.pop("scripts.api_client", None)
+    api_client = importlib.import_module("scripts.api_client")
+
+    with patch.object(api_client, "_call", return_value={"id": 10, "status": "signed"}) as call_mock:
+        result = api_client.run_cli(
+            [
+                "sign-contract",
+                "--workspace-slug",
+                "acme",
+                "--token",
+                "tenant-token",
+                "--contract-id",
+                "10",
+                "--file-name",
+                "signed.txt",
+                "--content",
+                "signed-content",
+            ]
+        )
+        assert "\"id\": 10" in result
+        call_mock.assert_called_once_with(
+            "POST",
+            "http://127.0.0.1/tenant/acme/contracts/10/signed-file",
+            {"file_name": "signed.txt", "content": "signed-content"},
+            token="tenant-token",
+        )
+
+    with patch.object(api_client, "_call", return_value={"receivable_total": 250}) as call_mock:
+        result = api_client.run_cli(
+            [
+                "finance-dashboard",
+                "--workspace-slug",
+                "acme",
+                "--token",
+                "tenant-token",
+            ]
+        )
+        assert "\"receivable_total\": 250" in result
+        call_mock.assert_called_once_with(
+            "GET",
+            "http://127.0.0.1/tenant/acme/finance/dashboard",
+            token="tenant-token",
+        )
+
+    response_mock = Mock()
+    response_mock.__enter__ = Mock(return_value=response_mock)
+    response_mock.__exit__ = Mock(return_value=False)
+    response_mock.read.return_value = b"downloaded"
+    response_mock.headers.get.return_value = "text/plain"
+    with patch.object(api_client.request, "urlopen", return_value=response_mock) as urlopen_mock:
+        result = api_client.run_cli(["download-file", "--signed-url", "/storage/signed?path=a&token=b"])
+        assert result == "downloaded"
+        urlopen_mock.assert_called_once_with("http://127.0.0.1/storage/signed?path=a&token=b")
+
+
+def test_tenant_migration_v3_on_legacy_schema(tmp_path: Path) -> None:
+    db_path = tmp_path / "legacy_tenant.db"
+    engine = create_engine(f"sqlite+pysqlite:///{db_path.as_posix()}")
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE role_templates (id INTEGER PRIMARY KEY, role_name VARCHAR(40))"))
+        conn.execute(
+            text(
+                "CREATE TABLE marketplace_events ("
+                "id INTEGER PRIMARY KEY, "
+                "external_order_id VARCHAR(120), "
+                "sales_order_id INTEGER)"
+            )
+        )
+
+    migration_module = importlib.import_module("app.services.tenant_migrations.v2026_03_01_3")
+    with engine.begin() as conn:
+        migration_module.migration_2026_03_01_3(conn)
+
+    inspector = inspect(engine)
+    assert "tenant_schema_versions" in inspector.get_table_names()
+    role_indexes = {idx["name"] for idx in inspector.get_indexes("role_templates")}
+    marketplace_indexes = {idx["name"] for idx in inspector.get_indexes("marketplace_events")}
+    assert "ix_role_templates_role_name" in role_indexes
+    assert "ix_marketplace_events_external_order_id" in marketplace_indexes

@@ -76,10 +76,29 @@ python scripts/api_client.py create-tenant --token CENTRAL_TOKEN --company-name 
 python scripts/api_client.py tenant-login --workspace-slug acme --email owner@acme.com --password 1234
 python scripts/api_client.py tenant-health --workspace-slug acme --token TENANT_TOKEN
 python scripts/api_client.py create-sales-order --workspace-slug acme --token TENANT_TOKEN --first-due-date 2026-03-01 --item "Servico:1:250" --item "Setup:1:90"
+python scripts/api_client.py create-proposal --workspace-slug acme --token TENANT_TOKEN --title "Proposta Inicial" --sales-order-id 1 --is-sendable
+python scripts/api_client.py create-contract --workspace-slug acme --token TENANT_TOKEN --title "Contrato Inicial" --sales-order-id 1
+python scripts/api_client.py sign-contract --workspace-slug acme --token TENANT_TOKEN --contract-id 1 --file-name assinado.txt --content "contrato assinado"
+python scripts/api_client.py create-finance-category --workspace-slug acme --token TENANT_TOKEN --name "Mensalidades" --entry-type receivable
+python scripts/api_client.py finance-dashboard --workspace-slug acme --token TENANT_TOKEN
 python scripts/api_client.py marketplace-webhook --workspace-slug acme --token TENANT_TOKEN --channel shopee --external-order-id order-1001 --client-name Cliente --client-email cliente@acme.com --total-amount 199 --first-due-date 2026-03-01
 python scripts/api_client.py upload-file --workspace-slug acme --token TENANT_TOKEN --bucket proposals --file-name proposta.txt --content "conteudo inicial"
 python scripts/api_client.py download-file --signed-url "http://127.0.0.1/storage/signed?path=...&token=..."
 ```
+
+## Painel minimo
+
+Ao subir a API, acesse:
+
+```text
+http://127.0.0.1/admin/panel
+```
+
+O painel e propositalmente simples e cobre:
+
+- login central
+- consulta do dashboard central
+- consulta do health do tenant
 
 ## Documentacao funcional por modulo
 
