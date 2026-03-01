@@ -13,8 +13,15 @@ from app.api.deps import (
 )
 from app.core.security import build_token, verify_password
 from app.models.central import CentralUser, Tenant
-from app.models.tenant import AccountsPayable, AccountsReceivable, Client, Lead, SalesOrder, User
-from app.schemas.auth import CentralUserResponse, LoginRequest, RefreshRequest, TenantLoginRequest, TokenResponse
+from app.models.tenant import AccountsPayable, AccountsReceivable, Client, Contract, Lead, Proposal, SalesItem, SalesOrder, User
+from app.schemas.auth import (
+    CentralUserResponse,
+    LoginRequest,
+    RefreshRequest,
+    TenantLoginRequest,
+    TenantRefreshRequest,
+    TokenResponse,
+)
 from app.schemas.crm import (
     AccountEntryCreateRequest,
     AccountEntryResponse,
@@ -26,6 +33,12 @@ from app.schemas.crm import (
     LeadCreateRequest,
     LeadResponse,
     LeadUpdateRequest,
+    ContractCreateRequest,
+    ContractResponse,
+    ProposalCreateRequest,
+    ProposalResponse,
+    SalesItemCreateRequest,
+    SalesItemResponse,
     SalesOrderCreateRequest,
     SalesOrderResponse,
     TenantUserCreateRequest,
@@ -34,6 +47,12 @@ from app.schemas.crm import (
 )
 from app.schemas.tenant import TenantCreateRequest, TenantCreateResponse
 from app.services.auth import issue_token_pair, persist_refresh_token, rotate_refresh_token
+from app.services.tenant_auth import (
+    issue_tenant_token_pair,
+    persist_tenant_refresh_token,
+    revoke_tenant_refresh_token,
+    rotate_tenant_refresh_token,
+)
 from app.services.tenants import create_tenant
 
 
@@ -82,13 +101,40 @@ def tenant_login(
     user = session.query(User).filter(User.email == payload.email).one_or_none()
     if user is None or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials.")
-    token = build_token(
-        user.email,
-        expires_in_minutes=30,
-        extra={"scope": "tenant", "is_admin": user.is_admin, "must_change_password": user.must_change_password},
-        token_type="access",
+    access_token, refresh_token = issue_tenant_token_pair(
+        user.email, is_admin=user.is_admin, must_change_password=user.must_change_password
     )
-    return TokenResponse(access_token=token)
+    persist_tenant_refresh_token(session, refresh_token)
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+
+@router.post("/tenant/{workspace_slug}/auth/refresh", response_model=TokenResponse)
+def tenant_refresh(
+    payload: TenantRefreshRequest,
+    session: Session = Depends(tenant_session_dep),
+) -> TokenResponse:
+    from app.core.security import decode_token
+
+    try:
+        current = decode_token(payload.refresh_token)
+        user = session.query(User).filter(User.email == current["sub"]).one_or_none()
+        if user is None:
+            raise ValueError
+        access_token, refresh_token = rotate_tenant_refresh_token(session, payload.refresh_token, is_admin=user.is_admin)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid refresh token.")
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+
+@router.post("/tenant/{workspace_slug}/auth/logout", status_code=204)
+def tenant_logout(
+    payload: TenantRefreshRequest,
+    session: Session = Depends(tenant_session_dep),
+) -> None:
+    try:
+        revoke_tenant_refresh_token(session, payload.refresh_token)
+    except ValueError:
+        pass
 
 
 @router.post("/central/tenants", response_model=TenantCreateResponse, status_code=201)
@@ -580,17 +626,32 @@ def create_sales_order(
         if client is None:
             raise HTTPException(status_code=404, detail="Client not found.")
 
+    if not hasattr(payload, "items") or not payload.items:
+        raise HTTPException(status_code=422, detail="At least one sales item is required.")
+
+    total_amount = sum(Decimal(str(item.quantity)) * Decimal(str(item.unit_price)) for item in payload.items)
+
     order = SalesOrder(
         client_id=payload.client_id,
         order_type=payload.order_type,
         duration_months=payload.duration_months,
-        total_amount=payload.total_amount,
+        total_amount=total_amount,
         status="confirmed",
     )
     session.add(order)
     session.flush()
 
-    installment_amount = (Decimal(str(payload.total_amount)) / Decimal(payload.installments)).quantize(Decimal("0.01"))
+    for item in payload.items:
+        session.add(
+            SalesItem(
+                sales_order_id=order.id,
+                description=item.description,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+            )
+        )
+
+    installment_amount = (total_amount / Decimal(payload.installments)).quantize(Decimal("0.01"))
     first_due = date.fromisoformat(payload.first_due_date)
 
     for index in range(payload.installments):
@@ -621,6 +682,20 @@ def create_sales_order(
     )
 
 
+@router.get("/tenant/{workspace_slug}/sales-orders/{order_id}/items", response_model=list[SalesItemResponse])
+def list_sales_order_items(order_id: int, session: Session = Depends(tenant_session_dep)) -> list[SalesItemResponse]:
+    items = session.query(SalesItem).filter(SalesItem.sales_order_id == order_id).order_by(SalesItem.id.asc()).all()
+    return [
+        SalesItemResponse(
+            id=item.id,
+            description=item.description,
+            quantity=float(item.quantity),
+            unit_price=float(item.unit_price),
+        )
+        for item in items
+    ]
+
+
 @router.get("/tenant/{workspace_slug}/sales-orders", response_model=list[SalesOrderResponse])
 def list_sales_orders(session: Session = Depends(tenant_session_dep)) -> list[SalesOrderResponse]:
     orders = session.query(SalesOrder).order_by(SalesOrder.id.desc()).all()
@@ -634,4 +709,89 @@ def list_sales_orders(session: Session = Depends(tenant_session_dep)) -> list[Sa
             status=order.status,
         )
         for order in orders
+    ]
+
+
+@router.post("/tenant/{workspace_slug}/proposals", response_model=ProposalResponse, status_code=201)
+def create_proposal(
+    payload: ProposalCreateRequest, session: Session = Depends(tenant_session_dep)
+) -> ProposalResponse:
+    if payload.client_id is not None:
+        client = session.query(Client).filter(Client.id == payload.client_id).one_or_none()
+        if client is None:
+            raise HTTPException(status_code=404, detail="Client not found.")
+    proposal = Proposal(
+        client_id=payload.client_id,
+        title=payload.title,
+        template_name=payload.template_name,
+        is_sendable=payload.is_sendable,
+    )
+    session.add(proposal)
+    session.commit()
+    session.refresh(proposal)
+    return ProposalResponse(
+        id=proposal.id,
+        client_id=proposal.client_id,
+        title=proposal.title,
+        template_name=proposal.template_name,
+        pdf_path=proposal.pdf_path,
+        is_sendable=proposal.is_sendable,
+    )
+
+
+@router.get("/tenant/{workspace_slug}/proposals", response_model=list[ProposalResponse])
+def list_proposals(session: Session = Depends(tenant_session_dep)) -> list[ProposalResponse]:
+    proposals = session.query(Proposal).order_by(Proposal.id.desc()).all()
+    return [
+        ProposalResponse(
+            id=proposal.id,
+            client_id=proposal.client_id,
+            title=proposal.title,
+            template_name=proposal.template_name,
+            pdf_path=proposal.pdf_path,
+            is_sendable=proposal.is_sendable,
+        )
+        for proposal in proposals
+    ]
+
+
+@router.post("/tenant/{workspace_slug}/contracts", response_model=ContractResponse, status_code=201)
+def create_contract(
+    payload: ContractCreateRequest, session: Session = Depends(tenant_session_dep)
+) -> ContractResponse:
+    if payload.client_id is not None:
+        client = session.query(Client).filter(Client.id == payload.client_id).one_or_none()
+        if client is None:
+            raise HTTPException(status_code=404, detail="Client not found.")
+    contract = Contract(
+        client_id=payload.client_id,
+        title=payload.title,
+        template_name=payload.template_name,
+    )
+    session.add(contract)
+    session.commit()
+    session.refresh(contract)
+    return ContractResponse(
+        id=contract.id,
+        client_id=contract.client_id,
+        title=contract.title,
+        template_name=contract.template_name,
+        pdf_path=contract.pdf_path,
+        signed_file_path=contract.signed_file_path,
+    )
+
+
+@router.get("/tenant/{workspace_slug}/contracts", response_model=list[ContractResponse])
+def list_contracts(session: Session = Depends(tenant_session_dep)) -> list[ContractResponse]:
+    contracts = session.query(Contract).order_by(Contract.id.desc()).all()
+    return [
+        ContractResponse(
+            id=contract.id,
+            client_id=contract.client_id,
+            title=contract.title,
+            template_name=contract.template_name,
+            pdf_path=contract.pdf_path,
+            signed_file_path=contract.signed_file_path,
+        )
+        for contract in contracts
     ]

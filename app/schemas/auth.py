@@ -25,3 +25,7 @@ class RefreshRequest(BaseModel):
 class TenantLoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+
+class TenantRefreshRequest(BaseModel):
+    refresh_token: str

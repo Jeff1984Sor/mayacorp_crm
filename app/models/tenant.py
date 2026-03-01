@@ -31,6 +31,16 @@ class User(TenantTimestampMixin, TenantBase):
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class TenantRefreshToken(TenantTimestampMixin, TenantBase):
+    __tablename__ = "tenant_refresh_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_email: Mapped[str] = mapped_column(String(255), index=True)
+    token_jti: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Lead(TenantTimestampMixin, TenantBase):
     __tablename__ = "leads"
 
