@@ -44,6 +44,11 @@ def panel_central_login(client: TestClient) -> None:
     assert "panel_central_token=" in response.headers.get("set-cookie", "")
 
 
+def panel_data(response):
+    payload = response.json()
+    return payload["data"] if isinstance(payload, dict) and "data" in payload else payload
+
+
 def tenant_auth_headers(client: TestClient, workspace_slug: str, email: str, password: str) -> dict[str, str]:
     response = client.post(
         f"/tenant/{workspace_slug}/auth/login",
@@ -126,6 +131,7 @@ def test_central_create_tenant_and_dashboard(tmp_path: Path) -> None:
         },
     )
     assert panel_create_response.status_code == 201
+    assert panel_data(panel_create_response)["workspace_slug"].startswith("painel-")
 
 
 def test_tenant_role_templates_crud(tmp_path: Path) -> None:
@@ -410,28 +416,28 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
         json={"name": "Lead via Painel", "email": "leadpanel@example.com"},
     )
     assert panel_lead.status_code == 201
-    lead_id = panel_lead.json()["id"]
+    lead_id = panel_data(panel_lead)["id"]
 
     panel_client = client.post(
         f"/admin/panel/{workspace_slug}/client",
         json={"name": "Client via Painel", "email": "clientpanel@example.com"},
     )
     assert panel_client.status_code == 201
-    client_panel_id = panel_client.json()["id"]
+    client_panel_id = panel_data(panel_client)["id"]
 
     panel_lead_update = client.patch(
         f"/admin/panel/{workspace_slug}/lead/{lead_id}",
         json={"name": "Lead Editado", "email": "lead2@example.com", "phone": "551100000001"},
     )
     assert panel_lead_update.status_code == 200
-    assert panel_lead_update.json()["name"] == "Lead Editado"
+    assert panel_data(panel_lead_update)["name"] == "Lead Editado"
 
     panel_client_update = client.patch(
         f"/admin/panel/{workspace_slug}/client/{client_panel_id}",
         json={"name": "Client Editado", "email": "client2@example.com", "phone": "551100000002"},
     )
     assert panel_client_update.status_code == 200
-    assert panel_client_update.json()["name"] == "Client Editado"
+    assert panel_data(panel_client_update)["name"] == "Client Editado"
 
     panel_order = client.post(
         f"/admin/panel/{workspace_slug}/sales-order",
@@ -443,22 +449,22 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
         },
     )
     assert panel_order.status_code == 200
-    order_id = panel_order.json()["id"]
+    order_id = panel_data(panel_order)["id"]
 
     panel_order_update = client.patch(
         f"/admin/panel/{workspace_slug}/sales-order/{order_id}",
         json={"status": "closed"},
     )
     assert panel_order_update.status_code == 200
-    assert panel_order_update.json()["status"] == "closed"
+    assert panel_data(panel_order_update)["status"] == "closed"
 
     panel_proposal = client.post(
         f"/admin/panel/{workspace_slug}/proposal",
         json={"title": "Proposta Painel", "sales_order_id": order_id},
     )
     assert panel_proposal.status_code == 200
-    assert panel_proposal.json()["pdf_path"]
-    proposal_id = panel_proposal.json()["id"]
+    assert panel_data(panel_proposal)["pdf_path"]
+    proposal_id = panel_data(panel_proposal)["id"]
 
     panel_proposal_update = client.patch(
         f"/admin/panel/{workspace_slug}/proposal/{proposal_id}",
@@ -471,7 +477,7 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
         json={"title": "Contrato Painel", "sales_order_id": order_id},
     )
     assert panel_contract.status_code == 200
-    panel_contract_id = panel_contract.json()["id"]
+    panel_contract_id = panel_data(panel_contract)["id"]
 
     panel_contract_update = client.patch(
         f"/admin/panel/{workspace_slug}/contract/{panel_contract_id}",
@@ -488,7 +494,7 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
         },
     )
     assert panel_sign.status_code == 200
-    assert panel_sign.json()["status"] == "signed"
+    assert panel_data(panel_sign)["status"] == "signed"
 
     panel_finance = client.post(
         f"/admin/panel/{workspace_slug}/finance-category",
@@ -501,11 +507,39 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
         json={"provider_session_id": "panel-session"},
     )
     assert panel_whatsapp.status_code == 200
-    assert panel_whatsapp.json()["status"] == "connecting"
+    assert panel_data(panel_whatsapp)["status"] == "connecting"
+
+    panel_receivable = client.post(
+        f"/admin/panel/{workspace_slug}/finance/receivable",
+        json={"amount": 80, "due_date": "2026-03-10", "category": "Mensalidades", "cost_center": "Comercial"},
+    )
+    assert panel_receivable.status_code == 201
+    receivable_id = panel_data(panel_receivable)["id"]
+
+    panel_receivable_update = client.patch(
+        f"/admin/panel/{workspace_slug}/finance/receivable/{receivable_id}",
+        json={"status": "paid"},
+    )
+    assert panel_receivable_update.status_code == 200
+    assert panel_data(panel_receivable_update)["status"] == "paid"
+
+    panel_payable = client.post(
+        f"/admin/panel/{workspace_slug}/finance/payable",
+        json={"amount": 40, "due_date": "2026-03-11", "category": "Operacional", "cost_center": "Operacoes"},
+    )
+    assert panel_payable.status_code == 201
+    payable_id = panel_data(panel_payable)["id"]
+
+    panel_whatsapp_send = client.post(
+        f"/admin/panel/{workspace_slug}/whatsapp/send",
+        json={"body": "Mensagem painel", "lead_id": lead_id},
+    )
+    assert panel_whatsapp_send.status_code == 201
+    assert panel_data(panel_whatsapp_send)["status"] == "sending"
 
     panel_summary = client.get(f"/admin/panel/{workspace_slug}/summary?page=1&page_size=3")
     assert panel_summary.status_code == 200
-    summary_payload = panel_summary.json()
+    summary_payload = panel_data(panel_summary)
     assert summary_payload["sales_orders"]
     assert summary_payload["proposals"]
     assert summary_payload["contracts"]
@@ -519,11 +553,13 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
 
     filtered_summary = client.get(f"/admin/panel/{workspace_slug}/summary?page=1&page_size=3&q=Editado")
     assert filtered_summary.status_code == 200
-    assert filtered_summary.json()["query"] == "Editado"
+    assert panel_data(filtered_summary)["query"] == "Editado"
 
     assert client.delete(f"/admin/panel/{workspace_slug}/proposal/{proposal_id}").status_code == 200
     assert client.delete(f"/admin/panel/{workspace_slug}/contract/{panel_contract_id}").status_code == 200
     assert client.delete(f"/admin/panel/{workspace_slug}/sales-order/{order_id}").status_code == 200
+    assert client.delete(f"/admin/panel/{workspace_slug}/finance/receivable/{receivable_id}").status_code == 200
+    assert client.delete(f"/admin/panel/{workspace_slug}/finance/payable/{payable_id}").status_code == 200
     assert client.delete(f"/admin/panel/{workspace_slug}/lead/{lead_id}").status_code == 200
     assert client.delete(f"/admin/panel/{workspace_slug}/client/{client_panel_id}").status_code == 200
 

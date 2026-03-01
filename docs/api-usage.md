@@ -110,8 +110,11 @@ O painel e propositalmente simples e cobre:
 - CRUD visual basico de leads, clients, pedidos, propostas e contratos no painel
 - resumo com `page`, `page_size` e filtro `q`
 - acao rapida de categoria financeira
+- criacao/atualizacao/exclusao basica de contas a receber e a pagar via painel
 - conexao rapida de sessao WhatsApp
+- envio outbound de WhatsApp via painel
 - sessao do painel em cookies HttpOnly para central e tenant
+- endpoints do painel retornam envelope padrao: `ok`, `message`, `data`
 
 Implementacao:
 

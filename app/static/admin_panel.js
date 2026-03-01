@@ -1,6 +1,13 @@
 const output = document.getElementById("output");
 const toast = document.getElementById("toast");
 
+function unwrapPayload(parsed) {
+  if (parsed && Object.prototype.hasOwnProperty.call(parsed, "ok") && Object.prototype.hasOwnProperty.call(parsed, "data")) {
+    return parsed.data;
+  }
+  return parsed;
+}
+
 function showToast(message, type = "success") {
   if (!toast) {
     return;
@@ -70,15 +77,16 @@ async function showResult(response) {
     try {
       const parsed = JSON.parse(text);
       output.textContent = JSON.stringify(parsed, null, 2);
+      const payload = unwrapPayload(parsed);
       if (response.ok) {
-        showToast("Operacao concluida.", "success");
+        showToast(parsed.message || "Operacao concluida.", "success");
       } else {
         showToast(parsed.detail || "Falha na operacao.", "error");
       }
-      if (parsed && parsed.sales_orders && parsed.proposals && parsed.contracts) {
-        renderSummary(parsed);
+      if (payload && payload.sales_orders && payload.proposals && payload.contracts) {
+        renderSummary(payload);
       }
-      return parsed;
+      return payload;
     } catch (error) {}
   }
   output.textContent = text;
@@ -281,6 +289,40 @@ async function createFinanceCategory() {
   await showResult(response);
 }
 
+async function createReceivable() {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch(`/admin/panel/${slug}/finance/receivable`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({
+      amount: Number(document.getElementById("receivableAmount").value || "0"),
+      due_date: document.getElementById("financeDueDate").value,
+      category: document.getElementById("financeCategoryName").value,
+      cost_center: "Comercial",
+      status: "pending"
+    })
+  });
+  await showResult(response);
+}
+
+async function createPayable() {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch(`/admin/panel/${slug}/finance/payable`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({
+      amount: Number(document.getElementById("payableAmount").value || "0"),
+      due_date: document.getElementById("financeDueDate").value,
+      category: "Operacional",
+      cost_center: "Operacoes",
+      status: "pending"
+    })
+  });
+  await showResult(response);
+}
+
 async function connectWhatsapp() {
   const slug = document.getElementById("tenantSlug").value.trim();
   const response = await fetch("/admin/panel/" + slug + "/whatsapp-session", {
@@ -289,6 +331,21 @@ async function connectWhatsapp() {
     credentials: "same-origin",
     body: JSON.stringify({
       provider_session_id: document.getElementById("whatsappSessionId").value
+    })
+  });
+  await showResult(response);
+}
+
+async function sendWhatsapp() {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch(`/admin/panel/${slug}/whatsapp/send`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({
+      body: document.getElementById("whatsappBody").value,
+      client_id: toOptionalInt(document.getElementById("whatsappClientId").value),
+      lead_id: toOptionalInt(document.getElementById("whatsappLeadId").value)
     })
   });
   await showResult(response);
