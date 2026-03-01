@@ -11,7 +11,7 @@ from app.core.security import hash_password
 from app.db.base import TenantBase
 from app.db.session import build_tenant_engine
 from app.models.central import CentralAuditLog, SaasInvoice, Tenant, TenantSubscription
-from app.models.tenant import BankAccount, User
+from app.models.tenant import BankAccount, CostCenter, FinanceCategory, RoleTemplate, User
 from app.schemas.tenant import TenantCreateRequest
 from app.services.tenant_schema import migrate_tenant_schema
 
@@ -51,12 +51,15 @@ def create_tenant(session: Session, payload: TenantCreateRequest, actor_email: s
     migrate_tenant_schema(tenant_engine)
 
     with Session(tenant_engine) as tenant_session:
+        admin_template = tenant_session.query(RoleTemplate).filter(RoleTemplate.role_name == "admin").one_or_none()
         tenant_session.add(
             User(
                 email=payload.admin_email,
                 full_name=payload.admin_name,
                 password_hash=hash_password(payload.admin_password),
                 is_admin=True,
+                role="admin",
+                permissions=admin_template.permissions if admin_template else {},
                 must_change_password=True,
             )
         )
@@ -67,6 +70,14 @@ def create_tenant(session: Session, payload: TenantCreateRequest, actor_email: s
                 currency="BRL",
                 is_default=True,
             )
+        )
+        tenant_session.add_all(
+            [
+                FinanceCategory(name="Vendas", entry_type="receivable"),
+                FinanceCategory(name="Operacional", entry_type="payable"),
+                CostCenter(name="Comercial"),
+                CostCenter(name="Operacoes"),
+            ]
         )
         tenant_session.commit()
 

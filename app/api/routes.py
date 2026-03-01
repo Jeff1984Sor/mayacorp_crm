@@ -38,6 +38,7 @@ from app.models.tenant import (
     Message,
     MarketplaceEvent,
     Proposal,
+    RoleTemplate,
     SalesItem,
     SalesOrder,
     TenantWhatsappAccount,
@@ -108,6 +109,7 @@ from app.schemas.crm import (
     StorageFileRequest,
     StorageFileResponse,
     StorageResolvedResponse,
+    RoleTemplateResponse,
     WorkspaceHealthResponse,
 )
 from app.schemas.tenant import TenantCreateRequest, TenantCreateResponse
@@ -484,7 +486,10 @@ def tenant_workspace_health(
 
 
 @router.get("/tenant/{workspace_slug}/users", response_model=list[TenantUserResponse])
-def list_tenant_users(session: Session = Depends(tenant_session_dep)) -> list[TenantUserResponse]:
+def list_tenant_users(
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_admin_user_dep),
+) -> list[TenantUserResponse]:
     users = session.query(User).order_by(User.id.asc()).all()
     return [
         TenantUserResponse(
@@ -492,10 +497,21 @@ def list_tenant_users(session: Session = Depends(tenant_session_dep)) -> list[Te
             email=user.email,
             full_name=user.full_name,
             is_admin=user.is_admin,
+            role=user.role,
+            permissions=user.permissions or {},
             must_change_password=user.must_change_password,
         )
         for user in users
     ]
+
+
+@router.get("/tenant/{workspace_slug}/roles", response_model=list[RoleTemplateResponse])
+def list_role_templates(
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_admin_user_dep),
+) -> list[RoleTemplateResponse]:
+    roles = session.query(RoleTemplate).order_by(RoleTemplate.role_name.asc()).all()
+    return [RoleTemplateResponse(role_name=role.role_name, permissions=role.permissions or {}) for role in roles]
 
 
 @router.post("/tenant/{workspace_slug}/users", response_model=TenantUserResponse, status_code=201)
@@ -814,7 +830,7 @@ def update_account_receivable(
     entry_id: int,
     payload: AccountEntryUpdateRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("finance.write")),
 ) -> AccountEntryResponse:
     from datetime import date
 
@@ -845,7 +861,7 @@ def update_account_receivable(
 
 @router.delete("/tenant/{workspace_slug}/finance/accounts-receivable/{entry_id}", status_code=204)
 def delete_account_receivable(
-    entry_id: int, session: Session = Depends(tenant_session_dep), _: User = Depends(tenant_manager_user_dep)
+    entry_id: int, session: Session = Depends(tenant_session_dep), _: User = Depends(tenant_permission_dep("finance.write"))
 ) -> None:
     entry = session.query(AccountsReceivable).filter(AccountsReceivable.id == entry_id).one_or_none()
     if entry is None:
@@ -919,7 +935,7 @@ def update_account_payable(
     entry_id: int,
     payload: AccountEntryUpdateRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("finance.write")),
 ) -> AccountEntryResponse:
     from datetime import date
 
@@ -950,7 +966,7 @@ def update_account_payable(
 
 @router.delete("/tenant/{workspace_slug}/finance/accounts-payable/{entry_id}", status_code=204)
 def delete_account_payable(
-    entry_id: int, session: Session = Depends(tenant_session_dep), _: User = Depends(tenant_manager_user_dep)
+    entry_id: int, session: Session = Depends(tenant_session_dep), _: User = Depends(tenant_permission_dep("finance.write"))
 ) -> None:
     entry = session.query(AccountsPayable).filter(AccountsPayable.id == entry_id).one_or_none()
     if entry is None:
@@ -1064,7 +1080,7 @@ def update_sales_order(
     order_id: int,
     payload: SalesOrderUpdateRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("sales.write")),
 ) -> SalesOrderResponse:
     order = session.query(SalesOrder).filter(SalesOrder.id == order_id).one_or_none()
     if order is None:
@@ -1089,7 +1105,7 @@ def update_sales_order(
 
 @router.delete("/tenant/{workspace_slug}/sales-orders/{order_id}", status_code=204)
 def delete_sales_order(
-    order_id: int, session: Session = Depends(tenant_session_dep), _: User = Depends(tenant_manager_user_dep)
+    order_id: int, session: Session = Depends(tenant_session_dep), _: User = Depends(tenant_permission_dep("sales.write"))
 ) -> None:
     order = session.query(SalesOrder).filter(SalesOrder.id == order_id).one_or_none()
     if order is None:
@@ -1105,7 +1121,7 @@ def create_proposal(
     workspace_slug: str,
     payload: ProposalCreateRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("sales.write")),
 ) -> ProposalResponse:
     if payload.client_id is not None:
         client = session.query(Client).filter(Client.id == payload.client_id).one_or_none()
@@ -1162,7 +1178,7 @@ def update_proposal(
     proposal_id: int,
     payload: ProposalUpdateRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("sales.write")),
 ) -> ProposalResponse:
     proposal = session.query(Proposal).filter(Proposal.id == proposal_id).one_or_none()
     if proposal is None:
@@ -1189,7 +1205,7 @@ def update_proposal(
 
 @router.delete("/tenant/{workspace_slug}/proposals/{proposal_id}", status_code=204)
 def delete_proposal(
-    proposal_id: int, session: Session = Depends(tenant_session_dep), _: User = Depends(tenant_manager_user_dep)
+    proposal_id: int, session: Session = Depends(tenant_session_dep), _: User = Depends(tenant_permission_dep("sales.write"))
 ) -> None:
     proposal = session.query(Proposal).filter(Proposal.id == proposal_id).one_or_none()
     if proposal is None:
@@ -1261,7 +1277,7 @@ def update_contract(
     contract_id: int,
     payload: ContractUpdateRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("contracts.write")),
 ) -> ContractResponse:
     contract = session.query(Contract).filter(Contract.id == contract_id).one_or_none()
     if contract is None:
@@ -1295,7 +1311,7 @@ def upload_signed_contract_file(
     contract_id: int,
     payload: ContractSignedFileRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("contracts.write")),
 ) -> ContractResponse:
     contract = session.query(Contract).filter(Contract.id == contract_id).one_or_none()
     if contract is None:
@@ -1318,7 +1334,7 @@ def upload_signed_contract_file(
 
 @router.delete("/tenant/{workspace_slug}/contracts/{contract_id}", status_code=204)
 def delete_contract(
-    contract_id: int, session: Session = Depends(tenant_session_dep), _: User = Depends(tenant_manager_user_dep)
+    contract_id: int, session: Session = Depends(tenant_session_dep), _: User = Depends(tenant_permission_dep("contracts.write"))
 ) -> None:
     contract = session.query(Contract).filter(Contract.id == contract_id).one_or_none()
     if contract is None:
@@ -1440,7 +1456,7 @@ def whatsapp_outbound(
 def whatsapp_status(
     payload: WhatsappStatusRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("whatsapp.manage")),
 ) -> dict[str, str]:
     if payload.status not in {"sending", "sent", "delivered", "read", "failed"}:
         raise HTTPException(status_code=422, detail="Invalid message status.")
@@ -1517,7 +1533,7 @@ def resolve_signed_storage(path: str, token: str):
 def create_finance_category(
     payload: FinanceCategoryCreateRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("finance.write")),
 ) -> FinanceCategoryResponse:
     category = FinanceCategory(name=payload.name, entry_type=payload.entry_type)
     session.add(category)
@@ -1527,7 +1543,10 @@ def create_finance_category(
 
 
 @router.get("/tenant/{workspace_slug}/finance/categories", response_model=list[FinanceCategoryResponse])
-def list_finance_categories(session: Session = Depends(tenant_session_dep)) -> list[FinanceCategoryResponse]:
+def list_finance_categories(
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_permission_dep("finance.write")),
+) -> list[FinanceCategoryResponse]:
     items = session.query(FinanceCategory).order_by(FinanceCategory.name.asc()).all()
     return [FinanceCategoryResponse(id=item.id, name=item.name, entry_type=item.entry_type) for item in items]
 
@@ -1536,7 +1555,7 @@ def list_finance_categories(session: Session = Depends(tenant_session_dep)) -> l
 def create_cost_center(
     payload: CostCenterCreateRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("finance.write")),
 ) -> CostCenterResponse:
     center = CostCenter(name=payload.name)
     session.add(center)
@@ -1546,7 +1565,10 @@ def create_cost_center(
 
 
 @router.get("/tenant/{workspace_slug}/finance/cost-centers", response_model=list[CostCenterResponse])
-def list_cost_centers(session: Session = Depends(tenant_session_dep)) -> list[CostCenterResponse]:
+def list_cost_centers(
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_permission_dep("finance.write")),
+) -> list[CostCenterResponse]:
     items = session.query(CostCenter).order_by(CostCenter.name.asc()).all()
     return [CostCenterResponse(id=item.id, name=item.name) for item in items]
 
@@ -1555,7 +1577,7 @@ def list_cost_centers(session: Session = Depends(tenant_session_dep)) -> list[Co
 def export_finance(
     export_format: str = "csv",
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("finance.write")),
 ) -> FinanceExportResponse:
     receivables = session.query(AccountsReceivable).order_by(AccountsReceivable.id.asc()).all()
     payables = session.query(AccountsPayable).order_by(AccountsPayable.id.asc()).all()
@@ -1577,7 +1599,7 @@ def export_finance(
 @router.get("/tenant/{workspace_slug}/finance/dashboard", response_model=FinanceDashboardResponse)
 def finance_dashboard(
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("finance.write")),
 ) -> FinanceDashboardResponse:
     receivables = session.query(AccountsReceivable).all()
     payables = session.query(AccountsPayable).all()
@@ -1598,7 +1620,7 @@ def finance_dashboard(
 @router.get("/tenant/{workspace_slug}/dashboard/commercial", response_model=CommercialDashboardResponse)
 def commercial_dashboard(
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("sales.write")),
 ) -> CommercialDashboardResponse:
     leads = session.query(Lead).all()
     clients = session.query(Client).all()
@@ -1799,7 +1821,7 @@ def create_lead_radar_run(
 def process_lead_radar_run(
     run_id: int,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("leadradar.run")),
 ) -> LeadRadarRunResponse:
     run = session.query(LeadRadarRun).filter(LeadRadarRun.id == run_id).one_or_none()
     if run is None:
@@ -1839,7 +1861,7 @@ def lead_radar_callback(
     workspace_slug: str,
     payload: LeadRadarCallbackRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("leadradar.run")),
 ) -> LeadRadarRunResponse:
     if payload.external_run_id:
         existing_run = (
@@ -1903,7 +1925,7 @@ def lead_radar_callback(
 @router.get("/tenant/{workspace_slug}/lead-radar/runs", response_model=list[LeadRadarRunResponse])
 def list_lead_radar_runs(
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("marketplace.write")),
 ) -> list[LeadRadarRunResponse]:
     runs = session.query(LeadRadarRun).order_by(LeadRadarRun.id.desc()).all()
     return [LeadRadarRunResponse(id=run.id, status=run.status, source=run.source, summary=run.summary) for run in runs]

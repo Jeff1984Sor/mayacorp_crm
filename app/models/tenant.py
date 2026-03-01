@@ -50,6 +50,14 @@ class TenantSchemaVersion(TenantTimestampMixin, TenantBase):
     version: Mapped[str] = mapped_column(String(40), unique=True, index=True)
 
 
+class RoleTemplate(TenantTimestampMixin, TenantBase):
+    __tablename__ = "role_templates"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    role_name: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    permissions: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
 class Lead(TenantTimestampMixin, TenantBase):
     __tablename__ = "leads"
 

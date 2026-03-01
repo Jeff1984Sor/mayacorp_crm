@@ -342,3 +342,8 @@ class CommercialDashboardResponse(BaseModel):
     sales_total: float
     inbound_message_count: int
     outbound_message_count: int
+
+
+class RoleTemplateResponse(BaseModel):
+    role_name: str
+    permissions: dict
