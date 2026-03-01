@@ -148,6 +148,10 @@ async function loadWorkspaceSummary() {
   const query = new URLSearchParams({
     page: document.getElementById("summaryPage").value || "1",
     page_size: document.getElementById("summaryPageSize").value || "5",
+    leads_page: document.getElementById("leadsPage").value || "1",
+    leads_page_size: document.getElementById("leadsPageSize").value || "5",
+    clients_page: document.getElementById("clientsPage").value || "1",
+    clients_page_size: document.getElementById("clientsPageSize").value || "5",
     documents_page: document.getElementById("documentsPage").value || "1",
     documents_page_size: document.getElementById("documentsPageSize").value || "5",
     messages_page: document.getElementById("messagesPage").value || "1",
@@ -178,7 +182,10 @@ async function loadWorkspaceSummary() {
     query.set("message_direction", messageDirection);
   }
   const response = await fetch(`/admin/panel/${getTenantSlug()}/summary?${query.toString()}`, { credentials: "same-origin" });
-  await showResult(response);
+  const payload = await showResult(response);
+  if (payload) {
+    setPanelCache("summary", payload);
+  }
 }
 
 async function createFinanceCategory() {
@@ -439,11 +446,17 @@ async function renameProposal(id) {
     showToast("Informe o novo titulo da proposta.", "error");
     return;
   }
+  const cachedSummary = getPanelCache("summary");
+  const cachedDocuments = getPanelCache("documents");
+  const currentProposal = (cachedDocuments?.proposals || cachedSummary?.proposals || []).find((item) => item.id === id);
   const response = await fetch(`/admin/panel/${getTenantSlug()}/proposal/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
-    body: JSON.stringify({ title, sales_order_id: toOptionalInt(document.getElementById("proposalOrderId").value) })
+    body: JSON.stringify({
+      title,
+      sales_order_id: currentProposal?.sales_order_id ?? toOptionalInt(document.getElementById("proposalOrderId").value)
+    })
   });
   await showResult(response);
   await loadWorkspaceSummary();
@@ -461,11 +474,17 @@ async function renameContract(id) {
     showToast("Informe o novo titulo do contrato.", "error");
     return;
   }
+  const cachedSummary = getPanelCache("summary");
+  const cachedDocuments = getPanelCache("documents");
+  const currentContract = (cachedDocuments?.contracts || cachedSummary?.contracts || []).find((item) => item.id === id);
   const response = await fetch(`/admin/panel/${getTenantSlug()}/contract/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
-    body: JSON.stringify({ title, sales_order_id: toOptionalInt(document.getElementById("contractOrderId").value) })
+    body: JSON.stringify({
+      title,
+      sales_order_id: currentContract?.sales_order_id ?? toOptionalInt(document.getElementById("contractOrderId").value)
+    })
   });
   await showResult(response);
   await loadWorkspaceSummary();
@@ -504,6 +523,7 @@ async function loadDocumentsSummary() {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/documents?${query.toString()}`, { credentials: "same-origin" });
   const payload = await showResult(response);
   if (payload) {
+    setPanelCache("documents", payload);
     renderList("proposalsList", payload.proposals || [], (item) =>
       `#${item.id} | ${item.title}<br>${item.pdf_path || "sem pdf"}<br>
       <input id="proposalTitleEdit-${item.id}" placeholder="Novo titulo">
@@ -540,6 +560,7 @@ async function loadMessagesSummary() {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/messages?${query.toString()}`, { credentials: "same-origin" });
   const payload = await showResult(response);
   if (payload) {
+    setPanelCache("messages", payload);
     renderList("messagesList", payload.messages || [], (item) =>
       `#${item.id} | ${item.direction} | ${item.status}<br>${item.body}<br>
       <button onclick="updateMessageStatus(${item.id})">Atualizar status</button>`
@@ -555,6 +576,7 @@ async function loadFinanceSummary() {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/finance`, { credentials: "same-origin" });
   const payload = await showResult(response);
   if (payload) {
+    setPanelCache("finance", payload);
     renderList("receivablesList", payload.receivables || [], (item) =>
       `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
       ${item.category || "-"} | ${item.due_date || "-"}<br>
@@ -570,6 +592,71 @@ async function loadFinanceSummary() {
   }
 }
 
+async function loadOrdersSummary() {
+  const query = new URLSearchParams({
+    page: document.getElementById("summaryPage").value || "1",
+    page_size: document.getElementById("summaryPageSize").value || "5"
+  });
+  const orderStatus = selectedValue("orderStatusFilter");
+  if (orderStatus) {
+    query.set("order_status", orderStatus);
+  }
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/orders?${query.toString()}`, { credentials: "same-origin" });
+  const payload = await showResult(response);
+  if (payload) {
+    setPanelCache("orders", payload);
+    renderList("salesOrdersList", payload.sales_orders || [], (item) =>
+      `#${item.id} | ${item.status} | R$ ${Number(item.total_amount).toFixed(2)}<br>
+      <button onclick="updateSalesOrderStatus(${item.id})">Atualizar status</button>
+      <button onclick="deleteSalesOrder(${item.id})">Excluir</button>`
+    );
+    const ordersMeta = document.getElementById("ordersMeta");
+    if (ordersMeta) {
+      ordersMeta.textContent = `Pedidos: pagina ${payload.page}/${Math.max(1, Math.ceil((payload.sales_orders_total || 0) / Math.max(payload.page_size || 1, 1)))}, total ${payload.sales_orders_total || 0}`;
+    }
+  }
+}
+
+async function loadPeopleSummary() {
+  const query = new URLSearchParams({
+    leads_page: document.getElementById("leadsPage").value || "1",
+    leads_page_size: document.getElementById("leadsPageSize").value || "5",
+    clients_page: document.getElementById("clientsPage").value || "1",
+    clients_page_size: document.getElementById("clientsPageSize").value || "5"
+  });
+  const filterValue = document.getElementById("summaryQuery").value.trim();
+  if (filterValue) {
+    query.set("q", filterValue);
+  }
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/people?${query.toString()}`, { credentials: "same-origin" });
+  const payload = await showResult(response);
+  if (payload) {
+    setPanelCache("people", payload);
+    const leadsBlock = payload.leads || {};
+    const clientsBlock = payload.clients || {};
+    renderList("leadsList", leadsBlock.items || [], (item) =>
+      `#${item.id} | ${item.name}<br>${item.email || "-"}<br>
+      <input id="leadNameEdit-${item.id}" placeholder="Novo nome">
+      <button onclick="renameLead(${item.id})">Editar</button>
+      <button onclick="deleteLead(${item.id})">Excluir</button>`
+    );
+    renderList("clientsList", clientsBlock.items || [], (item) =>
+      `#${item.id} | ${item.name}<br>${item.email || "-"}<br>
+      <input id="clientNameEdit-${item.id}" placeholder="Novo nome">
+      <button onclick="renameClient(${item.id})">Editar</button>
+      <button onclick="deleteClient(${item.id})">Excluir</button>`
+    );
+    const leadsMeta = document.getElementById("leadsMeta");
+    if (leadsMeta) {
+      leadsMeta.textContent = `Leads: pagina ${leadsBlock.page || 1}/${Math.max(1, Math.ceil((leadsBlock.total || 0) / Math.max(leadsBlock.page_size || 1, 1)))}, total ${leadsBlock.total || 0}`;
+    }
+    const clientsMeta = document.getElementById("clientsMeta");
+    if (clientsMeta) {
+      clientsMeta.textContent = `Clients: pagina ${clientsBlock.page || 1}/${Math.max(1, Math.ceil((clientsBlock.total || 0) / Math.max(clientsBlock.page_size || 1, 1)))}, total ${clientsBlock.total || 0}`;
+    }
+  }
+}
+
 function shiftNumericInput(id, delta, minimum = 1) {
   const element = document.getElementById(id);
   if (!element) {
@@ -581,12 +668,12 @@ function shiftNumericInput(id, delta, minimum = 1) {
 
 async function prevOrdersPage() {
   shiftNumericInput("summaryPage", -1);
-  await loadWorkspaceSummary();
+  await loadOrdersSummary();
 }
 
 async function nextOrdersPage() {
   shiftNumericInput("summaryPage", 1);
-  await loadWorkspaceSummary();
+  await loadOrdersSummary();
 }
 
 async function prevDocumentsPage() {
@@ -617,4 +704,24 @@ async function prevFinancePage() {
 async function nextFinancePage() {
   shiftNumericInput("financePage", 1);
   await loadReceivables();
+}
+
+async function prevLeadsPage() {
+  shiftNumericInput("leadsPage", -1);
+  await loadPeopleSummary();
+}
+
+async function nextLeadsPage() {
+  shiftNumericInput("leadsPage", 1);
+  await loadPeopleSummary();
+}
+
+async function prevClientsPage() {
+  shiftNumericInput("clientsPage", -1);
+  await loadPeopleSummary();
+}
+
+async function nextClientsPage() {
+  shiftNumericInput("clientsPage", 1);
+  await loadPeopleSummary();
 }

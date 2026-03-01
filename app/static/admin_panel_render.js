@@ -1,4 +1,11 @@
 function renderSummary(summary) {
+  renderList("topMetrics", [
+    `Pedidos: ${summary.sales_orders_total || 0}`,
+    `Leads: ${summary.leads_total || 0}`,
+    `Clients: ${summary.clients_total || 0}`,
+    `Docs: ${summary.documents_total || 0}`,
+    `Msgs: ${summary.messages_total || 0}`
+  ], (item) => item);
   renderList("salesOrdersList", summary.sales_orders || [], (item) =>
     `#${item.id} | ${item.status} | R$ ${Number(item.total_amount).toFixed(2)}<br>
     <button onclick="updateSalesOrderStatus(${item.id})">Atualizar status</button>
@@ -67,6 +74,14 @@ function renderSummary(summary) {
   const docsMeta = document.getElementById("documentsMeta");
   if (docsMeta) {
     docsMeta.textContent = `Docs: pagina ${summary.documents_page}/${Math.max(1, Math.ceil((summary.documents_total || 0) / Math.max(summary.documents_page_size || 1, 1)))}, total ${summary.documents_total || 0}`;
+  }
+  const leadsMeta = document.getElementById("leadsMeta");
+  if (leadsMeta) {
+    leadsMeta.textContent = `Leads: pagina ${summary.leads_page || 1}/${Math.max(1, Math.ceil((summary.leads_total || 0) / Math.max(summary.leads_page_size || 1, 1)))}, total ${summary.leads_total || 0}`;
+  }
+  const clientsMeta = document.getElementById("clientsMeta");
+  if (clientsMeta) {
+    clientsMeta.textContent = `Clients: pagina ${summary.clients_page || 1}/${Math.max(1, Math.ceil((summary.clients_total || 0) / Math.max(summary.clients_page_size || 1, 1)))}, total ${summary.clients_total || 0}`;
   }
   const messagesMeta = document.getElementById("messagesMeta");
   if (messagesMeta) {

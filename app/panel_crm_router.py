@@ -210,6 +210,8 @@ def admin_panel_update_proposal(
     proposal = session.query(Proposal).filter(Proposal.id == proposal_id).one_or_none()
     if proposal is None:
         raise HTTPException(status_code=404, detail="Proposal not found.")
+    if proposal.sales_order_id is not None and payload.sales_order_id is None:
+        raise HTTPException(status_code=409, detail="Proposal cannot be detached from its sales order.")
     proposal.title = payload.title
     proposal.sales_order_id = payload.sales_order_id
     proposal.pdf_path = _write_document_file(workspace_slug, "proposals", proposal.id, proposal.title)
@@ -262,6 +264,10 @@ def admin_panel_update_contract(
     contract = session.query(Contract).filter(Contract.id == contract_id).one_or_none()
     if contract is None:
         raise HTTPException(status_code=404, detail="Contract not found.")
+    if contract.status == "signed":
+        raise HTTPException(status_code=409, detail="Signed contracts cannot be edited.")
+    if contract.sales_order_id is not None and payload.sales_order_id is None:
+        raise HTTPException(status_code=409, detail="Contract cannot be detached from its sales order.")
     contract.title = payload.title
     contract.sales_order_id = payload.sales_order_id
     contract.pdf_path = _write_document_file(workspace_slug, "contracts", contract.id, contract.title)
@@ -311,6 +317,8 @@ def admin_panel_sign_contract(
     contract = session.query(Contract).filter(Contract.id == payload.contract_id).one_or_none()
     if contract is None:
         raise HTTPException(status_code=404, detail="Contract not found.")
+    if contract.status == "cancelled":
+        raise HTTPException(status_code=409, detail="Cancelled contracts cannot be signed.")
     contract.signed_file_path = _write_signed_contract_file(workspace_slug, contract.id, payload.file_name, payload.content)
     contract.status = "signed"
     session.commit()

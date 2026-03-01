@@ -81,6 +81,7 @@ def test_healthcheck(tmp_path: Path) -> None:
     assert shared_js_response.status_code == 200
     assert "showToast" in shared_js_response.text
     assert "toOptionalInt" in shared_js_response.text
+    assert "setPanelCache" in shared_js_response.text
 
     constants_js_response = client.get("/static/admin_panel_constants.js")
     assert constants_js_response.status_code == 200
@@ -91,6 +92,8 @@ def test_healthcheck(tmp_path: Path) -> None:
     assert "renderSummary" in render_js_response.text
     assert "updateMessageStatus" in render_js_response.text
     assert "ordersMeta" in render_js_response.text
+    assert "topMetrics" in render_js_response.text
+    assert "leadsMeta" in render_js_response.text
 
     actions_js_response = client.get("/static/admin_panel_actions.js")
     assert actions_js_response.status_code == 200
@@ -100,9 +103,13 @@ def test_healthcheck(tmp_path: Path) -> None:
     assert "documents_page" in actions_js_response.text
     assert "messages_page" in actions_js_response.text
     assert "loadDocumentsSummary" in actions_js_response.text
+    assert "loadOrdersSummary" in actions_js_response.text
+    assert "loadPeopleSummary" in actions_js_response.text
     assert "updateContractStatus" in actions_js_response.text
     assert "prevOrdersPage" in actions_js_response.text
     assert "nextMessagesPage" in actions_js_response.text
+    assert "prevLeadsPage" in actions_js_response.text
+    assert "setPanelCache" in actions_js_response.text
     assert "window.prompt(\"Novo nome do lead" not in actions_js_response.text
     assert "window.prompt(\"Novo nome do client" not in actions_js_response.text
 
@@ -540,6 +547,18 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert panel_sign.status_code == 200
     assert panel_data(panel_sign)["status"] == "signed"
 
+    signed_contract_edit = client.patch(
+        f"/admin/panel/{workspace_slug}/contract/{panel_contract_id}",
+        json={"title": "Contrato Nao Pode", "sales_order_id": order_id},
+    )
+    assert signed_contract_edit.status_code == 409
+
+    detach_contract = client.patch(
+        f"/admin/panel/{workspace_slug}/contract/{panel_contract_id}",
+        json={"title": "Contrato Nao Pode", "sales_order_id": None},
+    )
+    assert detach_contract.status_code == 409
+
     invalid_transition = client.patch(
         f"/admin/panel/{workspace_slug}/contract/{panel_contract_id}/status",
         json={"status": "draft"},
@@ -556,6 +575,12 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert documents_payload["documents_page"] == 1
     assert documents_payload["documents_page_size"] == 2
     assert documents_payload["contract_status"] == "signed"
+
+    detach_proposal = client.patch(
+        f"/admin/panel/{workspace_slug}/proposal/{proposal_id}",
+        json={"title": "Proposta Solta", "sales_order_id": None},
+    )
+    assert detach_proposal.status_code == 409
 
     panel_finance = client.post(
         f"/admin/panel/{workspace_slug}/finance-category",
@@ -623,6 +648,26 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert messages_payload["messages_page_size"] == 2
     assert messages_payload["message_status"] == "read"
 
+    orders_summary = client.get(
+        f"/admin/panel/{workspace_slug}/summary/orders?page=1&page_size=2&order_status=closed"
+    )
+    assert orders_summary.status_code == 200
+    orders_payload = panel_data(orders_summary)
+    assert orders_payload["sales_orders"]
+    assert all(item["status"] == "closed" for item in orders_payload["sales_orders"])
+    assert orders_payload["order_status"] == "closed"
+
+    people_summary = client.get(
+        f"/admin/panel/{workspace_slug}/summary/people?leads_page=1&leads_page_size=1&clients_page=1&clients_page_size=1&q=Editado"
+    )
+    assert people_summary.status_code == 200
+    people_payload = panel_data(people_summary)
+    assert people_payload["leads"]["items"]
+    assert people_payload["clients"]["items"]
+    assert people_payload["leads"]["page_size"] == 1
+    assert people_payload["clients"]["page_size"] == 1
+    assert people_payload["query"] == "Editado"
+
     receivables_filtered = client.get(
         f"/admin/panel/{workspace_slug}/finance/receivables?status=paid&category=Mensalidades&due_from=2026-03-01&due_to=2026-03-31"
     )
@@ -683,6 +728,12 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert any(item["status"] == "read" for item in summary_payload["messages"])
     assert summary_payload["page"] == 1
     assert summary_payload["page_size"] == 3
+    assert summary_payload["leads_page"] == 1
+    assert summary_payload["leads_page_size"] == 5
+    assert summary_payload["leads_total"] >= 1
+    assert summary_payload["clients_page"] == 1
+    assert summary_payload["clients_page_size"] == 5
+    assert summary_payload["clients_total"] >= 1
     assert summary_payload["documents_page"] == 1
     assert summary_payload["documents_page_size"] == 2
     assert summary_payload["documents_total"] >= 1

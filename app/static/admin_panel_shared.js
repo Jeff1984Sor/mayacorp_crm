@@ -1,5 +1,6 @@
 const output = document.getElementById("output");
 const toast = document.getElementById("toast");
+const panelCache = window.__PANEL_CACHE__ || (window.__PANEL_CACHE__ = {});
 
 function unwrapPayload(parsed) {
   if (parsed && Object.prototype.hasOwnProperty.call(parsed, "ok") && Object.prototype.hasOwnProperty.call(parsed, "data")) {
@@ -72,4 +73,13 @@ function selectedValue(id, fallback = "") {
   }
   const value = (element.value || "").trim();
   return value || fallback;
+}
+
+function setPanelCache(key, value) {
+  panelCache[key] = value;
+  return value;
+}
+
+function getPanelCache(key) {
+  return panelCache[key];
 }
