@@ -10,6 +10,7 @@ alembic/versions/*.pyc
 .env
 *.sqlite3
 *.db
+data/
 dist/
 build/
 *.egg-info/

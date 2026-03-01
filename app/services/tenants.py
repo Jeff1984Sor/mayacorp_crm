@@ -71,14 +71,14 @@ def create_tenant(session: Session, payload: TenantCreateRequest, actor_email: s
                 is_default=True,
             )
         )
-        tenant_session.add_all(
-            [
-                FinanceCategory(name="Vendas", entry_type="receivable"),
-                FinanceCategory(name="Operacional", entry_type="payable"),
-                CostCenter(name="Comercial"),
-                CostCenter(name="Operacoes"),
-            ]
-        )
+        if tenant_session.query(FinanceCategory).filter(FinanceCategory.name == "Vendas").one_or_none() is None:
+            tenant_session.add(FinanceCategory(name="Vendas", entry_type="receivable"))
+        if tenant_session.query(FinanceCategory).filter(FinanceCategory.name == "Operacional").one_or_none() is None:
+            tenant_session.add(FinanceCategory(name="Operacional", entry_type="payable"))
+        if tenant_session.query(CostCenter).filter(CostCenter.name == "Comercial").one_or_none() is None:
+            tenant_session.add(CostCenter(name="Comercial"))
+        if tenant_session.query(CostCenter).filter(CostCenter.name == "Operacoes").one_or_none() is None:
+            tenant_session.add(CostCenter(name="Operacoes"))
         tenant_session.commit()
 
     session.add(
