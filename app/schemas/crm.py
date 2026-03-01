@@ -144,6 +144,7 @@ class SalesOrderUpdateRequest(BaseModel):
 
 class ProposalCreateRequest(BaseModel):
     client_id: int | None = None
+    sales_order_id: int | None = None
     title: str = Field(min_length=2, max_length=255)
     template_name: str | None = Field(default=None, max_length=120)
     is_sendable: bool = True
@@ -152,6 +153,7 @@ class ProposalCreateRequest(BaseModel):
 class ProposalResponse(BaseModel):
     id: int
     client_id: int | None
+    sales_order_id: int | None
     title: str
     template_name: str | None
     pdf_path: str | None
@@ -166,6 +168,7 @@ class ProposalUpdateRequest(BaseModel):
 
 class ContractCreateRequest(BaseModel):
     client_id: int | None = None
+    sales_order_id: int | None = None
     title: str = Field(min_length=2, max_length=255)
     template_name: str | None = Field(default=None, max_length=120)
 
@@ -173,6 +176,7 @@ class ContractCreateRequest(BaseModel):
 class ContractResponse(BaseModel):
     id: int
     client_id: int | None
+    sales_order_id: int | None
     title: str
     template_name: str | None
     pdf_path: str | None

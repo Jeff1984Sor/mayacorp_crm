@@ -143,6 +143,7 @@ class Proposal(TenantTimestampMixin, TenantBase):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     client_id: Mapped[int | None] = mapped_column(ForeignKey("clients.id"))
+    sales_order_id: Mapped[int | None] = mapped_column(ForeignKey("sales_orders.id"))
     title: Mapped[str] = mapped_column(String(255))
     template_name: Mapped[str | None] = mapped_column(String(120))
     pdf_path: Mapped[str | None] = mapped_column(Text)
@@ -154,10 +155,21 @@ class Contract(TenantTimestampMixin, TenantBase):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     client_id: Mapped[int | None] = mapped_column(ForeignKey("clients.id"))
+    sales_order_id: Mapped[int | None] = mapped_column(ForeignKey("sales_orders.id"))
     title: Mapped[str] = mapped_column(String(255))
     template_name: Mapped[str | None] = mapped_column(String(120))
     pdf_path: Mapped[str | None] = mapped_column(Text)
     signed_file_path: Mapped[str | None] = mapped_column(Text)
+
+
+class MarketplaceEvent(TenantTimestampMixin, TenantBase):
+    __tablename__ = "marketplace_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    channel: Mapped[str] = mapped_column(String(80))
+    external_order_id: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    sales_order_id: Mapped[int | None] = mapped_column(ForeignKey("sales_orders.id"))
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
 class File(TenantTimestampMixin, TenantBase):

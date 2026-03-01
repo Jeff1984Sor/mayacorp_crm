@@ -29,6 +29,7 @@ from app.models.tenant import (
     Contract,
     Lead,
     Message,
+    MarketplaceEvent,
     Proposal,
     SalesItem,
     SalesOrder,
@@ -107,7 +108,10 @@ def _write_document_file(workspace_slug: str, doc_type: str, entity_id: int, tit
     target_dir.mkdir(parents=True, exist_ok=True)
     target_file = target_dir / f"{entity_id}.pdf"
     sanitized_title = title.replace("(", "[").replace(")", "]")
-    stream_content = f"BT /F1 18 Tf 50 780 Td ({doc_type.upper()} #{entity_id}) Tj 0 -24 Td ({sanitized_title}) Tj ET"
+    stream_content = (
+        f"BT /F1 18 Tf 50 780 Td ({doc_type.upper()} #{entity_id}) Tj "
+        f"0 -24 Td ({sanitized_title}) Tj 0 -24 Td (Workspace: {workspace_slug}) Tj ET"
+    )
     stream_length = len(stream_content.encode("utf-8"))
     content = (
         "%PDF-1.4\n"
@@ -980,8 +984,13 @@ def create_proposal(
         client = session.query(Client).filter(Client.id == payload.client_id).one_or_none()
         if client is None:
             raise HTTPException(status_code=404, detail="Client not found.")
+    if payload.sales_order_id is not None:
+        order = session.query(SalesOrder).filter(SalesOrder.id == payload.sales_order_id).one_or_none()
+        if order is None:
+            raise HTTPException(status_code=404, detail="Sales order not found.")
     proposal = Proposal(
         client_id=payload.client_id,
+        sales_order_id=payload.sales_order_id,
         title=payload.title,
         template_name=payload.template_name,
         is_sendable=payload.is_sendable,
@@ -995,6 +1004,7 @@ def create_proposal(
     return ProposalResponse(
         id=proposal.id,
         client_id=proposal.client_id,
+        sales_order_id=proposal.sales_order_id,
         title=proposal.title,
         template_name=proposal.template_name,
         pdf_path=proposal.pdf_path,
@@ -1009,6 +1019,7 @@ def list_proposals(session: Session = Depends(tenant_session_dep)) -> list[Propo
         ProposalResponse(
             id=proposal.id,
             client_id=proposal.client_id,
+            sales_order_id=proposal.sales_order_id,
             title=proposal.title,
             template_name=proposal.template_name,
             pdf_path=proposal.pdf_path,
@@ -1040,6 +1051,7 @@ def update_proposal(
     return ProposalResponse(
         id=proposal.id,
         client_id=proposal.client_id,
+        sales_order_id=proposal.sales_order_id,
         title=proposal.title,
         template_name=proposal.template_name,
         pdf_path=proposal.pdf_path,
@@ -1066,8 +1078,13 @@ def create_contract(
         client = session.query(Client).filter(Client.id == payload.client_id).one_or_none()
         if client is None:
             raise HTTPException(status_code=404, detail="Client not found.")
+    if payload.sales_order_id is not None:
+        order = session.query(SalesOrder).filter(SalesOrder.id == payload.sales_order_id).one_or_none()
+        if order is None:
+            raise HTTPException(status_code=404, detail="Sales order not found.")
     contract = Contract(
         client_id=payload.client_id,
+        sales_order_id=payload.sales_order_id,
         title=payload.title,
         template_name=payload.template_name,
     )
@@ -1080,6 +1097,7 @@ def create_contract(
     return ContractResponse(
         id=contract.id,
         client_id=contract.client_id,
+        sales_order_id=contract.sales_order_id,
         title=contract.title,
         template_name=contract.template_name,
         pdf_path=contract.pdf_path,
@@ -1094,6 +1112,7 @@ def list_contracts(session: Session = Depends(tenant_session_dep)) -> list[Contr
         ContractResponse(
             id=contract.id,
             client_id=contract.client_id,
+            sales_order_id=contract.sales_order_id,
             title=contract.title,
             template_name=contract.template_name,
             pdf_path=contract.pdf_path,
@@ -1123,6 +1142,7 @@ def update_contract(
     return ContractResponse(
         id=contract.id,
         client_id=contract.client_id,
+        sales_order_id=contract.sales_order_id,
         title=contract.title,
         template_name=contract.template_name,
         pdf_path=contract.pdf_path,
@@ -1549,6 +1569,21 @@ def marketplace_webhook(
 ) -> SalesOrderResponse:
     from datetime import date
 
+    existing_event = (
+        session.query(MarketplaceEvent).filter(MarketplaceEvent.external_order_id == payload.external_order_id).one_or_none()
+    )
+    if existing_event is not None and existing_event.sales_order_id is not None:
+        existing_order = session.query(SalesOrder).filter(SalesOrder.id == existing_event.sales_order_id).one_or_none()
+        if existing_order is not None:
+            return SalesOrderResponse(
+                id=existing_order.id,
+                client_id=existing_order.client_id,
+                order_type=existing_order.order_type,
+                duration_months=existing_order.duration_months,
+                total_amount=float(existing_order.total_amount),
+                status=existing_order.status,
+            )
+
     client = None
     if payload.client_email:
         client = session.query(Client).filter(Client.email == payload.client_email).one_or_none()
@@ -1589,6 +1624,19 @@ def marketplace_webhook(
             status="pending",
             category="marketplace",
             cost_center=payload.channel,
+        )
+    )
+    session.add(
+        MarketplaceEvent(
+            channel=payload.channel,
+            external_order_id=payload.external_order_id,
+            sales_order_id=order.id,
+            payload={
+                "client_name": payload.client_name,
+                "client_email": payload.client_email,
+                "client_phone": payload.client_phone,
+                "total_amount": payload.total_amount,
+            },
         )
     )
     session.commit()
