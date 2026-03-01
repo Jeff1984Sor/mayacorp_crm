@@ -1,13 +1,54 @@
 from __future__ import annotations
 
+from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy.orm import Session
 
-from app.api.routes import router
+from app.api.deps import central_current_user_dep, central_session_dep, tenant_permission_dep, tenant_session_dep
+from app.api.routes import _write_document_file, _write_signed_contract_file, router
 from app.core.middleware import TenantResolutionMiddleware
+from app.models.central import CentralUser, Tenant
+from app.models.tenant import AccountsReceivable, Contract, Proposal, SalesItem, SalesOrder, User
+from app.schemas.tenant import TenantCreateRequest
 from app.services.bootstrap import bootstrap_central_database
+from app.services.tenants import create_tenant
+
+
+class PanelTenantCreateRequest(BaseModel):
+    company_name: str = Field(min_length=2, max_length=255)
+    workspace_slug: str = Field(min_length=2, max_length=80)
+    admin_name: str = Field(min_length=2, max_length=255)
+    admin_email: EmailStr
+    admin_password: str = Field(min_length=4, max_length=128)
+
+
+class PanelSalesOrderRequest(BaseModel):
+    title: str = Field(min_length=2, max_length=255)
+    quantity: float = Field(default=1, gt=0)
+    unit_price: float = Field(gt=0)
+    first_due_date: str
+
+
+class PanelProposalRequest(BaseModel):
+    title: str = Field(min_length=2, max_length=255)
+    sales_order_id: int | None = None
+
+
+class PanelContractRequest(BaseModel):
+    title: str = Field(min_length=2, max_length=255)
+    sales_order_id: int | None = None
+
+
+class PanelContractSignRequest(BaseModel):
+    contract_id: int
+    file_name: str = Field(min_length=3, max_length=255)
+    content: str = Field(min_length=1)
 
 
 bootstrap_central_database()
@@ -34,6 +75,7 @@ app = FastAPI(
     ],
 )
 app.add_middleware(TenantResolutionMiddleware)
+app.mount("/static", StaticFiles(directory=Path(__file__).resolve().parent / "static"), name="static")
 app.include_router(router)
 
 
@@ -41,3 +83,136 @@ app.include_router(router)
 def admin_panel() -> str:
     template_path = Path(__file__).resolve().parent / "templates" / "admin_panel.html"
     return template_path.read_text(encoding="utf-8")
+
+
+@app.post("/admin/panel/tenant", status_code=201, tags=["health"])
+def admin_panel_create_tenant(
+    payload: PanelTenantCreateRequest,
+    current_user: CentralUser = Depends(central_current_user_dep),
+    session: Session = Depends(central_session_dep),
+) -> dict:
+    tenant = create_tenant(
+        session,
+        TenantCreateRequest(
+            company_name=payload.company_name,
+            workspace_slug=payload.workspace_slug,
+            company_document=None,
+            admin_name=payload.admin_name,
+            admin_email=payload.admin_email,
+            admin_password=payload.admin_password,
+            plan_code="starter",
+            addon_codes=[],
+            billing_day=5,
+            discount_percent=0,
+            generate_invoice=True,
+            issue_fiscal_document=False,
+        ),
+        actor_email=current_user.email,
+    )
+    return {"tenant_id": tenant.id, "workspace_slug": tenant.slug, "status": tenant.status}
+
+
+@app.post("/admin/panel/{workspace_slug}/sales-order", tags=["health"])
+def admin_panel_create_sales_order(
+    workspace_slug: str,
+    payload: PanelSalesOrderRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_permission_dep("sales.write")),
+) -> dict:
+    total_amount = (Decimal(str(payload.quantity)) * Decimal(str(payload.unit_price))).quantize(Decimal("0.01"))
+    order = SalesOrder(
+        client_id=None,
+        order_type="one_time",
+        duration_months=None,
+        total_amount=total_amount,
+        status="confirmed",
+    )
+    session.add(order)
+    session.flush()
+    session.add(
+        SalesItem(
+            sales_order_id=order.id,
+            description=payload.title,
+            quantity=payload.quantity,
+            unit_price=payload.unit_price,
+        )
+    )
+    session.add(
+        AccountsReceivable(
+            sales_order_id=order.id,
+            due_date=date.fromisoformat(payload.first_due_date),
+            amount=total_amount,
+            status="pending",
+            category="Vendas",
+            cost_center="Comercial",
+        )
+    )
+    session.commit()
+    return {"id": order.id, "status": order.status, "total_amount": float(total_amount), "workspace_slug": workspace_slug}
+
+
+@app.post("/admin/panel/{workspace_slug}/proposal", tags=["health"])
+def admin_panel_create_proposal(
+    workspace_slug: str,
+    payload: PanelProposalRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_permission_dep("sales.write")),
+) -> dict:
+    if payload.sales_order_id is not None:
+        order = session.query(SalesOrder).filter(SalesOrder.id == payload.sales_order_id).one_or_none()
+        if order is None:
+            raise HTTPException(status_code=404, detail="Sales order not found.")
+    proposal = Proposal(
+        title=payload.title,
+        client_id=None,
+        sales_order_id=payload.sales_order_id,
+        template_name="panel-default",
+        is_sendable=True,
+    )
+    session.add(proposal)
+    session.commit()
+    session.refresh(proposal)
+    proposal.pdf_path = _write_document_file(workspace_slug, "proposals", proposal.id, proposal.title)
+    session.commit()
+    return {"id": proposal.id, "title": proposal.title, "pdf_path": proposal.pdf_path}
+
+
+@app.post("/admin/panel/{workspace_slug}/contract", tags=["health"])
+def admin_panel_create_contract(
+    workspace_slug: str,
+    payload: PanelContractRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_permission_dep("contracts.write")),
+) -> dict:
+    if payload.sales_order_id is not None:
+        order = session.query(SalesOrder).filter(SalesOrder.id == payload.sales_order_id).one_or_none()
+        if order is None:
+            raise HTTPException(status_code=404, detail="Sales order not found.")
+    contract = Contract(
+        title=payload.title,
+        client_id=None,
+        sales_order_id=payload.sales_order_id,
+        template_name="panel-default",
+    )
+    session.add(contract)
+    session.commit()
+    session.refresh(contract)
+    contract.pdf_path = _write_document_file(workspace_slug, "contracts", contract.id, contract.title)
+    session.commit()
+    return {"id": contract.id, "title": contract.title, "status": contract.status, "pdf_path": contract.pdf_path}
+
+
+@app.post("/admin/panel/{workspace_slug}/contract/sign", tags=["health"])
+def admin_panel_sign_contract(
+    workspace_slug: str,
+    payload: PanelContractSignRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_permission_dep("contracts.write")),
+) -> dict:
+    contract = session.query(Contract).filter(Contract.id == payload.contract_id).one_or_none()
+    if contract is None:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+    contract.signed_file_path = _write_signed_contract_file(workspace_slug, contract.id, payload.file_name, payload.content)
+    contract.status = "signed"
+    session.commit()
+    return {"id": contract.id, "status": contract.status, "signed_file_path": contract.signed_file_path}

@@ -102,11 +102,16 @@ O painel e propositalmente simples e cobre:
 - login do tenant
 - consulta do health do tenant
 - criacao rapida de pedido
+- criacao rapida de proposta
+- criacao rapida de contrato
+- envio rapido de assinatura
 
 Implementacao:
 
 - rota em `app/main.py`
 - template em `app/templates/admin_panel.html`
+- css em `app/static/admin_panel.css`
+- js em `app/static/admin_panel.js`
 
 ## Documentacao funcional por modulo
 

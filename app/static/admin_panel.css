@@ -1,0 +1,118 @@
+:root {
+  --bg: #eef6ff;
+  --card: #ffffff;
+  --ink: #11253f;
+  --muted: #5f7288;
+  --line: #d7e1eb;
+  --brand: #0f766e;
+  --brand-dark: #115e59;
+  --brand-soft: #ccfbf1;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Segoe UI", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top right, rgba(15,118,110,0.12), transparent 32%),
+    radial-gradient(circle at bottom left, rgba(14,116,144,0.10), transparent 28%),
+    linear-gradient(145deg, #f8fbff, #eef6ff);
+  min-height: 100vh;
+}
+.wrap {
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: 28px 20px 56px;
+}
+.hero {
+  padding: 26px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #134e4a, #0f766e 58%, #0ea5a4);
+  color: #ecfeff;
+  box-shadow: 0 20px 46px rgba(15, 118, 110, 0.18);
+  margin-bottom: 18px;
+}
+.hero h1 { margin: 0 0 8px; font-size: 30px; }
+.hero p { margin: 0; opacity: 0.92; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+.card.highlight {
+  border-color: #99f6e4;
+  background: linear-gradient(180deg, #ffffff, #f0fdfa);
+}
+h2 {
+  margin: 0 0 12px;
+  font-size: 17px;
+}
+label {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin: 10px 0 6px;
+}
+input, textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+  background: white;
+}
+textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+button {
+  margin-top: 12px;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: var(--brand);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+}
+button:hover { background: var(--brand-dark); }
+.tiny {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--brand-soft);
+  border-radius: 999px;
+  padding: 5px 10px;
+}
+.output {
+  margin-top: 18px;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 18px;
+  padding: 16px;
+  min-height: 260px;
+  white-space: pre-wrap;
+  overflow: auto;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.18);
+}
+@media (max-width: 640px) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+}

@@ -56,6 +56,16 @@ def test_healthcheck(tmp_path: Path) -> None:
     assert "Mayacorp Admin Panel" in panel_response.text
     assert "Criar Tenant" in panel_response.text
     assert "Criar Pedido" in panel_response.text
+    assert "/static/admin_panel.css" in panel_response.text
+    assert "/static/admin_panel.js" in panel_response.text
+
+    css_response = client.get("/static/admin_panel.css")
+    assert css_response.status_code == 200
+    assert "--brand" in css_response.text
+
+    js_response = client.get("/static/admin_panel.js")
+    assert js_response.status_code == 200
+    assert "createContract" in js_response.text
 
 
 def test_central_create_tenant_and_dashboard(tmp_path: Path) -> None:
@@ -93,20 +103,14 @@ def test_central_create_tenant_and_dashboard(tmp_path: Path) -> None:
     assert payload["total_invoice_amount"] > 0
 
     panel_create_response = client.post(
-        "/central/tenants",
+        "/admin/panel/tenant",
         headers=headers,
         json={
             "company_name": "Painel Ltda",
             "workspace_slug": f"painel-{unique}",
-            "company_document": "999",
             "admin_name": "Painel Admin",
             "admin_email": f"painel+{unique}@acme.com",
             "admin_password": "1234",
-            "plan_code": "starter",
-            "billing_day": 5,
-            "discount_percent": 0,
-            "generate_invoice": True,
-            "issue_fiscal_document": False,
         },
     )
     assert panel_create_response.status_code == 201
@@ -374,6 +378,47 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     commercial_dashboard = client.get(f"/tenant/{workspace_slug}/dashboard/commercial", headers=tenant_headers)
     assert commercial_dashboard.status_code == 200
     assert commercial_dashboard.json()["sales_total"] >= 250
+
+    panel_order = client.post(
+        f"/admin/panel/{workspace_slug}/sales-order",
+        headers=tenant_headers,
+        json={
+            "title": "Pedido Painel",
+            "quantity": 1,
+            "unit_price": 99,
+            "first_due_date": "2026-03-02",
+        },
+    )
+    assert panel_order.status_code == 200
+    order_id = panel_order.json()["id"]
+
+    panel_proposal = client.post(
+        f"/admin/panel/{workspace_slug}/proposal",
+        headers=tenant_headers,
+        json={"title": "Proposta Painel", "sales_order_id": order_id},
+    )
+    assert panel_proposal.status_code == 200
+    assert panel_proposal.json()["pdf_path"]
+
+    panel_contract = client.post(
+        f"/admin/panel/{workspace_slug}/contract",
+        headers=tenant_headers,
+        json={"title": "Contrato Painel", "sales_order_id": order_id},
+    )
+    assert panel_contract.status_code == 200
+    panel_contract_id = panel_contract.json()["id"]
+
+    panel_sign = client.post(
+        f"/admin/panel/{workspace_slug}/contract/sign",
+        headers=tenant_headers,
+        json={
+            "contract_id": panel_contract_id,
+            "file_name": "painel-assinado.txt",
+            "content": "assinatura painel",
+        },
+    )
+    assert panel_sign.status_code == 200
+    assert panel_sign.json()["status"] == "signed"
 
 
 def test_cli_command_mapping_and_download(tmp_path: Path) -> None:

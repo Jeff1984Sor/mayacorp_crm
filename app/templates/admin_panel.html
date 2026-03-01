@@ -4,127 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mayacorp CRM Panel</title>
-  <style>
-    :root {
-      --bg: #eef6ff;
-      --card: #ffffff;
-      --ink: #11253f;
-      --muted: #5f7288;
-      --line: #d7e1eb;
-      --brand: #0f766e;
-      --brand-dark: #115e59;
-      --brand-soft: #ccfbf1;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: "Segoe UI", sans-serif;
-      color: var(--ink);
-      background:
-        radial-gradient(circle at top right, rgba(15,118,110,0.12), transparent 32%),
-        radial-gradient(circle at bottom left, rgba(14,116,144,0.10), transparent 28%),
-        linear-gradient(145deg, #f8fbff, #eef6ff);
-      min-height: 100vh;
-    }
-    .wrap {
-      max-width: 1220px;
-      margin: 0 auto;
-      padding: 28px 20px 56px;
-    }
-    .hero {
-      padding: 26px;
-      border-radius: 24px;
-      background: linear-gradient(135deg, #134e4a, #0f766e 58%, #0ea5a4);
-      color: #ecfeff;
-      box-shadow: 0 20px 46px rgba(15, 118, 110, 0.18);
-      margin-bottom: 18px;
-    }
-    .hero h1 { margin: 0 0 8px; font-size: 30px; }
-    .hero p { margin: 0; opacity: 0.92; }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 16px;
-    }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 18px;
-      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
-    }
-    .card.highlight {
-      border-color: #99f6e4;
-      background: linear-gradient(180deg, #ffffff, #f0fdfa);
-    }
-    h2 {
-      margin: 0 0 12px;
-      font-size: 17px;
-    }
-    label {
-      display: block;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--muted);
-      margin: 10px 0 6px;
-    }
-    input, textarea {
-      width: 100%;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 10px 12px;
-      font: inherit;
-      background: white;
-    }
-    textarea {
-      min-height: 90px;
-      resize: vertical;
-    }
-    .row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    button {
-      margin-top: 12px;
-      border: 0;
-      border-radius: 12px;
-      padding: 10px 14px;
-      background: var(--brand);
-      color: white;
-      font-weight: 600;
-      cursor: pointer;
-      width: 100%;
-    }
-    button:hover { background: var(--brand-dark); }
-    .tiny {
-      display: inline-block;
-      margin-top: 8px;
-      font-size: 12px;
-      color: var(--muted);
-      background: var(--brand-soft);
-      border-radius: 999px;
-      padding: 5px 10px;
-    }
-    .output {
-      margin-top: 18px;
-      background: #0f172a;
-      color: #e2e8f0;
-      border-radius: 18px;
-      padding: 16px;
-      min-height: 260px;
-      white-space: pre-wrap;
-      overflow: auto;
-      box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.18);
-    }
-  </style>
+  <link rel="stylesheet" href="/static/admin_panel.css">
 </head>
 <body>
   <div class="wrap">
     <section class="hero">
       <h1>Mayacorp Admin Panel</h1>
-      <p>Painel minimo para operar login, onboarding e fluxo comercial sem depender de curl.</p>
+      <p>Painel minimo para operar onboarding e fluxo comercial sem depender de curl.</p>
     </section>
 
     <section class="grid">
@@ -202,125 +88,40 @@
         <input id="salesDueDate" value="2026-03-01">
         <button onclick="createSalesOrder()">Criar pedido</button>
       </div>
+
+      <div class="card">
+        <h2>7. Criar Proposta</h2>
+        <label for="proposalTitle">Titulo</label>
+        <input id="proposalTitle" value="Proposta Comercial">
+        <label for="proposalOrderId">ID do Pedido</label>
+        <input id="proposalOrderId" placeholder="Opcional">
+        <button onclick="createProposal()">Criar proposta</button>
+      </div>
+
+      <div class="card">
+        <h2>8. Criar Contrato</h2>
+        <label for="contractTitle">Titulo</label>
+        <input id="contractTitle" value="Contrato Comercial">
+        <label for="contractOrderId">ID do Pedido</label>
+        <input id="contractOrderId" placeholder="Opcional">
+        <button onclick="createContract()">Criar contrato</button>
+      </div>
+
+      <div class="card">
+        <h2>9. Assinar Contrato</h2>
+        <label for="signContractId">ID do Contrato</label>
+        <input id="signContractId" placeholder="1">
+        <label for="signFileName">Arquivo</label>
+        <input id="signFileName" value="assinado.txt">
+        <label for="signContent">Conteudo</label>
+        <textarea id="signContent">contrato assinado via painel</textarea>
+        <button onclick="signContract()">Enviar assinatura</button>
+      </div>
     </section>
 
     <pre class="output" id="output">Pronto para operar.</pre>
   </div>
 
-  <script>
-    const output = document.getElementById("output");
-
-    async function showResult(response) {
-      const contentType = response.headers.get("content-type") || "";
-      const text = await response.text();
-      if (contentType.includes("application/json")) {
-        try {
-          const parsed = JSON.parse(text);
-          output.textContent = JSON.stringify(parsed, null, 2);
-          return parsed;
-        } catch (error) {}
-      }
-      output.textContent = text;
-      return text;
-    }
-
-    function authHeader(token) {
-      const clean = (token || "").trim();
-      return clean ? { "Authorization": "Bearer " + clean } : {};
-    }
-
-    async function centralLogin() {
-      const response = await fetch("/central/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: document.getElementById("centralEmail").value,
-          password: document.getElementById("centralPassword").value
-        })
-      });
-      const payload = await showResult(response);
-      if (payload && payload.access_token) {
-        document.getElementById("centralToken").value = payload.access_token;
-      }
-    }
-
-    async function centralDashboard() {
-      const response = await fetch("/central/dashboard", {
-        headers: authHeader(document.getElementById("centralToken").value)
-      });
-      await showResult(response);
-    }
-
-    async function createTenant() {
-      const response = await fetch("/central/tenants", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader(document.getElementById("centralToken").value)
-        },
-        body: JSON.stringify({
-          company_name: document.getElementById("companyName").value,
-          workspace_slug: document.getElementById("workspaceSlug").value,
-          admin_name: document.getElementById("tenantAdminName").value,
-          admin_email: document.getElementById("tenantAdminEmail").value,
-          admin_password: document.getElementById("tenantAdminPassword").value,
-          plan_code: "starter",
-          billing_day: 5,
-          discount_percent: 0,
-          generate_invoice: true,
-          issue_fiscal_document: false
-        })
-      });
-      await showResult(response);
-    }
-
-    async function tenantLogin() {
-      const slug = document.getElementById("tenantSlug").value.trim();
-      const response = await fetch("/tenant/" + slug + "/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: document.getElementById("tenantEmail").value,
-          password: document.getElementById("tenantPassword").value
-        })
-      });
-      const payload = await showResult(response);
-      if (payload && payload.access_token) {
-        document.getElementById("tenantToken").value = payload.access_token;
-      }
-    }
-
-    async function tenantHealth() {
-      const slug = document.getElementById("tenantSlug").value.trim();
-      const response = await fetch("/tenant/" + slug + "/health", {
-        headers: authHeader(document.getElementById("tenantToken").value)
-      });
-      await showResult(response);
-    }
-
-    async function createSalesOrder() {
-      const slug = document.getElementById("tenantSlug").value.trim();
-      const response = await fetch("/tenant/" + slug + "/sales-orders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader(document.getElementById("tenantToken").value)
-        },
-        body: JSON.stringify({
-          order_type: "one_time",
-          installments: 1,
-          first_due_date: document.getElementById("salesDueDate").value,
-          items: [
-            {
-              description: document.getElementById("salesDescription").value,
-              quantity: Number(document.getElementById("salesQuantity").value || "1"),
-              unit_price: Number(document.getElementById("salesPrice").value || "0")
-            }
-          ]
-        })
-      });
-      await showResult(response);
-    }
-  </script>
+  <script src="/static/admin_panel.js"></script>
 </body>
 </html>
