@@ -210,3 +210,13 @@ class CentralWhatsappSetting(TimestampMixin, CentralBase):
     id: Mapped[int] = mapped_column(primary_key=True)
     provider: Mapped[str] = mapped_column(String(80), default="wasenderapi")
     config: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class TenantAnalyticsSnapshot(TimestampMixin, CentralBase):
+    __tablename__ = "tenant_analytics_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"))
+    snapshot_date: Mapped[Date] = mapped_column(Date)
+    period_type: Mapped[str] = mapped_column(String(20), default="daily")
+    metrics: Mapped[dict] = mapped_column(JSON, default=dict)

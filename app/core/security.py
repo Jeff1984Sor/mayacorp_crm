@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import bcrypt
+from cryptography.fernet import Fernet, InvalidToken
 from jose import JWTError, jwt
 
 from app.core.config import settings
@@ -46,14 +47,15 @@ def decode_token(token: str) -> dict:
 
 
 def encrypt_value(raw_value: str) -> str:
-    key = settings.app_encryption_key.encode("utf-8")
-    data = raw_value.encode("utf-8")
-    encrypted = bytes(data[i] ^ key[i % len(key)] for i in range(len(data)))
-    return encrypted.hex()
+    key_bytes = settings.app_encryption_key.encode("utf-8")
+    fernet_key = (key_bytes + b"=" * 44)[:44]
+    return Fernet(fernet_key).encrypt(raw_value.encode("utf-8")).decode("utf-8")
 
 
 def decrypt_value(encrypted_value: str) -> str:
-    key = settings.app_encryption_key.encode("utf-8")
-    data = bytes.fromhex(encrypted_value)
-    decrypted = bytes(data[i] ^ key[i % len(key)] for i in range(len(data)))
-    return decrypted.decode("utf-8")
+    key_bytes = settings.app_encryption_key.encode("utf-8")
+    fernet_key = (key_bytes + b"=" * 44)[:44]
+    try:
+        return Fernet(fernet_key).decrypt(encrypted_value.encode("utf-8")).decode("utf-8")
+    except InvalidToken as exc:
+        raise ValueError("Invalid encrypted value.") from exc

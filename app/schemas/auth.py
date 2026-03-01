@@ -65,3 +65,10 @@ class TenantAiSummaryResponse(BaseModel):
     workspace_slug: str
     request_count: int
     token_count: int
+
+
+class TenantAnalyticsSnapshotResponse(BaseModel):
+    workspace_slug: str
+    period_type: str
+    snapshot_date: str
+    metrics: dict

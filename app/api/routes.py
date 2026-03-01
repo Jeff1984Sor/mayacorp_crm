@@ -15,6 +15,7 @@ from app.core.security import build_token, decrypt_value, encrypt_value, verify_
 from app.models.central import (
     CentralAiSetting,
     CentralTask,
+    TenantAnalyticsSnapshot,
     CentralUser,
     Tenant,
     TenantAiLimit,
@@ -42,6 +43,7 @@ from app.schemas.auth import (
     CentralAiSettingsResponse,
     TenantAiGenerateRequest,
     TenantAiGenerateResponse,
+    TenantAnalyticsSnapshotResponse,
     TenantAiSummaryResponse,
     LoginRequest,
     RefreshRequest,
@@ -1309,6 +1311,8 @@ def run_daily_analytics(
     session: Session = Depends(central_session_dep),
     _: CentralUser = Depends(central_current_user_dep),
 ) -> dict[str, int]:
+    from datetime import date
+
     processed = 0
     created_tasks = 0
 
@@ -1332,6 +1336,19 @@ def run_daily_analytics(
             health_row.score = score
             health_row.status = status
 
+        session.add(
+            TenantAnalyticsSnapshot(
+                tenant_id=tenant.id,
+                snapshot_date=date.today(),
+                period_type="daily",
+                metrics={
+                    "ai_requests": request_total,
+                    "health_score": score,
+                    "health_status": status,
+                },
+            )
+        )
+
         existing_task = (
             session.query(CentralTask)
             .filter(CentralTask.tenant_id == tenant.id, CentralTask.status == "open", CentralTask.title == "Tenant health risk")
@@ -1350,6 +1367,65 @@ def run_daily_analytics(
 
     session.commit()
     return {"processed_tenants": processed, "created_tasks": created_tasks}
+
+
+@router.post("/central/analytics/run-monthly", status_code=201)
+def run_monthly_analytics(
+    session: Session = Depends(central_session_dep),
+    _: CentralUser = Depends(central_current_user_dep),
+) -> dict[str, int]:
+    from datetime import date
+
+    processed = 0
+    today = date.today()
+    tenants = session.query(Tenant).all()
+    for tenant in tenants:
+        processed += 1
+        usage_rows = session.query(TenantAiUsageDaily).filter(TenantAiUsageDaily.tenant_id == tenant.id).all()
+        metrics = {
+            "ai_requests": sum(
+                row.request_count for row in usage_rows if row.usage_date.year == today.year and row.usage_date.month == today.month
+            ),
+            "ai_tokens": sum(
+                row.token_count for row in usage_rows if row.usage_date.year == today.year and row.usage_date.month == today.month
+            ),
+        }
+        session.add(
+            TenantAnalyticsSnapshot(
+                tenant_id=tenant.id,
+                snapshot_date=today,
+                period_type="monthly",
+                metrics=metrics,
+            )
+        )
+    session.commit()
+    return {"processed_tenants": processed}
+
+
+@router.get("/central/analytics/{workspace_slug}/latest", response_model=TenantAnalyticsSnapshotResponse)
+def get_latest_analytics_snapshot(
+    workspace_slug: str,
+    period_type: str = "daily",
+    session: Session = Depends(central_session_dep),
+    _: CentralUser = Depends(central_current_user_dep),
+) -> TenantAnalyticsSnapshotResponse:
+    tenant = session.query(Tenant).filter(Tenant.slug == workspace_slug).one_or_none()
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Tenant not found.")
+    snapshot = (
+        session.query(TenantAnalyticsSnapshot)
+        .filter(TenantAnalyticsSnapshot.tenant_id == tenant.id, TenantAnalyticsSnapshot.period_type == period_type)
+        .order_by(TenantAnalyticsSnapshot.snapshot_date.desc(), TenantAnalyticsSnapshot.id.desc())
+        .first()
+    )
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="Analytics snapshot not found.")
+    return TenantAnalyticsSnapshotResponse(
+        workspace_slug=workspace_slug,
+        period_type=snapshot.period_type,
+        snapshot_date=snapshot.snapshot_date.isoformat(),
+        metrics=snapshot.metrics,
+    )
 
 
 @router.post("/tenant/{workspace_slug}/lead-radar/runs", response_model=LeadRadarRunResponse, status_code=201)
@@ -1376,9 +1452,29 @@ def process_lead_radar_run(run_id: int, session: Session = Depends(tenant_sessio
     run = session.query(LeadRadarRun).filter(LeadRadarRun.id == run_id).one_or_none()
     if run is None:
         raise HTTPException(status_code=404, detail="Lead radar run not found.")
+    query_text = str(run.summary.get("query", "LeadRadar")).strip()
+    generated_names = [f"{query_text} Prospect {index}" for index in range(1, 6)]
+    created = 0
+    deduped = 0
+    for index, name in enumerate(generated_names, start=1):
+        synthetic_phone = f"lradar-{run.id}-{index}"
+        existing_client = session.query(Client).filter(Client.phone == synthetic_phone).one_or_none()
+        existing_lead = session.query(Lead).filter(Lead.phone == synthetic_phone).one_or_none()
+        if existing_client is not None or existing_lead is not None:
+            deduped += 1
+            continue
+        session.add(
+            Lead(
+                name=name,
+                phone=synthetic_phone,
+                source=run.source,
+                manual_classification="new",
+            )
+        )
+        created += 1
     updated_summary = dict(run.summary)
-    updated_summary["captured"] = updated_summary.get("captured", 0) + 10
-    updated_summary["deduped"] = updated_summary.get("deduped", 0) + 2
+    updated_summary["captured"] = updated_summary.get("captured", 0) + created
+    updated_summary["deduped"] = updated_summary.get("deduped", 0) + deduped
     run.summary = updated_summary
     run.status = "processed"
     session.commit()
