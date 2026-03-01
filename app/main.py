@@ -14,7 +14,16 @@ from app.api.deps import central_current_user_dep, central_session_dep, tenant_p
 from app.api.routes import _write_document_file, _write_signed_contract_file, router
 from app.core.middleware import TenantResolutionMiddleware
 from app.models.central import CentralUser, Tenant
-from app.models.tenant import AccountsReceivable, Contract, Proposal, SalesItem, SalesOrder, User
+from app.models.tenant import (
+    AccountsReceivable,
+    Contract,
+    FinanceCategory,
+    Proposal,
+    SalesItem,
+    SalesOrder,
+    TenantWhatsappAccount,
+    User,
+)
 from app.schemas.tenant import TenantCreateRequest
 from app.services.bootstrap import bootstrap_central_database
 from app.services.tenants import create_tenant
@@ -49,6 +58,15 @@ class PanelContractSignRequest(BaseModel):
     contract_id: int
     file_name: str = Field(min_length=3, max_length=255)
     content: str = Field(min_length=1)
+
+
+class PanelFinanceCategoryRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    entry_type: str = Field(default="both", max_length=20)
+
+
+class PanelWhatsappSessionRequest(BaseModel):
+    provider_session_id: str | None = Field(default=None, max_length=120)
 
 
 bootstrap_central_database()
@@ -216,3 +234,92 @@ def admin_panel_sign_contract(
     contract.status = "signed"
     session.commit()
     return {"id": contract.id, "status": contract.status, "signed_file_path": contract.signed_file_path}
+
+
+@app.get("/admin/panel/{workspace_slug}/summary", tags=["health"])
+def admin_panel_workspace_summary(
+    workspace_slug: str,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_permission_dep("sales.write")),
+) -> dict:
+    sales_orders = session.query(SalesOrder).order_by(SalesOrder.id.desc()).limit(5).all()
+    proposals = session.query(Proposal).order_by(Proposal.id.desc()).limit(5).all()
+    contracts = session.query(Contract).order_by(Contract.id.desc()).limit(5).all()
+    categories = session.query(FinanceCategory).order_by(FinanceCategory.name.asc()).limit(10).all()
+    whatsapp = session.query(TenantWhatsappAccount).order_by(TenantWhatsappAccount.id.asc()).first()
+
+    receivables = session.query(AccountsReceivable).all()
+    receivable_total = float(sum(float(item.amount) for item in receivables))
+    receivable_pending = float(sum(float(item.amount) for item in receivables if item.status == "pending"))
+
+    return {
+        "workspace_slug": workspace_slug,
+        "sales_orders": [
+            {"id": item.id, "status": item.status, "total_amount": float(item.total_amount)} for item in sales_orders
+        ],
+        "proposals": [{"id": item.id, "title": item.title, "pdf_path": item.pdf_path} for item in proposals],
+        "contracts": [
+            {"id": item.id, "title": item.title, "status": item.status, "signed_file_path": item.signed_file_path}
+            for item in contracts
+        ],
+        "finance": {
+            "category_count": len(categories),
+            "categories": [{"id": item.id, "name": item.name, "entry_type": item.entry_type} for item in categories],
+            "receivable_total": receivable_total,
+            "receivable_pending": receivable_pending,
+        },
+        "whatsapp": (
+            {
+                "id": whatsapp.id,
+                "provider_session_id": whatsapp.provider_session_id,
+                "status": whatsapp.status,
+                "last_qr_code": whatsapp.last_qr_code,
+            }
+            if whatsapp is not None
+            else None
+        ),
+    }
+
+
+@app.post("/admin/panel/{workspace_slug}/finance-category", status_code=201, tags=["health"])
+def admin_panel_create_finance_category(
+    workspace_slug: str,
+    payload: PanelFinanceCategoryRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_permission_dep("finance.write")),
+) -> dict:
+    category = FinanceCategory(name=payload.name, entry_type=payload.entry_type)
+    session.add(category)
+    session.commit()
+    session.refresh(category)
+    return {"id": category.id, "name": category.name, "entry_type": category.entry_type, "workspace_slug": workspace_slug}
+
+
+@app.post("/admin/panel/{workspace_slug}/whatsapp-session", tags=["health"])
+def admin_panel_upsert_whatsapp_session(
+    workspace_slug: str,
+    payload: PanelWhatsappSessionRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_permission_dep("whatsapp.manage")),
+) -> dict:
+    account = session.query(TenantWhatsappAccount).order_by(TenantWhatsappAccount.id.asc()).first()
+    if account is None:
+        account = TenantWhatsappAccount(
+            provider_session_id=payload.provider_session_id,
+            status="connecting",
+            last_qr_code="qr-placeholder",
+        )
+        session.add(account)
+    else:
+        account.provider_session_id = payload.provider_session_id
+        account.status = "connecting"
+        account.last_qr_code = "qr-placeholder"
+    session.commit()
+    session.refresh(account)
+    return {
+        "id": account.id,
+        "workspace_slug": workspace_slug,
+        "provider_session_id": account.provider_session_id,
+        "status": account.status,
+        "last_qr_code": account.last_qr_code,
+    }

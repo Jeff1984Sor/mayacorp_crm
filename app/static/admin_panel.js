@@ -1,5 +1,12 @@
 const output = document.getElementById("output");
 
+function syncStoredTokens() {
+  const centralToken = sessionStorage.getItem("mayacorp_central_token") || "";
+  const tenantToken = sessionStorage.getItem("mayacorp_tenant_token") || "";
+  document.getElementById("centralToken").value = centralToken;
+  document.getElementById("tenantToken").value = tenantToken;
+}
+
 async function showResult(response) {
   const contentType = response.headers.get("content-type") || "";
   const text = await response.text();
@@ -35,6 +42,7 @@ async function centralLogin() {
   });
   const payload = await showResult(response);
   if (payload && payload.access_token) {
+    sessionStorage.setItem("mayacorp_central_token", payload.access_token);
     document.getElementById("centralToken").value = payload.access_token;
   }
 }
@@ -76,6 +84,7 @@ async function tenantLogin() {
   });
   const payload = await showResult(response);
   if (payload && payload.access_token) {
+    sessionStorage.setItem("mayacorp_tenant_token", payload.access_token);
     document.getElementById("tenantToken").value = payload.access_token;
   }
 }
@@ -161,3 +170,44 @@ async function signContract() {
   });
   await showResult(response);
 }
+
+async function loadWorkspaceSummary() {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch("/admin/panel/" + slug + "/summary", {
+    headers: authHeader(document.getElementById("tenantToken").value)
+  });
+  await showResult(response);
+}
+
+async function createFinanceCategory() {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch("/admin/panel/" + slug + "/finance-category", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeader(document.getElementById("tenantToken").value)
+    },
+    body: JSON.stringify({
+      name: document.getElementById("financeCategoryName").value,
+      entry_type: document.getElementById("financeEntryType").value
+    })
+  });
+  await showResult(response);
+}
+
+async function connectWhatsapp() {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch("/admin/panel/" + slug + "/whatsapp-session", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeader(document.getElementById("tenantToken").value)
+    },
+    body: JSON.stringify({
+      provider_session_id: document.getElementById("whatsappSessionId").value
+    })
+  });
+  await showResult(response);
+}
+
+syncStoredTokens();

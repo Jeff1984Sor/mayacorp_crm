@@ -68,6 +68,7 @@
         <label for="tenantToken">Token Tenant</label>
         <textarea id="tenantToken" placeholder="Bearer token tenant"></textarea>
         <button onclick="tenantHealth()">Consultar health</button>
+        <button onclick="loadWorkspaceSummary()">Carregar resumo</button>
       </div>
 
       <div class="card">
@@ -116,6 +117,22 @@
         <label for="signContent">Conteudo</label>
         <textarea id="signContent">contrato assinado via painel</textarea>
         <button onclick="signContract()">Enviar assinatura</button>
+      </div>
+
+      <div class="card">
+        <h2>10. Financeiro</h2>
+        <label for="financeCategoryName">Categoria</label>
+        <input id="financeCategoryName" value="Mensalidades">
+        <label for="financeEntryType">Tipo</label>
+        <input id="financeEntryType" value="receivable">
+        <button onclick="createFinanceCategory()">Criar categoria</button>
+      </div>
+
+      <div class="card">
+        <h2>11. WhatsApp</h2>
+        <label for="whatsappSessionId">Provider Session ID</label>
+        <input id="whatsappSessionId" value="panel-session">
+        <button onclick="connectWhatsapp()">Conectar sessao</button>
       </div>
     </section>
 

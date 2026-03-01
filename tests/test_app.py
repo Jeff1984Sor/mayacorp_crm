@@ -66,6 +66,7 @@ def test_healthcheck(tmp_path: Path) -> None:
     js_response = client.get("/static/admin_panel.js")
     assert js_response.status_code == 200
     assert "createContract" in js_response.text
+    assert "sessionStorage" in js_response.text
 
 
 def test_central_create_tenant_and_dashboard(tmp_path: Path) -> None:
@@ -419,6 +420,30 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     )
     assert panel_sign.status_code == 200
     assert panel_sign.json()["status"] == "signed"
+
+    panel_finance = client.post(
+        f"/admin/panel/{workspace_slug}/finance-category",
+        headers=tenant_headers,
+        json={"name": "Categoria Painel", "entry_type": "receivable"},
+    )
+    assert panel_finance.status_code == 201
+
+    panel_whatsapp = client.post(
+        f"/admin/panel/{workspace_slug}/whatsapp-session",
+        headers=tenant_headers,
+        json={"provider_session_id": "panel-session"},
+    )
+    assert panel_whatsapp.status_code == 200
+    assert panel_whatsapp.json()["status"] == "connecting"
+
+    panel_summary = client.get(f"/admin/panel/{workspace_slug}/summary", headers=tenant_headers)
+    assert panel_summary.status_code == 200
+    summary_payload = panel_summary.json()
+    assert summary_payload["sales_orders"]
+    assert summary_payload["proposals"]
+    assert summary_payload["contracts"]
+    assert summary_payload["finance"]["category_count"] >= 1
+    assert summary_payload["whatsapp"]["status"] == "connecting"
 
 
 def test_cli_command_mapping_and_download(tmp_path: Path) -> None:

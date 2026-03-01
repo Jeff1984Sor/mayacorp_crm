@@ -105,6 +105,10 @@ O painel e propositalmente simples e cobre:
 - criacao rapida de proposta
 - criacao rapida de contrato
 - envio rapido de assinatura
+- listagem resumida de pedidos, propostas e contratos
+- acao rapida de categoria financeira
+- conexao rapida de sessao WhatsApp
+- tokens persistidos na sessao do navegador, sem precisar colar a cada reload
 
 Implementacao:
 
