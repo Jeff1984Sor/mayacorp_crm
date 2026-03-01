@@ -147,7 +147,11 @@ async function signContract() {
 async function loadWorkspaceSummary() {
   const query = new URLSearchParams({
     page: document.getElementById("summaryPage").value || "1",
-    page_size: document.getElementById("summaryPageSize").value || "5"
+    page_size: document.getElementById("summaryPageSize").value || "5",
+    documents_page: document.getElementById("documentsPage").value || "1",
+    documents_page_size: document.getElementById("documentsPageSize").value || "5",
+    messages_page: document.getElementById("messagesPage").value || "1",
+    messages_page_size: document.getElementById("messagesPageSize").value || "5"
   });
   const filterValue = document.getElementById("summaryQuery").value.trim();
   const documentFilter = document.getElementById("documentQuery").value.trim();

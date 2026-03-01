@@ -1,18 +1,12 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
-from decimal import Decimal
-from pathlib import Path
+from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Response
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.api.deps import central_session_dep, tenant_context_dep, tenant_session_dep
-from app.api.routes import _write_document_file, _write_signed_contract_file
-from app.core.security import build_token, verify_password
-from app.models.central import CentralUser, Tenant
+from app.api.deps import tenant_session_dep
 from app.models.tenant import (
     AccountsPayable,
     AccountsReceivable,
@@ -28,417 +22,16 @@ from app.models.tenant import (
     TenantWhatsappAccount,
     User,
 )
+from app.panel_auth_router import panel_auth_router
+from app.panel_crm_router import panel_crm_router
 from app.panel_finance_router import panel_finance_router
 from app.panel_common import (
-    PanelCentralLoginRequest,
-    PanelClientRequest,
-    PanelContractRequest,
-    PanelContractSignRequest,
-    PanelLeadRequest,
-    PanelProposalRequest,
-    PanelSalesOrderRequest,
-    PanelStatusRequest,
-    PanelTenantCreateRequest,
-    PanelTenantLoginRequest,
-    panel_central_user_dep,
-    panel_cookie_options,
     panel_response,
     panel_tenant_permission_dep,
-    panel_tenant_user_dep,
 )
 from app.panel_whatsapp_router import panel_whatsapp_router
-from app.schemas.tenant import TenantCreateRequest
-from app.services.tenant_auth import issue_tenant_token_pair
-from app.services.tenants import create_tenant
 
 panel_router = APIRouter(tags=["health"])
-
-
-@panel_router.get("/admin/panel", response_class=HTMLResponse)
-def admin_panel() -> str:
-    template_path = Path(__file__).resolve().parent / "templates" / "admin_panel.html"
-    return template_path.read_text(encoding="utf-8")
-
-
-@panel_router.post("/admin/panel/login")
-def admin_panel_login(
-    payload: PanelCentralLoginRequest,
-    response: Response,
-    session: Session = Depends(central_session_dep),
-) -> dict:
-    user = session.query(CentralUser).filter(CentralUser.email == payload.email).one_or_none()
-    if user is None or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid credentials.")
-    token = build_token(user.email, expires_in_minutes=60, extra={"scope": "central"}, token_type="access")
-    response.set_cookie("panel_central_token", token, **panel_cookie_options())
-    return panel_response(
-        "Sessao central iniciada.",
-        {"email": user.email, "full_name": user.full_name, "must_change_password": user.must_change_password},
-    )
-
-
-@panel_router.post("/admin/panel/logout")
-def admin_panel_logout(response: Response) -> dict:
-    response.delete_cookie("panel_central_token", samesite="lax")
-    response.delete_cookie("panel_tenant_token", samesite="lax")
-    response.delete_cookie("panel_tenant_slug", samesite="lax")
-    return panel_response("Sessao encerrada.", {"status": "logged_out"})
-
-
-@panel_router.get("/admin/panel/central/dashboard")
-def admin_panel_central_dashboard(
-    _: CentralUser = Depends(panel_central_user_dep),
-    session: Session = Depends(central_session_dep),
-) -> dict:
-    from app.models.central import CentralTask, SaasInvoice
-
-    tenants = session.query(Tenant).all()
-    invoices = session.query(SaasInvoice).all()
-    open_tasks = session.query(CentralTask).filter(CentralTask.status == "open").count()
-    return panel_response(
-        "Dashboard central carregado.",
-        {
-            "tenant_count": len(tenants),
-            "active_tenant_count": sum(1 for tenant in tenants if tenant.status == "active"),
-            "open_task_count": open_tasks,
-            "pending_invoice_count": sum(1 for invoice in invoices if invoice.status == "pending"),
-            "total_invoice_amount": float(sum(float(invoice.amount) for invoice in invoices)),
-        },
-    )
-
-
-@panel_router.post("/admin/panel/tenant", status_code=201)
-def admin_panel_create_tenant(
-    payload: PanelTenantCreateRequest,
-    current_user: CentralUser = Depends(panel_central_user_dep),
-    session: Session = Depends(central_session_dep),
-) -> dict:
-    tenant = create_tenant(
-        session,
-        TenantCreateRequest(
-            company_name=payload.company_name,
-            workspace_slug=payload.workspace_slug,
-            company_document=None,
-            admin_name=payload.admin_name,
-            admin_email=payload.admin_email,
-            admin_password=payload.admin_password,
-            plan_code="starter",
-            addon_codes=[],
-            billing_day=5,
-            discount_percent=0,
-            generate_invoice=True,
-            issue_fiscal_document=False,
-        ),
-        actor_email=current_user.email,
-    )
-    return panel_response("Tenant criado.", {"tenant_id": tenant.id, "workspace_slug": tenant.slug, "status": tenant.status})
-
-
-@panel_router.post("/admin/panel/{workspace_slug}/login")
-def admin_panel_tenant_login(
-    workspace_slug: str,
-    payload: PanelTenantLoginRequest,
-    response: Response,
-    session: Session = Depends(tenant_session_dep),
-) -> dict:
-    user = session.query(User).filter(User.email == payload.email).one_or_none()
-    if user is None or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid credentials.")
-    token, _ = issue_tenant_token_pair(
-        user.email,
-        is_admin=user.is_admin,
-        must_change_password=user.must_change_password,
-        role=user.role,
-    )
-    response.set_cookie("panel_tenant_token", token, **panel_cookie_options())
-    response.set_cookie("panel_tenant_slug", workspace_slug, **panel_cookie_options())
-    return panel_response("Sessao do tenant iniciada.", {"email": user.email, "role": user.role, "workspace_slug": workspace_slug})
-
-
-@panel_router.get("/admin/panel/{workspace_slug}/health")
-def admin_panel_tenant_health(
-    workspace_slug: str,
-    tenant: Tenant = Depends(tenant_context_dep),
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_user_dep),
-) -> dict:
-    whatsapp = session.query(TenantWhatsappAccount).order_by(TenantWhatsappAccount.id.asc()).first()
-    versions = session.query(TenantSchemaVersion).order_by(TenantSchemaVersion.id.asc()).all()
-    return panel_response(
-        "Health do tenant carregado.",
-        {
-            "workspace_slug": workspace_slug,
-            "tenant_status": tenant.status,
-            "plan_code": tenant.plan_code,
-            "schema_versions": [item.version for item in versions],
-            "whatsapp_status": whatsapp.status if whatsapp else None,
-        },
-    )
-
-
-@panel_router.post("/admin/panel/{workspace_slug}/lead", status_code=201)
-def admin_panel_create_lead(
-    payload: PanelLeadRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("sales.write")),
-) -> dict:
-    lead = Lead(name=payload.name, email=payload.email, phone=payload.phone, source="panel")
-    session.add(lead)
-    session.commit()
-    session.refresh(lead)
-    return panel_response("Lead criado.", {"id": lead.id, "name": lead.name, "email": lead.email, "phone": lead.phone})
-
-
-@panel_router.patch("/admin/panel/{workspace_slug}/lead/{lead_id}")
-def admin_panel_update_lead(
-    lead_id: int,
-    payload: PanelLeadRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("sales.write")),
-) -> dict:
-    lead = session.query(Lead).filter(Lead.id == lead_id).one_or_none()
-    if lead is None:
-        raise HTTPException(status_code=404, detail="Lead not found.")
-    lead.name = payload.name
-    lead.email = payload.email
-    lead.phone = payload.phone
-    session.commit()
-    return panel_response("Lead atualizado.", {"id": lead.id, "name": lead.name, "email": lead.email, "phone": lead.phone})
-
-
-@panel_router.delete("/admin/panel/{workspace_slug}/lead/{lead_id}")
-def admin_panel_delete_lead(
-    lead_id: int,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("sales.write")),
-) -> dict:
-    lead = session.query(Lead).filter(Lead.id == lead_id).one_or_none()
-    if lead is None:
-        raise HTTPException(status_code=404, detail="Lead not found.")
-    session.delete(lead)
-    session.commit()
-    return panel_response("Lead removido.", {"status": "deleted", "id": lead_id})
-
-
-@panel_router.post("/admin/panel/{workspace_slug}/client", status_code=201)
-def admin_panel_create_client(
-    payload: PanelClientRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("sales.write")),
-) -> dict:
-    client = Client(name=payload.name, email=payload.email, phone=payload.phone)
-    session.add(client)
-    session.commit()
-    session.refresh(client)
-    return panel_response("Client criado.", {"id": client.id, "name": client.name, "email": client.email, "phone": client.phone})
-
-
-@panel_router.patch("/admin/panel/{workspace_slug}/client/{client_id}")
-def admin_panel_update_client(
-    client_id: int,
-    payload: PanelClientRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("sales.write")),
-) -> dict:
-    client = session.query(Client).filter(Client.id == client_id).one_or_none()
-    if client is None:
-        raise HTTPException(status_code=404, detail="Client not found.")
-    client.name = payload.name
-    client.email = payload.email
-    client.phone = payload.phone
-    session.commit()
-    return panel_response("Client atualizado.", {"id": client.id, "name": client.name, "email": client.email, "phone": client.phone})
-
-
-@panel_router.delete("/admin/panel/{workspace_slug}/client/{client_id}")
-def admin_panel_delete_client(
-    client_id: int,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("sales.write")),
-) -> dict:
-    client = session.query(Client).filter(Client.id == client_id).one_or_none()
-    if client is None:
-        raise HTTPException(status_code=404, detail="Client not found.")
-    session.delete(client)
-    session.commit()
-    return panel_response("Client removido.", {"status": "deleted", "id": client_id})
-
-
-@panel_router.post("/admin/panel/{workspace_slug}/sales-order")
-def admin_panel_create_sales_order(
-    workspace_slug: str,
-    payload: PanelSalesOrderRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("sales.write")),
-) -> dict:
-    total_amount = (Decimal(str(payload.quantity)) * Decimal(str(payload.unit_price))).quantize(Decimal("0.01"))
-    order = SalesOrder(client_id=None, order_type="one_time", duration_months=None, total_amount=total_amount, status="confirmed")
-    session.add(order)
-    session.flush()
-    session.add(SalesItem(sales_order_id=order.id, description=payload.title, quantity=payload.quantity, unit_price=payload.unit_price))
-    session.add(
-        AccountsReceivable(
-            sales_order_id=order.id,
-            due_date=date.fromisoformat(payload.first_due_date),
-            amount=total_amount,
-            status="pending",
-            category="Vendas",
-            cost_center="Comercial",
-        )
-    )
-    session.commit()
-    return panel_response("Pedido criado.", {"id": order.id, "status": order.status, "total_amount": float(total_amount), "workspace_slug": workspace_slug})
-
-
-@panel_router.patch("/admin/panel/{workspace_slug}/sales-order/{order_id}")
-def admin_panel_update_sales_order(
-    order_id: int,
-    payload: PanelStatusRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("sales.write")),
-) -> dict:
-    order = session.query(SalesOrder).filter(SalesOrder.id == order_id).one_or_none()
-    if order is None:
-        raise HTTPException(status_code=404, detail="Sales order not found.")
-    order.status = payload.status
-    session.commit()
-    return panel_response("Pedido atualizado.", {"id": order.id, "status": order.status})
-
-
-@panel_router.delete("/admin/panel/{workspace_slug}/sales-order/{order_id}")
-def admin_panel_delete_sales_order(
-    order_id: int,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("sales.write")),
-) -> dict:
-    order = session.query(SalesOrder).filter(SalesOrder.id == order_id).one_or_none()
-    if order is None:
-        raise HTTPException(status_code=404, detail="Sales order not found.")
-    session.query(AccountsReceivable).filter(AccountsReceivable.sales_order_id == order.id).delete()
-    session.query(SalesItem).filter(SalesItem.sales_order_id == order.id).delete()
-    session.delete(order)
-    session.commit()
-    return panel_response("Pedido removido.", {"status": "deleted", "id": order_id})
-
-
-@panel_router.post("/admin/panel/{workspace_slug}/proposal")
-def admin_panel_create_proposal(
-    workspace_slug: str,
-    payload: PanelProposalRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("sales.write")),
-) -> dict:
-    if payload.sales_order_id is not None:
-        order = session.query(SalesOrder).filter(SalesOrder.id == payload.sales_order_id).one_or_none()
-        if order is None:
-            raise HTTPException(status_code=404, detail="Sales order not found.")
-    proposal = Proposal(title=payload.title, client_id=None, sales_order_id=payload.sales_order_id, template_name="panel-default", is_sendable=True)
-    session.add(proposal)
-    session.commit()
-    session.refresh(proposal)
-    proposal.pdf_path = _write_document_file(workspace_slug, "proposals", proposal.id, proposal.title)
-    session.commit()
-    return panel_response("Proposta criada.", {"id": proposal.id, "title": proposal.title, "pdf_path": proposal.pdf_path})
-
-
-@panel_router.patch("/admin/panel/{workspace_slug}/proposal/{proposal_id}")
-def admin_panel_update_proposal(
-    workspace_slug: str,
-    proposal_id: int,
-    payload: PanelProposalRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("sales.write")),
-) -> dict:
-    proposal = session.query(Proposal).filter(Proposal.id == proposal_id).one_or_none()
-    if proposal is None:
-        raise HTTPException(status_code=404, detail="Proposal not found.")
-    proposal.title = payload.title
-    proposal.sales_order_id = payload.sales_order_id
-    proposal.pdf_path = _write_document_file(workspace_slug, "proposals", proposal.id, proposal.title)
-    session.commit()
-    return panel_response("Proposta atualizada.", {"id": proposal.id, "title": proposal.title, "pdf_path": proposal.pdf_path})
-
-
-@panel_router.delete("/admin/panel/{workspace_slug}/proposal/{proposal_id}")
-def admin_panel_delete_proposal(
-    proposal_id: int,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("sales.write")),
-) -> dict:
-    proposal = session.query(Proposal).filter(Proposal.id == proposal_id).one_or_none()
-    if proposal is None:
-        raise HTTPException(status_code=404, detail="Proposal not found.")
-    session.delete(proposal)
-    session.commit()
-    return panel_response("Proposta removida.", {"status": "deleted", "id": proposal_id})
-
-
-@panel_router.post("/admin/panel/{workspace_slug}/contract")
-def admin_panel_create_contract(
-    workspace_slug: str,
-    payload: PanelContractRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("contracts.write")),
-) -> dict:
-    if payload.sales_order_id is not None:
-        order = session.query(SalesOrder).filter(SalesOrder.id == payload.sales_order_id).one_or_none()
-        if order is None:
-            raise HTTPException(status_code=404, detail="Sales order not found.")
-    contract = Contract(title=payload.title, client_id=None, sales_order_id=payload.sales_order_id, template_name="panel-default")
-    session.add(contract)
-    session.commit()
-    session.refresh(contract)
-    contract.pdf_path = _write_document_file(workspace_slug, "contracts", contract.id, contract.title)
-    session.commit()
-    return panel_response("Contrato criado.", {"id": contract.id, "title": contract.title, "status": contract.status, "pdf_path": contract.pdf_path})
-
-
-@panel_router.patch("/admin/panel/{workspace_slug}/contract/{contract_id}")
-def admin_panel_update_contract(
-    workspace_slug: str,
-    contract_id: int,
-    payload: PanelContractRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("contracts.write")),
-) -> dict:
-    contract = session.query(Contract).filter(Contract.id == contract_id).one_or_none()
-    if contract is None:
-        raise HTTPException(status_code=404, detail="Contract not found.")
-    contract.title = payload.title
-    contract.sales_order_id = payload.sales_order_id
-    contract.pdf_path = _write_document_file(workspace_slug, "contracts", contract.id, contract.title)
-    session.commit()
-    return panel_response("Contrato atualizado.", {"id": contract.id, "title": contract.title, "status": contract.status, "pdf_path": contract.pdf_path})
-
-
-@panel_router.delete("/admin/panel/{workspace_slug}/contract/{contract_id}")
-def admin_panel_delete_contract(
-    contract_id: int,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("contracts.write")),
-) -> dict:
-    contract = session.query(Contract).filter(Contract.id == contract_id).one_or_none()
-    if contract is None:
-        raise HTTPException(status_code=404, detail="Contract not found.")
-    session.delete(contract)
-    session.commit()
-    return panel_response("Contrato removido.", {"status": "deleted", "id": contract_id})
-
-
-@panel_router.post("/admin/panel/{workspace_slug}/contract/sign")
-def admin_panel_sign_contract(
-    workspace_slug: str,
-    payload: PanelContractSignRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("contracts.write")),
-) -> dict:
-    contract = session.query(Contract).filter(Contract.id == payload.contract_id).one_or_none()
-    if contract is None:
-        raise HTTPException(status_code=404, detail="Contract not found.")
-    contract.signed_file_path = _write_signed_contract_file(workspace_slug, contract.id, payload.file_name, payload.content)
-    contract.status = "signed"
-    session.commit()
-    return panel_response("Contrato assinado.", {"id": contract.id, "status": contract.status, "signed_file_path": contract.signed_file_path})
 
 
 @panel_router.get("/admin/panel/{workspace_slug}/summary")
@@ -446,6 +39,10 @@ def admin_panel_workspace_summary(
     workspace_slug: str,
     page: int = 1,
     page_size: int = 5,
+    documents_page: int = 1,
+    documents_page_size: int = 5,
+    messages_page: int = 1,
+    messages_page_size: int = 5,
     q: str | None = None,
     document_q: str | None = None,
     message_status: str | None = None,
@@ -456,6 +53,12 @@ def admin_panel_workspace_summary(
     page = max(page, 1)
     page_size = max(1, min(page_size, 20))
     offset = (page - 1) * page_size
+    documents_page = max(documents_page, 1)
+    documents_page_size = max(1, min(documents_page_size, 20))
+    documents_offset = (documents_page - 1) * documents_page_size
+    messages_page = max(messages_page, 1)
+    messages_page_size = max(1, min(messages_page_size, 20))
+    messages_offset = (messages_page - 1) * messages_page_size
 
     sales_orders = session.query(SalesOrder).order_by(SalesOrder.id.desc()).offset(offset).limit(page_size).all()
     proposals_query = session.query(Proposal).order_by(Proposal.id.desc())
@@ -470,8 +73,10 @@ def admin_panel_workspace_summary(
         doc_like = f"%{document_q or q}%".lower()
         proposals_query = proposals_query.filter(func.lower(Proposal.title).like(doc_like))
         contracts_query = contracts_query.filter(func.lower(Contract.title).like(doc_like))
-    proposals = proposals_query.offset(offset).limit(page_size).all()
-    contracts = contracts_query.offset(offset).limit(page_size).all()
+    proposals_total = proposals_query.count()
+    contracts_total = contracts_query.count()
+    proposals = proposals_query.offset(documents_offset).limit(documents_page_size).all()
+    contracts = contracts_query.offset(documents_offset).limit(documents_page_size).all()
     categories = session.query(FinanceCategory).order_by(FinanceCategory.name.asc()).limit(10).all()
     leads = leads_query.offset(offset).limit(page_size).all()
     clients = clients_query.offset(offset).limit(page_size).all()
@@ -483,7 +88,8 @@ def admin_panel_workspace_summary(
         messages_query = messages_query.filter(Message.status == message_status)
     if message_direction:
         messages_query = messages_query.filter(Message.direction == message_direction)
-    messages = messages_query.limit(5).all()
+    messages_total = messages_query.count()
+    messages = messages_query.offset(messages_offset).limit(messages_page_size).all()
     all_receivables = session.query(AccountsReceivable).all()
     receivable_total = float(sum(float(item.amount) for item in all_receivables))
     receivable_pending = float(sum(float(item.amount) for item in all_receivables if item.status == "pending"))
@@ -525,6 +131,12 @@ def admin_panel_workspace_summary(
             "generated_at": datetime.now(UTC).isoformat(),
             "page": page,
             "page_size": page_size,
+            "documents_page": documents_page,
+            "documents_page_size": documents_page_size,
+            "documents_total": max(proposals_total, contracts_total),
+            "messages_page": messages_page,
+            "messages_page_size": messages_page_size,
+            "messages_total": messages_total,
             "query": q,
             "document_query": document_q,
             "message_status": message_status,
@@ -533,5 +145,7 @@ def admin_panel_workspace_summary(
     )
 
 
+panel_router.include_router(panel_auth_router)
+panel_router.include_router(panel_crm_router)
 panel_router.include_router(panel_finance_router)
 panel_router.include_router(panel_whatsapp_router)

@@ -9,6 +9,11 @@ from app.core.security import decode_token
 from app.models.central import CentralUser, Tenant
 from app.models.tenant import User
 
+PANEL_ORDER_STATUSES = {"pending", "confirmed", "closed", "cancelled"}
+PANEL_FINANCE_STATUSES = {"pending", "paid", "overdue", "cancelled"}
+PANEL_WHATSAPP_SESSION_STATUSES = {"connecting", "connected", "disconnected", "failed"}
+PANEL_MESSAGE_STATUSES = {"sending", "sent", "delivered", "read", "failed"}
+
 
 class PanelCentralLoginRequest(BaseModel):
     email: EmailStr
@@ -101,6 +106,12 @@ def panel_cookie_options() -> dict:
 
 def panel_response(message: str, data: dict | list | None = None, ok: bool = True) -> dict:
     return {"ok": ok, "message": message, "data": data}
+
+
+def ensure_panel_status(status: str, allowed: set[str], context: str) -> str:
+    if status not in allowed:
+        raise HTTPException(status_code=422, detail=f"Invalid {context} status: {status}")
+    return status
 
 
 def panel_central_user_dep(

@@ -91,6 +91,8 @@ def test_healthcheck(tmp_path: Path) -> None:
     assert "createContract" in actions_js_response.text
     assert "credentials: \"same-origin\"" in actions_js_response.text
     assert "loadReceivables" in actions_js_response.text
+    assert "documents_page" in actions_js_response.text
+    assert "messages_page" in actions_js_response.text
     assert "window.prompt(\"Novo nome do lead" not in actions_js_response.text
     assert "window.prompt(\"Novo nome do client" not in actions_js_response.text
 
@@ -593,8 +595,20 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert payables_payload["page_size"] == 10
     assert payables_payload["total"] >= 1
 
+    invalid_finance_status = client.patch(
+        f"/admin/panel/{workspace_slug}/finance/payable/{payable_id}",
+        json={"status": "not-valid"},
+    )
+    assert invalid_finance_status.status_code == 422
+
+    invalid_message_status = client.patch(
+        f"/admin/panel/{workspace_slug}/message/{message_id}",
+        json={"status": "not-valid"},
+    )
+    assert invalid_message_status.status_code == 422
+
     panel_summary = client.get(
-        f"/admin/panel/{workspace_slug}/summary?page=1&page_size=3&document_q=Editad&message_status=read&message_direction=outbound"
+        f"/admin/panel/{workspace_slug}/summary?page=1&page_size=3&documents_page=1&documents_page_size=2&messages_page=1&messages_page_size=2&document_q=Editad&message_status=read&message_direction=outbound"
     )
     assert panel_summary.status_code == 200
     summary_payload = panel_data(panel_summary)
@@ -611,6 +625,12 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert any(item["status"] == "read" for item in summary_payload["messages"])
     assert summary_payload["page"] == 1
     assert summary_payload["page_size"] == 3
+    assert summary_payload["documents_page"] == 1
+    assert summary_payload["documents_page_size"] == 2
+    assert summary_payload["documents_total"] >= 1
+    assert summary_payload["messages_page"] == 1
+    assert summary_payload["messages_page_size"] == 2
+    assert summary_payload["messages_total"] >= 1
     assert summary_payload["query"] is None
     assert summary_payload["document_query"] == "Editad"
     assert summary_payload["message_status"] == "read"

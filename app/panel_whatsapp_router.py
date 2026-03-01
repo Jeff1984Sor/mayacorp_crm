@@ -6,9 +6,12 @@ from sqlalchemy.orm import Session
 from app.api.deps import tenant_session_dep
 from app.models.tenant import Message, TenantWhatsappAccount, User
 from app.panel_common import (
+    PANEL_MESSAGE_STATUSES,
+    PANEL_WHATSAPP_SESSION_STATUSES,
     PanelStatusRequest,
     PanelWhatsappSendRequest,
     PanelWhatsappSessionRequest,
+    ensure_panel_status,
     panel_response,
     panel_tenant_permission_dep,
 )
@@ -54,7 +57,7 @@ def admin_panel_update_whatsapp_session_status(
     account = session.query(TenantWhatsappAccount).order_by(TenantWhatsappAccount.id.asc()).first()
     if account is None:
         raise HTTPException(status_code=404, detail="WhatsApp session not found.")
-    account.status = payload.status
+    account.status = ensure_panel_status(payload.status, PANEL_WHATSAPP_SESSION_STATUSES, "whatsapp session")
     session.commit()
     return panel_response("Status da sessao WhatsApp atualizado.", {"id": account.id, "status": account.status})
 
@@ -90,6 +93,6 @@ def admin_panel_update_message_status(
     message = session.query(Message).filter(Message.id == message_id).one_or_none()
     if message is None:
         raise HTTPException(status_code=404, detail="Message not found.")
-    message.status = payload.status
+    message.status = ensure_panel_status(payload.status, PANEL_MESSAGE_STATUSES, "message")
     session.commit()
     return panel_response("Status da mensagem atualizado.", {"id": message.id, "status": message.status})

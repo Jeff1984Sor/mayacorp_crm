@@ -8,9 +8,11 @@ from sqlalchemy.orm import Query, Session
 from app.api.deps import tenant_session_dep
 from app.models.tenant import AccountsPayable, AccountsReceivable, FinanceCategory, User
 from app.panel_common import (
+    PANEL_FINANCE_STATUSES,
     PanelFinanceCategoryRequest,
     PanelFinanceEntryRequest,
     PanelStatusRequest,
+    ensure_panel_status,
     panel_response,
     panel_tenant_permission_dep,
 )
@@ -147,10 +149,11 @@ def admin_panel_create_receivable(
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("finance.write")),
 ) -> dict:
+    entry_status = ensure_panel_status(payload.status, PANEL_FINANCE_STATUSES, "finance")
     entry = AccountsReceivable(
         due_date=date.fromisoformat(payload.due_date),
         amount=payload.amount,
-        status=payload.status,
+        status=entry_status,
         category=payload.category,
         cost_center=payload.cost_center,
     )
@@ -170,7 +173,7 @@ def admin_panel_update_receivable(
     entry = session.query(AccountsReceivable).filter(AccountsReceivable.id == entry_id).one_or_none()
     if entry is None:
         raise HTTPException(status_code=404, detail="Accounts receivable not found.")
-    entry.status = payload.status
+    entry.status = ensure_panel_status(payload.status, PANEL_FINANCE_STATUSES, "finance")
     session.commit()
     return panel_response("Conta a receber atualizada.", {"id": entry.id, "status": entry.status})
 
@@ -195,10 +198,11 @@ def admin_panel_create_payable(
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("finance.write")),
 ) -> dict:
+    entry_status = ensure_panel_status(payload.status, PANEL_FINANCE_STATUSES, "finance")
     entry = AccountsPayable(
         due_date=date.fromisoformat(payload.due_date),
         amount=payload.amount,
-        status=payload.status,
+        status=entry_status,
         category=payload.category,
         cost_center=payload.cost_center,
     )
@@ -218,7 +222,7 @@ def admin_panel_update_payable(
     entry = session.query(AccountsPayable).filter(AccountsPayable.id == entry_id).one_or_none()
     if entry is None:
         raise HTTPException(status_code=404, detail="Accounts payable not found.")
-    entry.status = payload.status
+    entry.status = ensure_panel_status(payload.status, PANEL_FINANCE_STATUSES, "finance")
     session.commit()
     return panel_response("Conta a pagar atualizada.", {"id": entry.id, "status": entry.status})
 
