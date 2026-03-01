@@ -13,7 +13,20 @@ from app.api.deps import (
 )
 from app.core.security import build_token, verify_password
 from app.models.central import CentralUser, Tenant
-from app.models.tenant import AccountsPayable, AccountsReceivable, Client, Contract, Lead, Proposal, SalesItem, SalesOrder, User
+from app.models.tenant import (
+    AccountsPayable,
+    AccountsReceivable,
+    Client,
+    Contract,
+    Lead,
+    Message,
+    Proposal,
+    SalesItem,
+    SalesOrder,
+    TenantWhatsappAccount,
+    User,
+    WhatsappUnmatchedInbox,
+)
 from app.schemas.auth import (
     CentralUserResponse,
     LoginRequest,
@@ -29,6 +42,7 @@ from app.schemas.crm import (
     ClientCreateRequest,
     ClientResponse,
     ClientUpdateRequest,
+    ContractUpdateRequest,
     LeadConversionRequest,
     LeadCreateRequest,
     LeadResponse,
@@ -37,13 +51,19 @@ from app.schemas.crm import (
     ContractResponse,
     ProposalCreateRequest,
     ProposalResponse,
+    ProposalUpdateRequest,
     SalesItemCreateRequest,
     SalesItemResponse,
     SalesOrderCreateRequest,
     SalesOrderResponse,
+    SalesOrderUpdateRequest,
     TenantUserCreateRequest,
     TenantUserResponse,
     TenantUserUpdateRequest,
+    WhatsappInboundRequest,
+    WhatsappSessionRequest,
+    WhatsappSessionResponse,
+    WhatsappUnmatchedResponse,
 )
 from app.schemas.tenant import TenantCreateRequest, TenantCreateResponse
 from app.services.auth import issue_token_pair, persist_refresh_token, rotate_refresh_token
@@ -54,6 +74,26 @@ from app.services.tenant_auth import (
     rotate_tenant_refresh_token,
 )
 from app.services.tenants import create_tenant
+
+
+def _write_document_file(workspace_slug: str, doc_type: str, entity_id: int, title: str) -> str:
+    from pathlib import Path
+
+    from app.core.config import DATA_DIR
+
+    target_dir = Path(DATA_DIR / "generated" / workspace_slug / doc_type)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target_file = target_dir / f"{entity_id}.pdf"
+    content = (
+        "%PDF-1.1\n"
+        "1 0 obj<<>>endobj\n"
+        "2 0 obj<< /Length 44 >>stream\n"
+        f"{doc_type.upper()} #{entity_id} - {title}\n"
+        "endstream\nendobj\n"
+        "trailer<<>>\n%%EOF\n"
+    )
+    target_file.write_text(content, encoding="utf-8")
+    return target_file.as_posix()
 
 
 router = APIRouter()
@@ -712,9 +752,47 @@ def list_sales_orders(session: Session = Depends(tenant_session_dep)) -> list[Sa
     ]
 
 
+@router.patch("/tenant/{workspace_slug}/sales-orders/{order_id}", response_model=SalesOrderResponse)
+def update_sales_order(
+    order_id: int, payload: SalesOrderUpdateRequest, session: Session = Depends(tenant_session_dep)
+) -> SalesOrderResponse:
+    order = session.query(SalesOrder).filter(SalesOrder.id == order_id).one_or_none()
+    if order is None:
+        raise HTTPException(status_code=404, detail="Sales order not found.")
+    if payload.status is not None:
+        order.status = payload.status
+    if payload.order_type is not None:
+        order.order_type = payload.order_type
+    if payload.duration_months is not None:
+        order.duration_months = payload.duration_months
+    session.commit()
+    session.refresh(order)
+    return SalesOrderResponse(
+        id=order.id,
+        client_id=order.client_id,
+        order_type=order.order_type,
+        duration_months=order.duration_months,
+        total_amount=float(order.total_amount),
+        status=order.status,
+    )
+
+
+@router.delete("/tenant/{workspace_slug}/sales-orders/{order_id}", status_code=204)
+def delete_sales_order(order_id: int, session: Session = Depends(tenant_session_dep)) -> None:
+    order = session.query(SalesOrder).filter(SalesOrder.id == order_id).one_or_none()
+    if order is None:
+        raise HTTPException(status_code=404, detail="Sales order not found.")
+    session.query(SalesItem).filter(SalesItem.sales_order_id == order.id).delete()
+    session.query(AccountsReceivable).filter(AccountsReceivable.sales_order_id == order.id).delete()
+    session.delete(order)
+    session.commit()
+
+
 @router.post("/tenant/{workspace_slug}/proposals", response_model=ProposalResponse, status_code=201)
 def create_proposal(
-    payload: ProposalCreateRequest, session: Session = Depends(tenant_session_dep)
+    workspace_slug: str,
+    payload: ProposalCreateRequest,
+    session: Session = Depends(tenant_session_dep),
 ) -> ProposalResponse:
     if payload.client_id is not None:
         client = session.query(Client).filter(Client.id == payload.client_id).one_or_none()
@@ -727,6 +805,9 @@ def create_proposal(
         is_sendable=payload.is_sendable,
     )
     session.add(proposal)
+    session.commit()
+    session.refresh(proposal)
+    proposal.pdf_path = _write_document_file(workspace_slug, "proposals", proposal.id, proposal.title)
     session.commit()
     session.refresh(proposal)
     return ProposalResponse(
@@ -755,9 +836,49 @@ def list_proposals(session: Session = Depends(tenant_session_dep)) -> list[Propo
     ]
 
 
+@router.patch("/tenant/{workspace_slug}/proposals/{proposal_id}", response_model=ProposalResponse)
+def update_proposal(
+    workspace_slug: str,
+    proposal_id: int,
+    payload: ProposalUpdateRequest,
+    session: Session = Depends(tenant_session_dep),
+) -> ProposalResponse:
+    proposal = session.query(Proposal).filter(Proposal.id == proposal_id).one_or_none()
+    if proposal is None:
+        raise HTTPException(status_code=404, detail="Proposal not found.")
+    if payload.title is not None:
+        proposal.title = payload.title
+    if payload.template_name is not None:
+        proposal.template_name = payload.template_name
+    if payload.is_sendable is not None:
+        proposal.is_sendable = payload.is_sendable
+    proposal.pdf_path = _write_document_file(workspace_slug, "proposals", proposal.id, proposal.title)
+    session.commit()
+    session.refresh(proposal)
+    return ProposalResponse(
+        id=proposal.id,
+        client_id=proposal.client_id,
+        title=proposal.title,
+        template_name=proposal.template_name,
+        pdf_path=proposal.pdf_path,
+        is_sendable=proposal.is_sendable,
+    )
+
+
+@router.delete("/tenant/{workspace_slug}/proposals/{proposal_id}", status_code=204)
+def delete_proposal(proposal_id: int, session: Session = Depends(tenant_session_dep)) -> None:
+    proposal = session.query(Proposal).filter(Proposal.id == proposal_id).one_or_none()
+    if proposal is None:
+        raise HTTPException(status_code=404, detail="Proposal not found.")
+    session.delete(proposal)
+    session.commit()
+
+
 @router.post("/tenant/{workspace_slug}/contracts", response_model=ContractResponse, status_code=201)
 def create_contract(
-    payload: ContractCreateRequest, session: Session = Depends(tenant_session_dep)
+    workspace_slug: str,
+    payload: ContractCreateRequest,
+    session: Session = Depends(tenant_session_dep),
 ) -> ContractResponse:
     if payload.client_id is not None:
         client = session.query(Client).filter(Client.id == payload.client_id).one_or_none()
@@ -769,6 +890,9 @@ def create_contract(
         template_name=payload.template_name,
     )
     session.add(contract)
+    session.commit()
+    session.refresh(contract)
+    contract.pdf_path = _write_document_file(workspace_slug, "contracts", contract.id, contract.title)
     session.commit()
     session.refresh(contract)
     return ContractResponse(
@@ -794,4 +918,131 @@ def list_contracts(session: Session = Depends(tenant_session_dep)) -> list[Contr
             signed_file_path=contract.signed_file_path,
         )
         for contract in contracts
+    ]
+
+
+@router.patch("/tenant/{workspace_slug}/contracts/{contract_id}", response_model=ContractResponse)
+def update_contract(
+    workspace_slug: str,
+    contract_id: int,
+    payload: ContractUpdateRequest,
+    session: Session = Depends(tenant_session_dep),
+) -> ContractResponse:
+    contract = session.query(Contract).filter(Contract.id == contract_id).one_or_none()
+    if contract is None:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+    if payload.title is not None:
+        contract.title = payload.title
+    if payload.template_name is not None:
+        contract.template_name = payload.template_name
+    contract.pdf_path = _write_document_file(workspace_slug, "contracts", contract.id, contract.title)
+    session.commit()
+    session.refresh(contract)
+    return ContractResponse(
+        id=contract.id,
+        client_id=contract.client_id,
+        title=contract.title,
+        template_name=contract.template_name,
+        pdf_path=contract.pdf_path,
+        signed_file_path=contract.signed_file_path,
+    )
+
+
+@router.delete("/tenant/{workspace_slug}/contracts/{contract_id}", status_code=204)
+def delete_contract(contract_id: int, session: Session = Depends(tenant_session_dep)) -> None:
+    contract = session.query(Contract).filter(Contract.id == contract_id).one_or_none()
+    if contract is None:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+    session.delete(contract)
+    session.commit()
+
+
+@router.post("/tenant/{workspace_slug}/whatsapp/session", response_model=WhatsappSessionResponse, status_code=201)
+def upsert_whatsapp_session(
+    payload: WhatsappSessionRequest, session: Session = Depends(tenant_session_dep)
+) -> WhatsappSessionResponse:
+    account = session.query(TenantWhatsappAccount).order_by(TenantWhatsappAccount.id.asc()).first()
+    if account is None:
+        account = TenantWhatsappAccount(
+            provider_session_id=payload.provider_session_id,
+            status="connecting",
+            last_qr_code="qr-placeholder",
+        )
+        session.add(account)
+    else:
+        account.provider_session_id = payload.provider_session_id
+        account.status = "connecting"
+        account.last_qr_code = "qr-placeholder"
+    session.commit()
+    session.refresh(account)
+    return WhatsappSessionResponse(
+        id=account.id,
+        provider_session_id=account.provider_session_id,
+        status=account.status,
+        last_qr_code=account.last_qr_code,
+    )
+
+
+@router.get("/tenant/{workspace_slug}/whatsapp/session", response_model=WhatsappSessionResponse | None)
+def get_whatsapp_session(session: Session = Depends(tenant_session_dep)) -> WhatsappSessionResponse | None:
+    account = session.query(TenantWhatsappAccount).order_by(TenantWhatsappAccount.id.asc()).first()
+    if account is None:
+        return None
+    return WhatsappSessionResponse(
+        id=account.id,
+        provider_session_id=account.provider_session_id,
+        status=account.status,
+        last_qr_code=account.last_qr_code,
+    )
+
+
+@router.post("/tenant/{workspace_slug}/whatsapp/inbound", status_code=201)
+def whatsapp_inbound(
+    payload: WhatsappInboundRequest, session: Session = Depends(tenant_session_dep)
+) -> dict[str, str]:
+    resolved_client_id = payload.client_id
+    resolved_lead_id = payload.lead_id
+
+    if resolved_client_id is None and resolved_lead_id is None:
+        client = session.query(Client).filter(Client.phone == payload.external_sender).one_or_none()
+        if client is not None:
+            resolved_client_id = client.id
+        else:
+            lead = session.query(Lead).filter(Lead.phone == payload.external_sender).one_or_none()
+            if lead is not None:
+                resolved_lead_id = lead.id
+
+    if resolved_client_id is not None or resolved_lead_id is not None:
+        message = Message(
+            client_id=resolved_client_id,
+            lead_id=resolved_lead_id,
+            direction="inbound",
+            body=payload.body,
+            status="read",
+        )
+        session.add(message)
+        session.commit()
+        return {"status": "matched"}
+
+    unmatched = WhatsappUnmatchedInbox(
+        external_sender=payload.external_sender,
+        body=payload.body,
+        matched=False,
+    )
+    session.add(unmatched)
+    session.commit()
+    return {"status": "unmatched"}
+
+
+@router.get("/tenant/{workspace_slug}/whatsapp/unmatched-inbox", response_model=list[WhatsappUnmatchedResponse])
+def list_unmatched_inbox(session: Session = Depends(tenant_session_dep)) -> list[WhatsappUnmatchedResponse]:
+    items = session.query(WhatsappUnmatchedInbox).order_by(WhatsappUnmatchedInbox.id.desc()).all()
+    return [
+        WhatsappUnmatchedResponse(
+            id=item.id,
+            external_sender=item.external_sender,
+            body=item.body,
+            matched=item.matched,
+        )
+        for item in items
     ]

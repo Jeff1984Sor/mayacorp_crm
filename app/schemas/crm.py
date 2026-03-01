@@ -136,6 +136,12 @@ class SalesOrderResponse(BaseModel):
     status: str
 
 
+class SalesOrderUpdateRequest(BaseModel):
+    status: str | None = Field(default=None, max_length=40)
+    order_type: str | None = Field(default=None, max_length=20)
+    duration_months: int | None = Field(default=None, ge=1, le=24)
+
+
 class ProposalCreateRequest(BaseModel):
     client_id: int | None = None
     title: str = Field(min_length=2, max_length=255)
@@ -152,6 +158,12 @@ class ProposalResponse(BaseModel):
     is_sendable: bool
 
 
+class ProposalUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=2, max_length=255)
+    template_name: str | None = Field(default=None, max_length=120)
+    is_sendable: bool | None = None
+
+
 class ContractCreateRequest(BaseModel):
     client_id: int | None = None
     title: str = Field(min_length=2, max_length=255)
@@ -165,3 +177,33 @@ class ContractResponse(BaseModel):
     template_name: str | None
     pdf_path: str | None
     signed_file_path: str | None
+
+
+class ContractUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=2, max_length=255)
+    template_name: str | None = Field(default=None, max_length=120)
+
+
+class WhatsappSessionRequest(BaseModel):
+    provider_session_id: str | None = Field(default=None, max_length=120)
+
+
+class WhatsappSessionResponse(BaseModel):
+    id: int
+    provider_session_id: str | None
+    status: str
+    last_qr_code: str | None
+
+
+class WhatsappInboundRequest(BaseModel):
+    external_sender: str = Field(min_length=3, max_length=120)
+    body: str = Field(min_length=1)
+    lead_id: int | None = None
+    client_id: int | None = None
+
+
+class WhatsappUnmatchedResponse(BaseModel):
+    id: int
+    external_sender: str
+    body: str
+    matched: bool
