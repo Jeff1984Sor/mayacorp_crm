@@ -63,7 +63,10 @@ function renderSummary(summary) {
   meta.push(`AR total: R$ ${Number(summary.finance?.receivable_total || 0).toFixed(2)}`);
   meta.push(`AR pendente: R$ ${Number(summary.finance?.receivable_pending || 0).toFixed(2)}`);
   if (summary.whatsapp) {
-    meta.push(`WhatsApp: ${summary.whatsapp.status} (${summary.whatsapp.provider_session_id || "-"})`);
+    meta.push(
+      `WhatsApp: ${summary.whatsapp.status} (${summary.whatsapp.provider_session_id || "-"})<br>
+      <button onclick="updateWhatsappSessionStatus()">Atualizar status</button>`
+    );
   } else {
     meta.push("WhatsApp: sem sessao");
   }
@@ -79,7 +82,8 @@ function renderSummary(summary) {
     <button onclick="deletePayable(${item.id})">Excluir</button>`
   );
   renderList("messagesList", summary.messages || [], (item) =>
-    `#${item.id} | ${item.direction} | ${item.status}<br>${item.body}`
+    `#${item.id} | ${item.direction} | ${item.status}<br>${item.body}<br>
+    <button onclick="updateMessageStatus(${item.id})">Atualizar status</button>`
   );
 }
 
@@ -320,6 +324,37 @@ async function createReceivable() {
   await loadWorkspaceSummary();
 }
 
+async function loadReceivables() {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const query = new URLSearchParams();
+  const status = document.getElementById("financeFilterStatus").value.trim();
+  const category = document.getElementById("financeFilterCategory").value.trim();
+  const dueFrom = document.getElementById("financeFilterFrom").value.trim();
+  const dueTo = document.getElementById("financeFilterTo").value.trim();
+  if (status) {
+    query.set("status", status);
+  }
+  if (category) {
+    query.set("category", category);
+  }
+  if (dueFrom) {
+    query.set("due_from", dueFrom);
+  }
+  if (dueTo) {
+    query.set("due_to", dueTo);
+  }
+  const response = await fetch(`/admin/panel/${slug}/finance/receivables?` + query.toString(), {
+    credentials: "same-origin"
+  });
+  const payload = await showResult(response);
+  renderList("receivablesList", (payload && payload.items) || [], (item) =>
+    `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
+    ${item.category || "-"} | ${item.due_date}<br>
+    <button onclick="updateReceivableStatus(${item.id})">Atualizar status</button>
+    <button onclick="deleteReceivable(${item.id})">Excluir</button>`
+  );
+}
+
 async function createPayable() {
   const slug = document.getElementById("tenantSlug").value.trim();
   const response = await fetch(`/admin/panel/${slug}/finance/payable`, {
@@ -336,6 +371,37 @@ async function createPayable() {
   });
   await showResult(response);
   await loadWorkspaceSummary();
+}
+
+async function loadPayables() {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const query = new URLSearchParams();
+  const status = document.getElementById("financeFilterStatus").value.trim();
+  const category = document.getElementById("financeFilterCategory").value.trim();
+  const dueFrom = document.getElementById("financeFilterFrom").value.trim();
+  const dueTo = document.getElementById("financeFilterTo").value.trim();
+  if (status) {
+    query.set("status", status);
+  }
+  if (category) {
+    query.set("category", category);
+  }
+  if (dueFrom) {
+    query.set("due_from", dueFrom);
+  }
+  if (dueTo) {
+    query.set("due_to", dueTo);
+  }
+  const response = await fetch(`/admin/panel/${slug}/finance/payables?` + query.toString(), {
+    credentials: "same-origin"
+  });
+  const payload = await showResult(response);
+  renderList("payablesList", (payload && payload.items) || [], (item) =>
+    `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
+    ${item.category || "-"} | ${item.due_date}<br>
+    <button onclick="updatePayableStatus(${item.id})">Atualizar status</button>
+    <button onclick="deletePayable(${item.id})">Excluir</button>`
+  );
 }
 
 async function connectWhatsapp() {
@@ -362,6 +428,22 @@ async function sendWhatsapp() {
       client_id: toOptionalInt(document.getElementById("whatsappClientId").value),
       lead_id: toOptionalInt(document.getElementById("whatsappLeadId").value)
     })
+  });
+  await showResult(response);
+  await loadWorkspaceSummary();
+}
+
+async function updateWhatsappSessionStatus() {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const status = window.prompt("Novo status da sessao WhatsApp:", "connected");
+  if (!status) {
+    return;
+  }
+  const response = await fetch(`/admin/panel/${slug}/whatsapp-session/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ status })
   });
   await showResult(response);
   await loadWorkspaceSummary();
@@ -414,6 +496,22 @@ async function deletePayable(id) {
   const response = await fetch(`/admin/panel/${slug}/finance/payable/${id}`, {
     method: "DELETE",
     credentials: "same-origin"
+  });
+  await showResult(response);
+  await loadWorkspaceSummary();
+}
+
+async function updateMessageStatus(id) {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const status = window.prompt("Novo status da mensagem:", "read");
+  if (!status) {
+    return;
+  }
+  const response = await fetch(`/admin/panel/${slug}/message/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ status })
   });
   await showResult(response);
   await loadWorkspaceSummary();

@@ -83,6 +83,8 @@ def test_healthcheck(tmp_path: Path) -> None:
     assert "credentials: \"same-origin\"" in js_response.text
     assert "showToast" in js_response.text
     assert "updateReceivableStatus" in js_response.text
+    assert "updateMessageStatus" in js_response.text
+    assert "loadReceivables" in js_response.text
 
 
 def test_central_create_tenant_and_dashboard(tmp_path: Path) -> None:
@@ -510,6 +512,13 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert panel_whatsapp.status_code == 200
     assert panel_data(panel_whatsapp)["status"] == "connecting"
 
+    panel_whatsapp_status = client.patch(
+        f"/admin/panel/{workspace_slug}/whatsapp-session/status",
+        json={"status": "connected"},
+    )
+    assert panel_whatsapp_status.status_code == 200
+    assert panel_data(panel_whatsapp_status)["status"] == "connected"
+
     panel_receivable = client.post(
         f"/admin/panel/{workspace_slug}/finance/receivable",
         json={"amount": 80, "due_date": "2026-03-10", "category": "Mensalidades", "cost_center": "Comercial"},
@@ -536,7 +545,31 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
         json={"body": "Mensagem painel", "lead_id": lead_id},
     )
     assert panel_whatsapp_send.status_code == 201
+    message_id = panel_data(panel_whatsapp_send)["message_id"]
     assert panel_data(panel_whatsapp_send)["status"] == "sending"
+
+    panel_message_update = client.patch(
+        f"/admin/panel/{workspace_slug}/message/{message_id}",
+        json={"status": "read"},
+    )
+    assert panel_message_update.status_code == 200
+    assert panel_data(panel_message_update)["status"] == "read"
+
+    receivables_filtered = client.get(
+        f"/admin/panel/{workspace_slug}/finance/receivables?status=paid&category=Mensalidades&due_from=2026-03-01&due_to=2026-03-31"
+    )
+    assert receivables_filtered.status_code == 200
+    receivables_payload = panel_data(receivables_filtered)
+    assert receivables_payload["filters"]["status"] == "paid"
+    assert receivables_payload["items"]
+
+    payables_filtered = client.get(
+        f"/admin/panel/{workspace_slug}/finance/payables?status=pending&category=Operacional"
+    )
+    assert payables_filtered.status_code == 200
+    payables_payload = panel_data(payables_filtered)
+    assert payables_payload["filters"]["category"] == "Operacional"
+    assert payables_payload["items"]
 
     panel_summary = client.get(f"/admin/panel/{workspace_slug}/summary?page=1&page_size=3")
     assert panel_summary.status_code == 200
@@ -550,7 +583,8 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert summary_payload["payables"]
     assert summary_payload["messages"]
     assert summary_payload["finance"]["category_count"] >= 1
-    assert summary_payload["whatsapp"]["status"] == "connecting"
+    assert summary_payload["whatsapp"]["status"] == "connected"
+    assert any(item["status"] == "read" for item in summary_payload["messages"])
     assert summary_payload["page"] == 1
     assert summary_payload["page_size"] == 3
     assert summary_payload["query"] is None

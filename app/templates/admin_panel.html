@@ -143,6 +143,22 @@
         <label for="payableAmount">Pagar</label>
         <input id="payableAmount" value="50">
         <button onclick="createPayable()">Criar contas a pagar</button>
+        <label for="financeFilterStatus">Filtro status</label>
+        <input id="financeFilterStatus" placeholder="pending">
+        <label for="financeFilterCategory">Filtro categoria</label>
+        <input id="financeFilterCategory" placeholder="Mensalidades">
+        <div class="row">
+          <div>
+            <label for="financeFilterFrom">De</label>
+            <input id="financeFilterFrom" placeholder="2026-03-01">
+          </div>
+          <div>
+            <label for="financeFilterTo">Ate</label>
+            <input id="financeFilterTo" placeholder="2026-03-31">
+          </div>
+        </div>
+        <button onclick="loadReceivables()">Listar receber</button>
+        <button onclick="loadPayables()">Listar pagar</button>
       </div>
 
       <div class="card">
@@ -150,6 +166,7 @@
         <label for="whatsappSessionId">Provider Session ID</label>
         <input id="whatsappSessionId" value="panel-session">
         <button onclick="connectWhatsapp()">Conectar sessao</button>
+        <button onclick="updateWhatsappSessionStatus()">Atualizar status da sessao</button>
         <label for="whatsappBody">Mensagem</label>
         <textarea id="whatsappBody">Mensagem enviada pelo painel</textarea>
         <label for="whatsappClientId">Client ID</label>
