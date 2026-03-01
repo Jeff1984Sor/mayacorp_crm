@@ -68,6 +68,7 @@ from app.schemas.crm import (
     CostCenterResponse,
     FinanceCategoryCreateRequest,
     FinanceCategoryResponse,
+    FinanceDashboardResponse,
     FinanceExportResponse,
     LeadConversionRequest,
     LeadCreateRequest,
@@ -99,6 +100,7 @@ from app.schemas.crm import (
     LeadRadarRunResponse,
     StorageFileRequest,
     StorageFileResponse,
+    StorageResolvedResponse,
     WorkspaceHealthResponse,
 )
 from app.schemas.tenant import TenantCreateRequest, TenantCreateResponse
@@ -692,7 +694,9 @@ def delete_client(client_id: int, session: Session = Depends(tenant_session_dep)
 
 @router.post("/tenant/{workspace_slug}/finance/accounts-receivable", response_model=AccountEntryResponse, status_code=201)
 def create_account_receivable(
-    payload: AccountEntryCreateRequest, session: Session = Depends(tenant_session_dep)
+    payload: AccountEntryCreateRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
 ) -> AccountEntryResponse:
     from datetime import date
 
@@ -753,7 +757,10 @@ def list_accounts_receivable(
     response_model=AccountEntryResponse,
 )
 def update_account_receivable(
-    entry_id: int, payload: AccountEntryUpdateRequest, session: Session = Depends(tenant_session_dep)
+    entry_id: int,
+    payload: AccountEntryUpdateRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
 ) -> AccountEntryResponse:
     from datetime import date
 
@@ -783,7 +790,9 @@ def update_account_receivable(
 
 
 @router.delete("/tenant/{workspace_slug}/finance/accounts-receivable/{entry_id}", status_code=204)
-def delete_account_receivable(entry_id: int, session: Session = Depends(tenant_session_dep)) -> None:
+def delete_account_receivable(
+    entry_id: int, session: Session = Depends(tenant_session_dep), _: User = Depends(tenant_manager_user_dep)
+) -> None:
     entry = session.query(AccountsReceivable).filter(AccountsReceivable.id == entry_id).one_or_none()
     if entry is None:
         raise HTTPException(status_code=404, detail="Accounts receivable entry not found.")
@@ -793,7 +802,9 @@ def delete_account_receivable(entry_id: int, session: Session = Depends(tenant_s
 
 @router.post("/tenant/{workspace_slug}/finance/accounts-payable", response_model=AccountEntryResponse, status_code=201)
 def create_account_payable(
-    payload: AccountEntryCreateRequest, session: Session = Depends(tenant_session_dep)
+    payload: AccountEntryCreateRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
 ) -> AccountEntryResponse:
     from datetime import date
 
@@ -851,7 +862,10 @@ def list_accounts_payable(
 
 @router.patch("/tenant/{workspace_slug}/finance/accounts-payable/{entry_id}", response_model=AccountEntryResponse)
 def update_account_payable(
-    entry_id: int, payload: AccountEntryUpdateRequest, session: Session = Depends(tenant_session_dep)
+    entry_id: int,
+    payload: AccountEntryUpdateRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
 ) -> AccountEntryResponse:
     from datetime import date
 
@@ -881,7 +895,9 @@ def update_account_payable(
 
 
 @router.delete("/tenant/{workspace_slug}/finance/accounts-payable/{entry_id}", status_code=204)
-def delete_account_payable(entry_id: int, session: Session = Depends(tenant_session_dep)) -> None:
+def delete_account_payable(
+    entry_id: int, session: Session = Depends(tenant_session_dep), _: User = Depends(tenant_manager_user_dep)
+) -> None:
     entry = session.query(AccountsPayable).filter(AccountsPayable.id == entry_id).one_or_none()
     if entry is None:
         raise HTTPException(status_code=404, detail="Accounts payable entry not found.")
@@ -891,7 +907,9 @@ def delete_account_payable(entry_id: int, session: Session = Depends(tenant_sess
 
 @router.post("/tenant/{workspace_slug}/sales-orders", response_model=SalesOrderResponse, status_code=201)
 def create_sales_order(
-    payload: SalesOrderCreateRequest, session: Session = Depends(tenant_session_dep)
+    payload: SalesOrderCreateRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
 ) -> SalesOrderResponse:
     from datetime import date
     from decimal import Decimal
@@ -989,7 +1007,10 @@ def list_sales_orders(session: Session = Depends(tenant_session_dep)) -> list[Sa
 
 @router.patch("/tenant/{workspace_slug}/sales-orders/{order_id}", response_model=SalesOrderResponse)
 def update_sales_order(
-    order_id: int, payload: SalesOrderUpdateRequest, session: Session = Depends(tenant_session_dep)
+    order_id: int,
+    payload: SalesOrderUpdateRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
 ) -> SalesOrderResponse:
     order = session.query(SalesOrder).filter(SalesOrder.id == order_id).one_or_none()
     if order is None:
@@ -1013,7 +1034,9 @@ def update_sales_order(
 
 
 @router.delete("/tenant/{workspace_slug}/sales-orders/{order_id}", status_code=204)
-def delete_sales_order(order_id: int, session: Session = Depends(tenant_session_dep)) -> None:
+def delete_sales_order(
+    order_id: int, session: Session = Depends(tenant_session_dep), _: User = Depends(tenant_manager_user_dep)
+) -> None:
     order = session.query(SalesOrder).filter(SalesOrder.id == order_id).one_or_none()
     if order is None:
         raise HTTPException(status_code=404, detail="Sales order not found.")
@@ -1028,6 +1051,7 @@ def create_proposal(
     workspace_slug: str,
     payload: ProposalCreateRequest,
     session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
 ) -> ProposalResponse:
     if payload.client_id is not None:
         client = session.query(Client).filter(Client.id == payload.client_id).one_or_none()
@@ -1084,6 +1108,7 @@ def update_proposal(
     proposal_id: int,
     payload: ProposalUpdateRequest,
     session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
 ) -> ProposalResponse:
     proposal = session.query(Proposal).filter(Proposal.id == proposal_id).one_or_none()
     if proposal is None:
@@ -1109,7 +1134,9 @@ def update_proposal(
 
 
 @router.delete("/tenant/{workspace_slug}/proposals/{proposal_id}", status_code=204)
-def delete_proposal(proposal_id: int, session: Session = Depends(tenant_session_dep)) -> None:
+def delete_proposal(
+    proposal_id: int, session: Session = Depends(tenant_session_dep), _: User = Depends(tenant_manager_user_dep)
+) -> None:
     proposal = session.query(Proposal).filter(Proposal.id == proposal_id).one_or_none()
     if proposal is None:
         raise HTTPException(status_code=404, detail="Proposal not found.")
@@ -1122,6 +1149,7 @@ def create_contract(
     workspace_slug: str,
     payload: ContractCreateRequest,
     session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
 ) -> ContractResponse:
     if payload.client_id is not None:
         client = session.query(Client).filter(Client.id == payload.client_id).one_or_none()
@@ -1179,6 +1207,7 @@ def update_contract(
     contract_id: int,
     payload: ContractUpdateRequest,
     session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
 ) -> ContractResponse:
     contract = session.query(Contract).filter(Contract.id == contract_id).one_or_none()
     if contract is None:
@@ -1212,6 +1241,7 @@ def upload_signed_contract_file(
     contract_id: int,
     payload: ContractSignedFileRequest,
     session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
 ) -> ContractResponse:
     contract = session.query(Contract).filter(Contract.id == contract_id).one_or_none()
     if contract is None:
@@ -1233,7 +1263,9 @@ def upload_signed_contract_file(
 
 
 @router.delete("/tenant/{workspace_slug}/contracts/{contract_id}", status_code=204)
-def delete_contract(contract_id: int, session: Session = Depends(tenant_session_dep)) -> None:
+def delete_contract(
+    contract_id: int, session: Session = Depends(tenant_session_dep), _: User = Depends(tenant_manager_user_dep)
+) -> None:
     contract = session.query(Contract).filter(Contract.id == contract_id).one_or_none()
     if contract is None:
         raise HTTPException(status_code=404, detail="Contract not found.")
@@ -1243,7 +1275,9 @@ def delete_contract(contract_id: int, session: Session = Depends(tenant_session_
 
 @router.post("/tenant/{workspace_slug}/whatsapp/session", response_model=WhatsappSessionResponse, status_code=201)
 def upsert_whatsapp_session(
-    payload: WhatsappSessionRequest, session: Session = Depends(tenant_session_dep)
+    payload: WhatsappSessionRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
 ) -> WhatsappSessionResponse:
     account = session.query(TenantWhatsappAccount).order_by(TenantWhatsappAccount.id.asc()).first()
     if account is None:
@@ -1320,7 +1354,9 @@ def whatsapp_inbound(
 
 @router.post("/tenant/{workspace_slug}/whatsapp/outbound", status_code=201)
 def whatsapp_outbound(
-    payload: WhatsappOutboundRequest, session: Session = Depends(tenant_session_dep)
+    payload: WhatsappOutboundRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
 ) -> dict[str, str | int]:
     if payload.client_id is None and payload.lead_id is None:
         raise HTTPException(status_code=422, detail="client_id or lead_id is required.")
@@ -1348,7 +1384,9 @@ def whatsapp_outbound(
 
 @router.post("/tenant/{workspace_slug}/whatsapp/status", status_code=200)
 def whatsapp_status(
-    payload: WhatsappStatusRequest, session: Session = Depends(tenant_session_dep)
+    payload: WhatsappStatusRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
 ) -> dict[str, str]:
     if payload.status not in {"sending", "sent", "delivered", "read", "failed"}:
         raise HTTPException(status_code=422, detail="Invalid message status.")
@@ -1391,7 +1429,7 @@ def upload_workspace_file(
 
 
 @router.get("/storage/signed", response_model=StorageFileResponse)
-def resolve_signed_storage(path: str, token: str) -> StorageFileResponse:
+def resolve_signed_storage(path: str, token: str) -> StorageResolvedResponse:
     from datetime import UTC, datetime
     from pathlib import Path
     from urllib.parse import unquote
@@ -1408,11 +1446,15 @@ def resolve_signed_storage(path: str, token: str) -> StorageFileResponse:
         raise HTTPException(status_code=403, detail="Signed token does not match file.")
     if datetime.now(UTC).timestamp() > expiry_ts:
         raise HTTPException(status_code=403, detail="Signed token expired.")
+    file = Path(decoded_path)
+    if not file.exists():
+        raise HTTPException(status_code=404, detail="File not found.")
 
-    signed_url, expires_at = generate_signed_url(decoded_path)
-    return StorageFileResponse(
+    expires_at = datetime.fromtimestamp(expiry_ts, tz=UTC)
+    return StorageResolvedResponse(
         file_path=decoded_path,
-        signed_url=signed_url,
+        file_name=file.name,
+        content=file.read_text(encoding="utf-8"),
         expires_at=expires_at.isoformat(),
     )
 
@@ -1476,6 +1518,27 @@ def export_finance(
             f"payable,{row.id},{row.due_date.isoformat()},{float(row.amount)},{row.status},{row.category or ''},{row.cost_center or ''}"
         )
     return FinanceExportResponse(format=export_format, content="\n".join(lines))
+
+
+@router.get("/tenant/{workspace_slug}/finance/dashboard", response_model=FinanceDashboardResponse)
+def finance_dashboard(
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
+) -> FinanceDashboardResponse:
+    receivables = session.query(AccountsReceivable).all()
+    payables = session.query(AccountsPayable).all()
+    receivable_total = sum(float(row.amount) for row in receivables)
+    payable_total = sum(float(row.amount) for row in payables)
+    receivable_pending = sum(float(row.amount) for row in receivables if row.status == "pending")
+    payable_pending = sum(float(row.amount) for row in payables if row.status == "pending")
+    return FinanceDashboardResponse(
+        receivable_total=receivable_total,
+        payable_total=payable_total,
+        receivable_pending=receivable_pending,
+        payable_pending=payable_pending,
+        receivable_count=len(receivables),
+        payable_count=len(payables),
+    )
 
 
 @router.post("/tenant/{workspace_slug}/ai/usage", status_code=201)

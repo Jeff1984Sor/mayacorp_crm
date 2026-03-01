@@ -313,3 +313,19 @@ class CostCenterResponse(BaseModel):
 class FinanceExportResponse(BaseModel):
     format: str
     content: str
+
+
+class StorageResolvedResponse(BaseModel):
+    file_path: str
+    file_name: str
+    content: str
+    expires_at: str
+
+
+class FinanceDashboardResponse(BaseModel):
+    receivable_total: float
+    payable_total: float
+    receivable_pending: float
+    payable_pending: float
+    receivable_count: int
+    payable_count: int
