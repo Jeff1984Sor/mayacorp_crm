@@ -207,3 +207,14 @@ class WhatsappUnmatchedResponse(BaseModel):
     external_sender: str
     body: str
     matched: bool
+
+
+class WhatsappOutboundRequest(BaseModel):
+    body: str = Field(min_length=1)
+    lead_id: int | None = None
+    client_id: int | None = None
+
+
+class WhatsappStatusRequest(BaseModel):
+    message_id: int
+    status: str = Field(min_length=3, max_length=20)

@@ -12,7 +12,7 @@ from app.api.deps import (
     tenant_session_dep,
 )
 from app.core.security import build_token, verify_password
-from app.models.central import CentralUser, Tenant
+from app.models.central import CentralAiSetting, CentralUser, Tenant, TenantAiLimit, TenantAiUsageDaily
 from app.models.tenant import (
     AccountsPayable,
     AccountsReceivable,
@@ -29,6 +29,8 @@ from app.models.tenant import (
 )
 from app.schemas.auth import (
     CentralUserResponse,
+    CentralAiSettingsRequest,
+    CentralAiSettingsResponse,
     LoginRequest,
     RefreshRequest,
     TenantLoginRequest,
@@ -63,6 +65,8 @@ from app.schemas.crm import (
     WhatsappInboundRequest,
     WhatsappSessionRequest,
     WhatsappSessionResponse,
+    WhatsappStatusRequest,
+    WhatsappOutboundRequest,
     WhatsappUnmatchedResponse,
 )
 from app.schemas.tenant import TenantCreateRequest, TenantCreateResponse
@@ -84,15 +88,23 @@ def _write_document_file(workspace_slug: str, doc_type: str, entity_id: int, tit
     target_dir = Path(DATA_DIR / "generated" / workspace_slug / doc_type)
     target_dir.mkdir(parents=True, exist_ok=True)
     target_file = target_dir / f"{entity_id}.pdf"
+    sanitized_title = title.replace("(", "[").replace(")", "]")
+    stream_content = f"BT /F1 18 Tf 50 780 Td ({doc_type.upper()} #{entity_id}) Tj 0 -24 Td ({sanitized_title}) Tj ET"
+    stream_length = len(stream_content.encode("utf-8"))
     content = (
-        "%PDF-1.1\n"
-        "1 0 obj<<>>endobj\n"
-        "2 0 obj<< /Length 44 >>stream\n"
-        f"{doc_type.upper()} #{entity_id} - {title}\n"
-        "endstream\nendobj\n"
-        "trailer<<>>\n%%EOF\n"
+        "%PDF-1.4\n"
+        "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n"
+        "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n"
+        "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] "
+        "/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj\n"
+        "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n"
+        f"5 0 obj << /Length {stream_length} >> stream\n{stream_content}\nendstream endobj\n"
+        "xref\n0 6\n0000000000 65535 f \n"
+        "0000000010 00000 n \n0000000063 00000 n \n0000000122 00000 n \n"
+        "0000000248 00000 n \n0000000318 00000 n \n"
+        "trailer << /Size 6 /Root 1 0 R >>\nstartxref\n430\n%%EOF\n"
     )
-    target_file.write_text(content, encoding="utf-8")
+    target_file.write_bytes(content.encode("utf-8"))
     return target_file.as_posix()
 
 
@@ -130,6 +142,62 @@ def central_me(current_user: CentralUser = Depends(central_current_user_dep)) ->
         email=current_user.email,
         full_name=current_user.full_name,
         must_change_password=current_user.must_change_password,
+    )
+
+
+@router.put("/central/ai/settings", response_model=CentralAiSettingsResponse)
+def upsert_central_ai_settings(
+    payload: CentralAiSettingsRequest,
+    session: Session = Depends(central_session_dep),
+    _: CentralUser = Depends(central_current_user_dep),
+) -> CentralAiSettingsResponse:
+    settings_row = session.query(CentralAiSetting).order_by(CentralAiSetting.id.asc()).first()
+    if settings_row is None:
+        settings_row = CentralAiSetting()
+        session.add(settings_row)
+        session.flush()
+
+    settings_row.provider = payload.provider
+    settings_row.config = {
+        "api_key": payload.api_key,
+        "model_name": payload.model_name,
+    }
+    session.commit()
+
+    tenants = session.query(Tenant).all()
+    for tenant in tenants:
+        limit = session.query(TenantAiLimit).filter(TenantAiLimit.tenant_id == tenant.id).one_or_none()
+        if limit is None:
+            session.add(
+                TenantAiLimit(
+                    tenant_id=tenant.id,
+                    monthly_request_limit=payload.monthly_request_limit,
+                    monthly_token_limit=payload.monthly_token_limit,
+                )
+            )
+    session.commit()
+    return CentralAiSettingsResponse(
+        provider=settings_row.provider,
+        model_name=settings_row.config.get("model_name"),
+        monthly_request_limit=payload.monthly_request_limit,
+        monthly_token_limit=payload.monthly_token_limit,
+    )
+
+
+@router.get("/central/ai/settings", response_model=CentralAiSettingsResponse | None)
+def get_central_ai_settings(
+    session: Session = Depends(central_session_dep),
+    _: CentralUser = Depends(central_current_user_dep),
+) -> CentralAiSettingsResponse | None:
+    settings_row = session.query(CentralAiSetting).order_by(CentralAiSetting.id.asc()).first()
+    if settings_row is None:
+        return None
+    first_limit = session.query(TenantAiLimit).order_by(TenantAiLimit.id.asc()).first()
+    return CentralAiSettingsResponse(
+        provider=settings_row.provider,
+        model_name=settings_row.config.get("model_name"),
+        monthly_request_limit=first_limit.monthly_request_limit if first_limit else 0,
+        monthly_token_limit=first_limit.monthly_token_limit if first_limit else 0,
     )
 
 
@@ -1034,6 +1102,46 @@ def whatsapp_inbound(
     return {"status": "unmatched"}
 
 
+@router.post("/tenant/{workspace_slug}/whatsapp/outbound", status_code=201)
+def whatsapp_outbound(
+    payload: WhatsappOutboundRequest, session: Session = Depends(tenant_session_dep)
+) -> dict[str, str | int]:
+    if payload.client_id is None and payload.lead_id is None:
+        raise HTTPException(status_code=422, detail="client_id or lead_id is required.")
+    if payload.client_id is not None:
+        client = session.query(Client).filter(Client.id == payload.client_id).one_or_none()
+        if client is None:
+            raise HTTPException(status_code=404, detail="Client not found.")
+    if payload.lead_id is not None:
+        lead = session.query(Lead).filter(Lead.id == payload.lead_id).one_or_none()
+        if lead is None:
+            raise HTTPException(status_code=404, detail="Lead not found.")
+
+    message = Message(
+        client_id=payload.client_id,
+        lead_id=payload.lead_id,
+        direction="outbound",
+        body=payload.body,
+        status="sending",
+    )
+    session.add(message)
+    session.commit()
+    session.refresh(message)
+    return {"status": message.status, "message_id": message.id}
+
+
+@router.post("/tenant/{workspace_slug}/whatsapp/status", status_code=200)
+def whatsapp_status(
+    payload: WhatsappStatusRequest, session: Session = Depends(tenant_session_dep)
+) -> dict[str, str]:
+    message = session.query(Message).filter(Message.id == payload.message_id).one_or_none()
+    if message is None:
+        raise HTTPException(status_code=404, detail="Message not found.")
+    message.status = payload.status
+    session.commit()
+    return {"status": message.status}
+
+
 @router.get("/tenant/{workspace_slug}/whatsapp/unmatched-inbox", response_model=list[WhatsappUnmatchedResponse])
 def list_unmatched_inbox(session: Session = Depends(tenant_session_dep)) -> list[WhatsappUnmatchedResponse]:
     items = session.query(WhatsappUnmatchedInbox).order_by(WhatsappUnmatchedInbox.id.desc()).all()
@@ -1046,3 +1154,41 @@ def list_unmatched_inbox(session: Session = Depends(tenant_session_dep)) -> list
         )
         for item in items
     ]
+
+
+@router.post("/tenant/{workspace_slug}/ai/usage", status_code=201)
+def register_tenant_ai_usage(
+    workspace_slug: str,
+    request_count: int,
+    token_count: int,
+    session: Session = Depends(central_session_dep),
+    _: CentralUser = Depends(central_current_user_dep),
+) -> dict[str, int | str]:
+    from datetime import date
+
+    tenant = session.query(Tenant).filter(Tenant.slug == workspace_slug).one_or_none()
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Tenant not found.")
+
+    usage = (
+        session.query(TenantAiUsageDaily)
+        .filter(TenantAiUsageDaily.tenant_id == tenant.id, TenantAiUsageDaily.usage_date == date.today())
+        .one_or_none()
+    )
+    if usage is None:
+        usage = TenantAiUsageDaily(
+            tenant_id=tenant.id,
+            usage_date=date.today(),
+            request_count=0,
+            token_count=0,
+        )
+        session.add(usage)
+
+    usage.request_count += request_count
+    usage.token_count += token_count
+    session.commit()
+    return {
+        "workspace": workspace_slug,
+        "request_count": usage.request_count,
+        "token_count": usage.token_count,
+    }
