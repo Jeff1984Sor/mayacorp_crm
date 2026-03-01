@@ -35,6 +35,14 @@ def central_auth_headers(client: TestClient) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+def panel_central_login(client: TestClient) -> None:
+    response = client.post(
+        "/admin/panel/login",
+        json={"email": "admin@mayacorp.com", "password": "1234"},
+    )
+    assert response.status_code == 200
+
+
 def tenant_auth_headers(client: TestClient, workspace_slug: str, email: str, password: str) -> dict[str, str]:
     response = client.post(
         f"/tenant/{workspace_slug}/auth/login",
@@ -54,19 +62,19 @@ def test_healthcheck(tmp_path: Path) -> None:
     panel_response = client.get("/admin/panel")
     assert panel_response.status_code == 200
     assert "Mayacorp Admin Panel" in panel_response.text
-    assert "Criar Tenant" in panel_response.text
-    assert "Criar Pedido" in panel_response.text
+    assert "Leads e Clients" in panel_response.text
+    assert "Pedidos" in panel_response.text
     assert "/static/admin_panel.css" in panel_response.text
     assert "/static/admin_panel.js" in panel_response.text
 
     css_response = client.get("/static/admin_panel.css")
     assert css_response.status_code == 200
-    assert "--brand" in css_response.text
+    assert ".dashboard" in css_response.text
 
     js_response = client.get("/static/admin_panel.js")
     assert js_response.status_code == 200
     assert "createContract" in js_response.text
-    assert "sessionStorage" in js_response.text
+    assert "credentials: \"same-origin\"" in js_response.text
 
 
 def test_central_create_tenant_and_dashboard(tmp_path: Path) -> None:
@@ -103,9 +111,10 @@ def test_central_create_tenant_and_dashboard(tmp_path: Path) -> None:
     assert payload["pending_invoice_count"] == 1
     assert payload["total_invoice_amount"] > 0
 
+    panel_central_login(client)
+
     panel_create_response = client.post(
         "/admin/panel/tenant",
-        headers=headers,
         json={
             "company_name": "Painel Ltda",
             "workspace_slug": f"painel-{unique}",
@@ -380,9 +389,29 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert commercial_dashboard.status_code == 200
     assert commercial_dashboard.json()["sales_total"] >= 250
 
+    panel_tenant_login = client.post(
+        f"/admin/panel/{workspace_slug}/login",
+        json={"email": admin_email, "password": "1234"},
+    )
+    assert panel_tenant_login.status_code == 200
+
+    panel_health = client.get(f"/admin/panel/{workspace_slug}/health")
+    assert panel_health.status_code == 200
+
+    panel_lead = client.post(
+        f"/admin/panel/{workspace_slug}/lead",
+        json={"name": "Lead via Painel", "email": "leadpanel@example.com"},
+    )
+    assert panel_lead.status_code == 201
+
+    panel_client = client.post(
+        f"/admin/panel/{workspace_slug}/client",
+        json={"name": "Client via Painel", "email": "clientpanel@example.com"},
+    )
+    assert panel_client.status_code == 201
+
     panel_order = client.post(
         f"/admin/panel/{workspace_slug}/sales-order",
-        headers=tenant_headers,
         json={
             "title": "Pedido Painel",
             "quantity": 1,
@@ -395,7 +424,6 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
 
     panel_proposal = client.post(
         f"/admin/panel/{workspace_slug}/proposal",
-        headers=tenant_headers,
         json={"title": "Proposta Painel", "sales_order_id": order_id},
     )
     assert panel_proposal.status_code == 200
@@ -403,7 +431,6 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
 
     panel_contract = client.post(
         f"/admin/panel/{workspace_slug}/contract",
-        headers=tenant_headers,
         json={"title": "Contrato Painel", "sales_order_id": order_id},
     )
     assert panel_contract.status_code == 200
@@ -411,7 +438,6 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
 
     panel_sign = client.post(
         f"/admin/panel/{workspace_slug}/contract/sign",
-        headers=tenant_headers,
         json={
             "contract_id": panel_contract_id,
             "file_name": "painel-assinado.txt",
@@ -423,25 +449,25 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
 
     panel_finance = client.post(
         f"/admin/panel/{workspace_slug}/finance-category",
-        headers=tenant_headers,
         json={"name": "Categoria Painel", "entry_type": "receivable"},
     )
     assert panel_finance.status_code == 201
 
     panel_whatsapp = client.post(
         f"/admin/panel/{workspace_slug}/whatsapp-session",
-        headers=tenant_headers,
         json={"provider_session_id": "panel-session"},
     )
     assert panel_whatsapp.status_code == 200
     assert panel_whatsapp.json()["status"] == "connecting"
 
-    panel_summary = client.get(f"/admin/panel/{workspace_slug}/summary", headers=tenant_headers)
+    panel_summary = client.get(f"/admin/panel/{workspace_slug}/summary")
     assert panel_summary.status_code == 200
     summary_payload = panel_summary.json()
     assert summary_payload["sales_orders"]
     assert summary_payload["proposals"]
     assert summary_payload["contracts"]
+    assert summary_payload["leads"]
+    assert summary_payload["clients"]
     assert summary_payload["finance"]["category_count"] >= 1
     assert summary_payload["whatsapp"]["status"] == "connecting"
 

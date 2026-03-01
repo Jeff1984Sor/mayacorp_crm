@@ -10,7 +10,7 @@
   <div class="wrap">
     <section class="hero">
       <h1>Mayacorp Admin Panel</h1>
-      <p>Painel minimo para operar onboarding e fluxo comercial sem depender de curl.</p>
+      <p>Painel minimo para operar onboarding, CRM e documentos com sessao web.</p>
     </section>
 
     <section class="grid">
@@ -20,19 +20,12 @@
         <input id="centralEmail" value="admin@mayacorp.com">
         <label for="centralPassword">Senha</label>
         <input id="centralPassword" type="password" value="1234">
-        <button onclick="centralLogin()">Entrar e guardar token</button>
-        <span class="tiny">Guarda o access token no campo abaixo.</span>
+        <button onclick="centralLogin()">Entrar</button>
+        <button onclick="centralDashboard()">Dashboard central</button>
       </div>
 
       <div class="card">
-        <h2>2. Dashboard Central</h2>
-        <label for="centralToken">Token Central</label>
-        <textarea id="centralToken" placeholder="Bearer token central"></textarea>
-        <button onclick="centralDashboard()">Consultar dashboard</button>
-      </div>
-
-      <div class="card">
-        <h2>3. Criar Tenant</h2>
+        <h2>2. Criar Tenant</h2>
         <label for="companyName">Empresa</label>
         <input id="companyName" value="Acme Ltda">
         <label for="workspaceSlug">Workspace</label>
@@ -53,26 +46,34 @@
       </div>
 
       <div class="card">
-        <h2>4. Login Tenant</h2>
+        <h2>3. Login Tenant</h2>
         <label for="tenantSlug">Workspace</label>
         <input id="tenantSlug" value="acme">
         <label for="tenantEmail">Email</label>
         <input id="tenantEmail" value="owner@acme.com">
         <label for="tenantPassword">Senha</label>
         <input id="tenantPassword" type="password" value="1234">
-        <button onclick="tenantLogin()">Entrar e guardar token</button>
+        <button onclick="tenantLogin()">Entrar</button>
+        <button onclick="tenantHealth()">Health</button>
+        <button onclick="loadWorkspaceSummary()">Resumo</button>
       </div>
 
       <div class="card">
-        <h2>5. Health do Tenant</h2>
-        <label for="tenantToken">Token Tenant</label>
-        <textarea id="tenantToken" placeholder="Bearer token tenant"></textarea>
-        <button onclick="tenantHealth()">Consultar health</button>
-        <button onclick="loadWorkspaceSummary()">Carregar resumo</button>
+        <h2>4. Leads e Clients</h2>
+        <label for="leadName">Lead</label>
+        <input id="leadName" value="Lead Painel">
+        <label for="leadEmail">Email Lead</label>
+        <input id="leadEmail" value="lead@acme.com">
+        <button onclick="createLead()">Criar lead</button>
+        <label for="clientName">Client</label>
+        <input id="clientName" value="Client Painel">
+        <label for="clientEmail">Email Client</label>
+        <input id="clientEmail" value="client@acme.com">
+        <button onclick="createClient()">Criar client</button>
       </div>
 
       <div class="card">
-        <h2>6. Criar Pedido</h2>
+        <h2>5. Criar Pedido</h2>
         <label for="salesDescription">Descricao</label>
         <input id="salesDescription" value="Servico Mensal">
         <div class="row">
@@ -91,17 +92,13 @@
       </div>
 
       <div class="card">
-        <h2>7. Criar Proposta</h2>
-        <label for="proposalTitle">Titulo</label>
+        <h2>6. Documentos</h2>
+        <label for="proposalTitle">Proposta</label>
         <input id="proposalTitle" value="Proposta Comercial">
         <label for="proposalOrderId">ID do Pedido</label>
         <input id="proposalOrderId" placeholder="Opcional">
         <button onclick="createProposal()">Criar proposta</button>
-      </div>
-
-      <div class="card">
-        <h2>8. Criar Contrato</h2>
-        <label for="contractTitle">Titulo</label>
+        <label for="contractTitle">Contrato</label>
         <input id="contractTitle" value="Contrato Comercial">
         <label for="contractOrderId">ID do Pedido</label>
         <input id="contractOrderId" placeholder="Opcional">
@@ -109,7 +106,7 @@
       </div>
 
       <div class="card">
-        <h2>9. Assinar Contrato</h2>
+        <h2>7. Assinar Contrato</h2>
         <label for="signContractId">ID do Contrato</label>
         <input id="signContractId" placeholder="1">
         <label for="signFileName">Arquivo</label>
@@ -120,7 +117,7 @@
       </div>
 
       <div class="card">
-        <h2>10. Financeiro</h2>
+        <h2>8. Financeiro</h2>
         <label for="financeCategoryName">Categoria</label>
         <input id="financeCategoryName" value="Mensalidades">
         <label for="financeEntryType">Tipo</label>
@@ -129,10 +126,43 @@
       </div>
 
       <div class="card">
-        <h2>11. WhatsApp</h2>
+        <h2>9. WhatsApp</h2>
         <label for="whatsappSessionId">Provider Session ID</label>
         <input id="whatsappSessionId" value="panel-session">
         <button onclick="connectWhatsapp()">Conectar sessao</button>
+      </div>
+
+      <div class="card">
+        <h2>10. Sessao</h2>
+        <p class="helper">O painel usa cookies HttpOnly para sessao central e tenant.</p>
+        <button onclick="logoutPanel()">Encerrar sessao</button>
+      </div>
+    </section>
+
+    <section class="dashboard">
+      <div class="dashboard-card">
+        <h3>Pedidos</h3>
+        <div id="salesOrdersList" class="listbox"></div>
+      </div>
+      <div class="dashboard-card">
+        <h3>Propostas</h3>
+        <div id="proposalsList" class="listbox"></div>
+      </div>
+      <div class="dashboard-card">
+        <h3>Contratos</h3>
+        <div id="contractsList" class="listbox"></div>
+      </div>
+      <div class="dashboard-card">
+        <h3>Leads</h3>
+        <div id="leadsList" class="listbox"></div>
+      </div>
+      <div class="dashboard-card">
+        <h3>Clients</h3>
+        <div id="clientsList" class="listbox"></div>
+      </div>
+      <div class="dashboard-card">
+        <h3>Financeiro e WhatsApp</h3>
+        <div id="workspaceMeta" class="listbox"></div>
       </div>
     </section>
 

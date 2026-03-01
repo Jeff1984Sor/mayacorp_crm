@@ -106,9 +106,10 @@ O painel e propositalmente simples e cobre:
 - criacao rapida de contrato
 - envio rapido de assinatura
 - listagem resumida de pedidos, propostas e contratos
+- listagem visual de leads e clients
 - acao rapida de categoria financeira
 - conexao rapida de sessao WhatsApp
-- tokens persistidos na sessao do navegador, sem precisar colar a cada reload
+- sessao do painel em cookies HttpOnly para central e tenant
 
 Implementacao:
 
