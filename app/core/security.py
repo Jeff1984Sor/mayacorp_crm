@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+import base64
+import hashlib
 from uuid import uuid4
 
 import bcrypt
@@ -47,14 +49,14 @@ def decode_token(token: str) -> dict:
 
 
 def encrypt_value(raw_value: str) -> str:
-    key_bytes = settings.app_encryption_key.encode("utf-8")
-    fernet_key = (key_bytes + b"=" * 44)[:44]
+    key_bytes = hashlib.sha256(settings.app_encryption_key.encode("utf-8")).digest()
+    fernet_key = base64.urlsafe_b64encode(key_bytes)
     return Fernet(fernet_key).encrypt(raw_value.encode("utf-8")).decode("utf-8")
 
 
 def decrypt_value(encrypted_value: str) -> str:
-    key_bytes = settings.app_encryption_key.encode("utf-8")
-    fernet_key = (key_bytes + b"=" * 44)[:44]
+    key_bytes = hashlib.sha256(settings.app_encryption_key.encode("utf-8")).digest()
+    fernet_key = base64.urlsafe_b64encode(key_bytes)
     try:
         return Fernet(fernet_key).decrypt(encrypted_value.encode("utf-8")).decode("utf-8")
     except InvalidToken as exc:

@@ -245,3 +245,105 @@ def test_marketplace_storage_and_rbac(tmp_path: Path) -> None:
     signed_fetch = client.get(signed_url)
     assert signed_fetch.status_code == 200
     assert signed_fetch.text == "hello world"
+
+
+def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
+    client = load_test_client(tmp_path)
+    headers = central_auth_headers(client)
+    unique = uuid4().hex[:8]
+    workspace_slug = f"ops-{tmp_path.name}-{unique}".replace("_", "-")
+    admin_email = f"owner+{unique}@ops.com"
+
+    create_response = client.post(
+        "/central/tenants",
+        headers=headers,
+        json={
+            "company_name": "Ops Ltda",
+            "workspace_slug": workspace_slug,
+            "company_document": "321",
+            "admin_name": "Ops Admin",
+            "admin_email": admin_email,
+            "admin_password": "1234",
+            "plan_code": "starter",
+            "billing_day": 15,
+            "discount_percent": 0,
+            "generate_invoice": False,
+            "issue_fiscal_document": False,
+        },
+    )
+    assert create_response.status_code == 201
+
+    tenant_headers = tenant_auth_headers(client, workspace_slug, admin_email, "1234")
+
+    client_create = client.post(
+        f"/tenant/{workspace_slug}/clients",
+        json={"name": "Cliente Ops", "email": "cliente.ops@example.com", "phone": "5511888888888"},
+    )
+    assert client_create.status_code == 201
+    client_id = client_create.json()["id"]
+
+    order_create = client.post(
+        f"/tenant/{workspace_slug}/sales-orders",
+        headers=tenant_headers,
+        json={
+            "client_id": client_id,
+            "order_type": "one_time",
+            "installments": 1,
+            "first_due_date": "2026-03-01",
+            "category": "Vendas",
+            "cost_center": "Comercial",
+            "items": [{"description": "Servico", "quantity": 1, "unit_price": 250}],
+        },
+    )
+    assert order_create.status_code == 201
+    order_id = order_create.json()["id"]
+
+    contract_create = client.post(
+        f"/tenant/{workspace_slug}/contracts",
+        headers=tenant_headers,
+        json={"client_id": client_id, "sales_order_id": order_id, "title": "Contrato Ops"},
+    )
+    assert contract_create.status_code == 201
+    contract_id = contract_create.json()["id"]
+
+    signed_response = client.post(
+        f"/tenant/{workspace_slug}/contracts/{contract_id}/signed-file",
+        headers=tenant_headers,
+        json={"file_name": "signed.txt", "content": "signed-content"},
+    )
+    assert signed_response.status_code == 200
+    assert signed_response.json()["status"] == "signed"
+
+    ai_settings = client.put(
+        "/central/ai/settings",
+        headers=headers,
+        json={
+            "provider": "gemini",
+            "api_key": "secret-key",
+            "model_name": "gemini-pro",
+            "monthly_request_limit": 10,
+            "monthly_token_limit": 1000,
+        },
+    )
+    assert ai_settings.status_code == 200
+
+    ai_generate = client.post(
+        "/central/ai/generate",
+        headers=headers,
+        json={
+            "workspace_slug": workspace_slug,
+            "purpose": "message",
+            "prompt": "Gerar mensagem comercial",
+            "estimated_tokens": 20,
+        },
+    )
+    assert ai_generate.status_code == 200
+    assert ai_generate.json()["request_count"] >= 1
+
+    finance_dashboard = client.get(f"/tenant/{workspace_slug}/finance/dashboard", headers=tenant_headers)
+    assert finance_dashboard.status_code == 200
+    assert finance_dashboard.json()["receivable_total"] >= 250
+
+    commercial_dashboard = client.get(f"/tenant/{workspace_slug}/dashboard/commercial", headers=tenant_headers)
+    assert commercial_dashboard.status_code == 200
+    assert commercial_dashboard.json()["sales_total"] >= 250

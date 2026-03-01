@@ -50,8 +50,3 @@ def migration_2026_03_01_1(conn) -> None:
                 "updated_at TIMESTAMP)"
             )
         )
-
-
-TENANT_MIGRATIONS: list[tuple[str, callable]] = [
-    ("2026.03.01.1", migration_2026_03_01_1),
-]
