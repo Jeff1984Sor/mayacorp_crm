@@ -41,6 +41,13 @@ class TenantRefreshToken(TenantTimestampMixin, TenantBase):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class TenantSchemaVersion(TenantTimestampMixin, TenantBase):
+    __tablename__ = "tenant_schema_versions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    version: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+
+
 class Lead(TenantTimestampMixin, TenantBase):
     __tablename__ = "leads"
 
@@ -159,6 +166,7 @@ class Contract(TenantTimestampMixin, TenantBase):
     title: Mapped[str] = mapped_column(String(255))
     template_name: Mapped[str | None] = mapped_column(String(120))
     pdf_path: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(40), default="draft")
     signed_file_path: Mapped[str | None] = mapped_column(Text)
 
 
@@ -186,6 +194,7 @@ class LeadRadarRun(TenantTimestampMixin, TenantBase):
     __tablename__ = "lead_radar_runs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    external_run_id: Mapped[str | None] = mapped_column(String(120), unique=True)
     status: Mapped[str] = mapped_column(String(40), default="queued")
     source: Mapped[str] = mapped_column(String(80), default="google_places")
     summary: Mapped[dict] = mapped_column(JSON, default=dict)

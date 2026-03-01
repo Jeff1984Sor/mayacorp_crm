@@ -13,6 +13,7 @@ from app.db.session import build_tenant_engine
 from app.models.central import CentralAuditLog, SaasInvoice, Tenant, TenantSubscription
 from app.models.tenant import BankAccount, User
 from app.schemas.tenant import TenantCreateRequest
+from app.services.tenant_schema import migrate_tenant_schema
 
 
 def _build_tenant_db_url(slug: str) -> str:
@@ -47,6 +48,7 @@ def create_tenant(session: Session, payload: TenantCreateRequest, actor_email: s
 
     tenant_engine = build_tenant_engine(tenant_db_url)
     TenantBase.metadata.create_all(bind=tenant_engine, checkfirst=True)
+    migrate_tenant_schema(tenant_engine)
 
     with Session(tenant_engine) as tenant_session:
         tenant_session.add(

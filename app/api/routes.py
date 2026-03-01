@@ -70,6 +70,7 @@ from app.schemas.crm import (
     ProposalResponse,
     ProposalUpdateRequest,
     MarketplaceWebhookRequest,
+    ContractSignedFileRequest,
     SalesItemCreateRequest,
     SalesItemResponse,
     SalesOrderCreateRequest,
@@ -127,6 +128,18 @@ def _write_document_file(workspace_slug: str, doc_type: str, entity_id: int, tit
         "trailer << /Size 6 /Root 1 0 R >>\nstartxref\n430\n%%EOF\n"
     )
     target_file.write_bytes(content.encode("utf-8"))
+    return target_file.as_posix()
+
+
+def _write_signed_contract_file(workspace_slug: str, contract_id: int, file_name: str, content: str) -> str:
+    from pathlib import Path
+
+    from app.core.config import DATA_DIR
+
+    target_dir = Path(DATA_DIR / "generated" / workspace_slug / "contracts" / "signed")
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target_file = target_dir / f"{contract_id}_{Path(file_name).name}"
+    target_file.write_text(content, encoding="utf-8")
     return target_file.as_posix()
 router = APIRouter()
 
@@ -1101,6 +1114,7 @@ def create_contract(
         title=contract.title,
         template_name=contract.template_name,
         pdf_path=contract.pdf_path,
+        status=contract.status,
         signed_file_path=contract.signed_file_path,
     )
 
@@ -1116,6 +1130,7 @@ def list_contracts(session: Session = Depends(tenant_session_dep)) -> list[Contr
             title=contract.title,
             template_name=contract.template_name,
             pdf_path=contract.pdf_path,
+            status=contract.status,
             signed_file_path=contract.signed_file_path,
         )
         for contract in contracts
@@ -1136,6 +1151,8 @@ def update_contract(
         contract.title = payload.title
     if payload.template_name is not None:
         contract.template_name = payload.template_name
+    if payload.status is not None:
+        contract.status = payload.status
     contract.pdf_path = _write_document_file(workspace_slug, "contracts", contract.id, contract.title)
     session.commit()
     session.refresh(contract)
@@ -1146,6 +1163,33 @@ def update_contract(
         title=contract.title,
         template_name=contract.template_name,
         pdf_path=contract.pdf_path,
+        status=contract.status,
+        signed_file_path=contract.signed_file_path,
+    )
+
+
+@router.post("/tenant/{workspace_slug}/contracts/{contract_id}/signed-file", response_model=ContractResponse)
+def upload_signed_contract_file(
+    workspace_slug: str,
+    contract_id: int,
+    payload: ContractSignedFileRequest,
+    session: Session = Depends(tenant_session_dep),
+) -> ContractResponse:
+    contract = session.query(Contract).filter(Contract.id == contract_id).one_or_none()
+    if contract is None:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+    contract.signed_file_path = _write_signed_contract_file(workspace_slug, contract.id, payload.file_name, payload.content)
+    contract.status = "signed"
+    session.commit()
+    session.refresh(contract)
+    return ContractResponse(
+        id=contract.id,
+        client_id=contract.client_id,
+        sales_order_id=contract.sales_order_id,
+        title=contract.title,
+        template_name=contract.template_name,
+        pdf_path=contract.pdf_path,
+        status=contract.status,
         signed_file_path=contract.signed_file_path,
     )
 
@@ -1510,6 +1554,18 @@ def lead_radar_callback(
     payload: LeadRadarCallbackRequest,
     session: Session = Depends(tenant_session_dep),
 ) -> LeadRadarRunResponse:
+    if payload.external_run_id:
+        existing_run = (
+            session.query(LeadRadarRun).filter(LeadRadarRun.external_run_id == payload.external_run_id).one_or_none()
+        )
+        if existing_run is not None:
+            return LeadRadarRunResponse(
+                id=existing_run.id,
+                status=existing_run.status,
+                source=existing_run.source,
+                summary=existing_run.summary,
+            )
+
     created = 0
     deduped = 0
     for item in payload.items:
@@ -1540,6 +1596,7 @@ def lead_radar_callback(
         created += 1
 
     run = LeadRadarRun(
+        external_run_id=payload.external_run_id,
         status="processed",
         source=payload.source,
         summary={

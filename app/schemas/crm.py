@@ -180,12 +180,14 @@ class ContractResponse(BaseModel):
     title: str
     template_name: str | None
     pdf_path: str | None
+    status: str
     signed_file_path: str | None
 
 
 class ContractUpdateRequest(BaseModel):
     title: str | None = Field(default=None, min_length=2, max_length=255)
     template_name: str | None = Field(default=None, max_length=120)
+    status: str | None = Field(default=None, max_length=40)
 
 
 class WhatsappSessionRequest(BaseModel):
@@ -246,6 +248,7 @@ class LeadRadarCallbackItem(BaseModel):
 class LeadRadarCallbackRequest(BaseModel):
     source: str = Field(default="google_places", max_length=80)
     query: str = Field(min_length=2, max_length=255)
+    external_run_id: str | None = Field(default=None, max_length=120)
     items: list[LeadRadarCallbackItem] = Field(min_length=1)
 
 
@@ -257,3 +260,8 @@ class MarketplaceWebhookRequest(BaseModel):
     client_phone: str | None = Field(default=None, max_length=40)
     total_amount: float = Field(gt=0)
     first_due_date: str
+
+
+class ContractSignedFileRequest(BaseModel):
+    file_name: str = Field(min_length=3, max_length=255)
+    content: str = Field(min_length=1)

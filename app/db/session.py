@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
+from app.services.tenant_schema import migrate_tenant_schema
 
 
 @lru_cache(maxsize=1)
@@ -35,6 +36,7 @@ def build_tenant_engine(database_url: str):
 
 def get_tenant_session(database_url: str) -> Generator[Session, None, None]:
     engine = build_tenant_engine(database_url)
+    migrate_tenant_schema(engine)
     tenant_sessionmaker = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
     session = tenant_sessionmaker()
     try:
