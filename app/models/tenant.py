@@ -29,6 +29,7 @@ class User(TenantTimestampMixin, TenantBase):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=True)
     role: Mapped[str] = mapped_column(String(40), default="admin")
+    permissions: Mapped[dict] = mapped_column(JSON, default=dict)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=True)
 
 

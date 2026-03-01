@@ -18,6 +18,19 @@ class CentralUserResponse(BaseModel):
     must_change_password: bool
 
 
+class CentralPasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class CentralDashboardResponse(BaseModel):
+    tenant_count: int
+    active_tenant_count: int
+    open_task_count: int
+    pending_invoice_count: int
+    total_invoice_amount: float
+
+
 class RefreshRequest(BaseModel):
     refresh_token: str
 

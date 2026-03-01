@@ -11,6 +11,7 @@ class TenantUserCreateRequest(BaseModel):
     password: str = Field(min_length=4, max_length=128)
     is_admin: bool = False
     role: str = Field(default="staff", max_length=40)
+    permissions: dict = Field(default_factory=dict)
 
 
 class TenantUserResponse(BaseModel):
@@ -19,6 +20,7 @@ class TenantUserResponse(BaseModel):
     full_name: str
     is_admin: bool
     role: str
+    permissions: dict
     must_change_password: bool
 
 
@@ -26,6 +28,7 @@ class TenantUserUpdateRequest(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=255)
     is_admin: bool | None = None
     role: str | None = Field(default=None, max_length=40)
+    permissions: dict | None = None
     is_active: bool | None = None
 
 

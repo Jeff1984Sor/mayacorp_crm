@@ -9,13 +9,16 @@ from app.api.deps import (
     central_session_dep,
     tenant_admin_user_dep,
     tenant_manager_user_dep,
+    tenant_permission_dep,
     tenant_context_dep,
     tenant_current_user_dep,
     tenant_session_dep,
 )
-from app.core.security import build_token, decrypt_value, encrypt_value, verify_password
+from app.core.security import build_token, decrypt_value, encrypt_value, hash_password, verify_password
 from app.models.central import (
     CentralAiSetting,
+    CentralRefreshToken,
+    SaasInvoice,
     CentralTask,
     TenantAnalyticsSnapshot,
     CentralUser,
@@ -47,6 +50,8 @@ from app.schemas.auth import (
     CentralUserResponse,
     CentralAiSettingsRequest,
     CentralAiSettingsResponse,
+    CentralDashboardResponse,
+    CentralPasswordChangeRequest,
     TenantAiGenerateRequest,
     TenantAiGenerateResponse,
     TenantAnalyticsSnapshotResponse,
@@ -192,6 +197,50 @@ def central_me(current_user: CentralUser = Depends(central_current_user_dep)) ->
         email=current_user.email,
         full_name=current_user.full_name,
         must_change_password=current_user.must_change_password,
+    )
+
+
+@router.post("/central/auth/change-password", status_code=204)
+def central_change_password(
+    payload: CentralPasswordChangeRequest,
+    session: Session = Depends(central_session_dep),
+    current_user: CentralUser = Depends(central_current_user_dep),
+) -> None:
+    if not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(status_code=401, detail="Current password is invalid.")
+    current_user.password_hash = hash_password(payload.new_password)
+    current_user.must_change_password = False
+    session.commit()
+
+
+@router.post("/central/auth/logout-all", status_code=204)
+def central_logout_all(
+    session: Session = Depends(central_session_dep),
+    current_user: CentralUser = Depends(central_current_user_dep),
+) -> None:
+    from datetime import UTC, datetime
+
+    tokens = session.query(CentralRefreshToken).filter(CentralRefreshToken.user_email == current_user.email).all()
+    for token in tokens:
+        if token.revoked_at is None:
+            token.revoked_at = datetime.now(UTC)
+    session.commit()
+
+
+@router.get("/central/dashboard", response_model=CentralDashboardResponse)
+def central_dashboard(
+    session: Session = Depends(central_session_dep),
+    _: CentralUser = Depends(central_current_user_dep),
+) -> CentralDashboardResponse:
+    tenants = session.query(Tenant).all()
+    invoices = session.query(SaasInvoice).all()
+    open_tasks = session.query(CentralTask).filter(CentralTask.status == "open").count()
+    return CentralDashboardResponse(
+        tenant_count=len(tenants),
+        active_tenant_count=sum(1 for tenant in tenants if tenant.status == "active"),
+        open_task_count=open_tasks,
+        pending_invoice_count=sum(1 for invoice in invoices if invoice.status == "pending"),
+        total_invoice_amount=sum(float(invoice.amount) for invoice in invoices),
     )
 
 
@@ -459,14 +508,13 @@ def create_tenant_user(
     if existing is not None:
         raise HTTPException(status_code=409, detail="User email already exists.")
 
-    from app.core.security import hash_password
-
     user = User(
         email=payload.email,
         full_name=payload.full_name,
         password_hash=hash_password(payload.password),
         is_admin=payload.is_admin,
         role=payload.role,
+        permissions=payload.permissions,
         must_change_password=True,
     )
     session.add(user)
@@ -478,6 +526,7 @@ def create_tenant_user(
         full_name=user.full_name,
         is_admin=user.is_admin,
         role=user.role,
+        permissions=user.permissions or {},
         must_change_password=user.must_change_password,
     )
 
@@ -498,6 +547,8 @@ def update_tenant_user(
         user.is_admin = payload.is_admin
     if payload.role is not None:
         user.role = payload.role
+    if payload.permissions is not None:
+        user.permissions = payload.permissions
     if payload.is_active is not None:
         user.is_active = payload.is_active
     session.commit()
@@ -508,6 +559,7 @@ def update_tenant_user(
         full_name=user.full_name,
         is_admin=user.is_admin,
         role=user.role,
+        permissions=user.permissions or {},
         must_change_password=user.must_change_password,
     )
 
@@ -698,7 +750,7 @@ def delete_client(client_id: int, session: Session = Depends(tenant_session_dep)
 def create_account_receivable(
     payload: AccountEntryCreateRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("finance.write")),
 ) -> AccountEntryResponse:
     from datetime import date
 
@@ -806,7 +858,7 @@ def delete_account_receivable(
 def create_account_payable(
     payload: AccountEntryCreateRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("finance.write")),
 ) -> AccountEntryResponse:
     from datetime import date
 
@@ -911,7 +963,7 @@ def delete_account_payable(
 def create_sales_order(
     payload: SalesOrderCreateRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("sales.write")),
 ) -> SalesOrderResponse:
     from datetime import date
     from decimal import Decimal
@@ -1151,7 +1203,7 @@ def create_contract(
     workspace_slug: str,
     payload: ContractCreateRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("contracts.write")),
 ) -> ContractResponse:
     if payload.client_id is not None:
         client = session.query(Client).filter(Client.id == payload.client_id).one_or_none()
@@ -1279,7 +1331,7 @@ def delete_contract(
 def upsert_whatsapp_session(
     payload: WhatsappSessionRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("whatsapp.manage")),
 ) -> WhatsappSessionResponse:
     account = session.query(TenantWhatsappAccount).order_by(TenantWhatsappAccount.id.asc()).first()
     if account is None:
@@ -1358,7 +1410,7 @@ def whatsapp_inbound(
 def whatsapp_outbound(
     payload: WhatsappOutboundRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("whatsapp.send")),
 ) -> dict[str, str | int]:
     if payload.client_id is None and payload.lead_id is None:
         raise HTTPException(status_code=422, detail="client_id or lead_id is required.")
@@ -1728,7 +1780,7 @@ def create_lead_radar_run(
     workspace_slug: str,
     payload: LeadRadarRunCreateRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("leadradar.run")),
 ) -> LeadRadarRunResponse:
     summary = {
         "workspace": workspace_slug,
@@ -1861,7 +1913,7 @@ def list_lead_radar_runs(
 def marketplace_webhook(
     payload: MarketplaceWebhookRequest,
     session: Session = Depends(tenant_session_dep),
-    _: User = Depends(tenant_manager_user_dep),
+    _: User = Depends(tenant_permission_dep("marketplace.write")),
 ) -> SalesOrderResponse:
     from datetime import date
 
