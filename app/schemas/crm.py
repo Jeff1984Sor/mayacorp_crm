@@ -20,6 +20,12 @@ class TenantUserResponse(BaseModel):
     must_change_password: bool
 
 
+class TenantUserUpdateRequest(BaseModel):
+    full_name: str | None = Field(default=None, min_length=2, max_length=255)
+    is_admin: bool | None = None
+    is_active: bool | None = None
+
+
 class LeadCreateRequest(BaseModel):
     name: str = Field(min_length=2, max_length=255)
     email: EmailStr | None = None
@@ -38,6 +44,14 @@ class LeadResponse(BaseModel):
     conversion_date: datetime | None
 
 
+class LeadUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=255)
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=40)
+    source: str | None = Field(default=None, max_length=80)
+    manual_classification: str | None = Field(default=None, max_length=80)
+
+
 class ClientCreateRequest(BaseModel):
     name: str = Field(min_length=2, max_length=255)
     email: EmailStr | None = None
@@ -51,3 +65,31 @@ class ClientResponse(BaseModel):
     email: EmailStr | None
     phone: str | None
     source_lead_id: int | None
+
+
+class ClientUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=255)
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=40)
+
+
+class LeadConversionRequest(BaseModel):
+    client_name: str | None = Field(default=None, min_length=2, max_length=255)
+    client_email: EmailStr | None = None
+    client_phone: str | None = Field(default=None, max_length=40)
+
+
+class AccountEntryCreateRequest(BaseModel):
+    amount: float = Field(gt=0)
+    due_date: str
+    category: str | None = Field(default=None, max_length=80)
+    cost_center: str | None = Field(default=None, max_length=80)
+
+
+class AccountEntryResponse(BaseModel):
+    id: int
+    amount: float
+    due_date: str
+    status: str
+    category: str | None
+    cost_center: str | None

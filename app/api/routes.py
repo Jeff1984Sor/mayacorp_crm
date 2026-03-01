@@ -4,19 +4,27 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.deps import central_current_user_dep, central_session_dep, tenant_context_dep, tenant_session_dep
-from app.core.security import build_token, verify_password
+from app.core.security import verify_password
 from app.models.central import CentralUser, Tenant
 from app.models.tenant import Client, Lead, User
-from app.schemas.auth import CentralUserResponse, LoginRequest, TokenResponse
+from app.models.tenant import AccountsPayable, AccountsReceivable
+from app.schemas.auth import CentralUserResponse, LoginRequest, RefreshRequest, TokenResponse
 from app.schemas.crm import (
+    AccountEntryCreateRequest,
+    AccountEntryResponse,
     ClientCreateRequest,
     ClientResponse,
+    ClientUpdateRequest,
+    LeadConversionRequest,
     LeadCreateRequest,
     LeadResponse,
+    LeadUpdateRequest,
     TenantUserCreateRequest,
     TenantUserResponse,
+    TenantUserUpdateRequest,
 )
 from app.schemas.tenant import TenantCreateRequest, TenantCreateResponse
+from app.services.auth import issue_token_pair, persist_refresh_token, rotate_refresh_token
 from app.services.tenants import create_tenant
 
 
@@ -34,8 +42,18 @@ def central_login(payload: LoginRequest, session: Session = Depends(central_sess
     if user is None or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials.")
 
-    token = build_token(user.email, extra={"scope": "central", "must_change_password": user.must_change_password})
-    return TokenResponse(access_token=token)
+    access_token, refresh_token = issue_token_pair(user.email)
+    persist_refresh_token(session, refresh_token)
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+
+@router.post("/central/auth/refresh", response_model=TokenResponse)
+def central_refresh(payload: RefreshRequest, session: Session = Depends(central_session_dep)) -> TokenResponse:
+    try:
+        access_token, refresh_token = rotate_refresh_token(session, payload.refresh_token)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid refresh token.")
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
 @router.get("/central/auth/me", response_model=CentralUserResponse)
@@ -112,6 +130,39 @@ def create_tenant_user(payload: TenantUserCreateRequest, session: Session = Depe
     )
 
 
+@router.patch("/tenant/{workspace_slug}/users/{user_id}", response_model=TenantUserResponse)
+def update_tenant_user(
+    user_id: int, payload: TenantUserUpdateRequest, session: Session = Depends(tenant_session_dep)
+) -> TenantUserResponse:
+    user = session.query(User).filter(User.id == user_id).one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if payload.full_name is not None:
+        user.full_name = payload.full_name
+    if payload.is_admin is not None:
+        user.is_admin = payload.is_admin
+    if payload.is_active is not None:
+        user.is_active = payload.is_active
+    session.commit()
+    session.refresh(user)
+    return TenantUserResponse(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        is_admin=user.is_admin,
+        must_change_password=user.must_change_password,
+    )
+
+
+@router.delete("/tenant/{workspace_slug}/users/{user_id}", status_code=204)
+def delete_tenant_user(user_id: int, session: Session = Depends(tenant_session_dep)) -> None:
+    user = session.query(User).filter(User.id == user_id).one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found.")
+    session.delete(user)
+    session.commit()
+
+
 @router.get("/tenant/{workspace_slug}/leads", response_model=list[LeadResponse])
 def list_leads(session: Session = Depends(tenant_session_dep)) -> list[LeadResponse]:
     leads = session.query(Lead).order_by(Lead.id.desc()).all()
@@ -152,6 +203,37 @@ def create_lead(payload: LeadCreateRequest, session: Session = Depends(tenant_se
     )
 
 
+@router.patch("/tenant/{workspace_slug}/leads/{lead_id}", response_model=LeadResponse)
+def update_lead(lead_id: int, payload: LeadUpdateRequest, session: Session = Depends(tenant_session_dep)) -> LeadResponse:
+    lead = session.query(Lead).filter(Lead.id == lead_id).one_or_none()
+    if lead is None:
+        raise HTTPException(status_code=404, detail="Lead not found.")
+    for field in ("name", "email", "phone", "source", "manual_classification"):
+        value = getattr(payload, field)
+        if value is not None:
+            setattr(lead, field, value)
+    session.commit()
+    session.refresh(lead)
+    return LeadResponse(
+        id=lead.id,
+        name=lead.name,
+        email=lead.email,
+        phone=lead.phone,
+        source=lead.source,
+        manual_classification=lead.manual_classification,
+        conversion_date=lead.conversion_date,
+    )
+
+
+@router.delete("/tenant/{workspace_slug}/leads/{lead_id}", status_code=204)
+def delete_lead(lead_id: int, session: Session = Depends(tenant_session_dep)) -> None:
+    lead = session.query(Lead).filter(Lead.id == lead_id).one_or_none()
+    if lead is None:
+        raise HTTPException(status_code=404, detail="Lead not found.")
+    session.delete(lead)
+    session.commit()
+
+
 @router.post("/tenant/{workspace_slug}/clients", response_model=ClientResponse, status_code=201)
 def create_client(payload: ClientCreateRequest, session: Session = Depends(tenant_session_dep)) -> ClientResponse:
     if payload.source_lead_id is not None:
@@ -177,6 +259,35 @@ def create_client(payload: ClientCreateRequest, session: Session = Depends(tenan
     )
 
 
+@router.post("/tenant/{workspace_slug}/leads/{lead_id}/convert", response_model=ClientResponse, status_code=201)
+def convert_lead(
+    lead_id: int, payload: LeadConversionRequest, session: Session = Depends(tenant_session_dep)
+) -> ClientResponse:
+    from datetime import UTC, datetime
+
+    lead = session.query(Lead).filter(Lead.id == lead_id).one_or_none()
+    if lead is None:
+        raise HTTPException(status_code=404, detail="Lead not found.")
+
+    client = Client(
+        name=payload.client_name or lead.name,
+        email=payload.client_email or lead.email,
+        phone=payload.client_phone or lead.phone,
+        source_lead_id=lead.id,
+    )
+    lead.conversion_date = datetime.now(UTC)
+    session.add(client)
+    session.commit()
+    session.refresh(client)
+    return ClientResponse(
+        id=client.id,
+        name=client.name,
+        email=client.email,
+        phone=client.phone,
+        source_lead_id=client.source_lead_id,
+    )
+
+
 @router.get("/tenant/{workspace_slug}/clients", response_model=list[ClientResponse])
 def list_clients(session: Session = Depends(tenant_session_dep)) -> list[ClientResponse]:
     clients = session.query(Client).order_by(Client.id.desc()).all()
@@ -189,4 +300,117 @@ def list_clients(session: Session = Depends(tenant_session_dep)) -> list[ClientR
             source_lead_id=client.source_lead_id,
         )
         for client in clients
+    ]
+
+
+@router.patch("/tenant/{workspace_slug}/clients/{client_id}", response_model=ClientResponse)
+def update_client(
+    client_id: int, payload: ClientUpdateRequest, session: Session = Depends(tenant_session_dep)
+) -> ClientResponse:
+    client = session.query(Client).filter(Client.id == client_id).one_or_none()
+    if client is None:
+        raise HTTPException(status_code=404, detail="Client not found.")
+    for field in ("name", "email", "phone"):
+        value = getattr(payload, field)
+        if value is not None:
+            setattr(client, field, value)
+    session.commit()
+    session.refresh(client)
+    return ClientResponse(
+        id=client.id,
+        name=client.name,
+        email=client.email,
+        phone=client.phone,
+        source_lead_id=client.source_lead_id,
+    )
+
+
+@router.delete("/tenant/{workspace_slug}/clients/{client_id}", status_code=204)
+def delete_client(client_id: int, session: Session = Depends(tenant_session_dep)) -> None:
+    client = session.query(Client).filter(Client.id == client_id).one_or_none()
+    if client is None:
+        raise HTTPException(status_code=404, detail="Client not found.")
+    session.delete(client)
+    session.commit()
+
+
+@router.post("/tenant/{workspace_slug}/finance/accounts-receivable", response_model=AccountEntryResponse, status_code=201)
+def create_account_receivable(
+    payload: AccountEntryCreateRequest, session: Session = Depends(tenant_session_dep)
+) -> AccountEntryResponse:
+    from datetime import date
+
+    entry = AccountsReceivable(
+        amount=payload.amount,
+        due_date=date.fromisoformat(payload.due_date),
+        category=payload.category,
+        cost_center=payload.cost_center,
+    )
+    session.add(entry)
+    session.commit()
+    session.refresh(entry)
+    return AccountEntryResponse(
+        id=entry.id,
+        amount=float(entry.amount),
+        due_date=entry.due_date.isoformat(),
+        status=entry.status,
+        category=entry.category,
+        cost_center=entry.cost_center,
+    )
+
+
+@router.get("/tenant/{workspace_slug}/finance/accounts-receivable", response_model=list[AccountEntryResponse])
+def list_accounts_receivable(session: Session = Depends(tenant_session_dep)) -> list[AccountEntryResponse]:
+    entries = session.query(AccountsReceivable).order_by(AccountsReceivable.id.desc()).all()
+    return [
+        AccountEntryResponse(
+            id=entry.id,
+            amount=float(entry.amount),
+            due_date=entry.due_date.isoformat(),
+            status=entry.status,
+            category=entry.category,
+            cost_center=entry.cost_center,
+        )
+        for entry in entries
+    ]
+
+
+@router.post("/tenant/{workspace_slug}/finance/accounts-payable", response_model=AccountEntryResponse, status_code=201)
+def create_account_payable(
+    payload: AccountEntryCreateRequest, session: Session = Depends(tenant_session_dep)
+) -> AccountEntryResponse:
+    from datetime import date
+
+    entry = AccountsPayable(
+        amount=payload.amount,
+        due_date=date.fromisoformat(payload.due_date),
+        category=payload.category,
+        cost_center=payload.cost_center,
+    )
+    session.add(entry)
+    session.commit()
+    session.refresh(entry)
+    return AccountEntryResponse(
+        id=entry.id,
+        amount=float(entry.amount),
+        due_date=entry.due_date.isoformat(),
+        status=entry.status,
+        category=entry.category,
+        cost_center=entry.cost_center,
+    )
+
+
+@router.get("/tenant/{workspace_slug}/finance/accounts-payable", response_model=list[AccountEntryResponse])
+def list_accounts_payable(session: Session = Depends(tenant_session_dep)) -> list[AccountEntryResponse]:
+    entries = session.query(AccountsPayable).order_by(AccountsPayable.id.desc()).all()
+    return [
+        AccountEntryResponse(
+            id=entry.id,
+            amount=float(entry.amount),
+            due_date=entry.due_date.isoformat(),
+            status=entry.status,
+            category=entry.category,
+            cost_center=entry.cost_center,
+        )
+        for entry in entries
     ]

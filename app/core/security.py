@@ -20,12 +20,18 @@ def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
 
 
-def build_token(subject: str, expires_in_minutes: int = 30, extra: dict | None = None) -> str:
+def build_token(
+    subject: str,
+    expires_in_minutes: int = 30,
+    extra: dict | None = None,
+    token_type: str = "access",
+) -> str:
     payload = {
         "sub": subject,
         "exp": datetime.now(UTC) + timedelta(minutes=expires_in_minutes),
         "iat": datetime.now(UTC),
         "jti": str(uuid4()),
+        "type": token_type,
     }
     if extra:
         payload.update(extra)
