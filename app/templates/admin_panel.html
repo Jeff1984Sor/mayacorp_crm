@@ -58,6 +58,23 @@
         <button onclick="loadWorkspaceSummary()">Resumo</button>
         <label for="summaryQuery">Filtro</label>
         <input id="summaryQuery" placeholder="Nome ou titulo">
+        <label for="documentQuery">Filtro documentos</label>
+        <input id="documentQuery" placeholder="Proposta ou contrato">
+        <label for="messageStatusFilter">Filtro status mensagem</label>
+        <select id="messageStatusFilter">
+          <option value="">Todos</option>
+          <option value="sending">sending</option>
+          <option value="sent">sent</option>
+          <option value="delivered">delivered</option>
+          <option value="read">read</option>
+          <option value="failed">failed</option>
+        </select>
+        <label for="messageDirectionFilter">Filtro direcao mensagem</label>
+        <select id="messageDirectionFilter">
+          <option value="">Todas</option>
+          <option value="outbound">outbound</option>
+          <option value="inbound">inbound</option>
+        </select>
         <div class="row">
           <div>
             <label for="summaryPage">Pagina</label>
@@ -101,6 +118,13 @@
         <label for="salesDueDate">Primeiro vencimento</label>
         <input id="salesDueDate" value="2026-03-01">
         <button onclick="createSalesOrder()">Criar pedido</button>
+        <label for="salesOrderStatusUpdate">Status update</label>
+        <select id="salesOrderStatusUpdate">
+          <option value="confirmed">confirmed</option>
+          <option value="pending">pending</option>
+          <option value="closed">closed</option>
+          <option value="cancelled">cancelled</option>
+        </select>
       </div>
 
       <div class="card">
@@ -144,7 +168,13 @@
         <input id="payableAmount" value="50">
         <button onclick="createPayable()">Criar contas a pagar</button>
         <label for="financeFilterStatus">Filtro status</label>
-        <input id="financeFilterStatus" placeholder="pending">
+        <select id="financeFilterStatus">
+          <option value="">Todos</option>
+          <option value="pending">pending</option>
+          <option value="paid">paid</option>
+          <option value="overdue">overdue</option>
+          <option value="cancelled">cancelled</option>
+        </select>
         <label for="financeFilterCategory">Filtro categoria</label>
         <input id="financeFilterCategory" placeholder="Mensalidades">
         <div class="row">
@@ -157,6 +187,20 @@
             <input id="financeFilterTo" placeholder="2026-03-31">
           </div>
         </div>
+        <label for="receivableStatusUpdate">Status receber</label>
+        <select id="receivableStatusUpdate">
+          <option value="paid">paid</option>
+          <option value="pending">pending</option>
+          <option value="overdue">overdue</option>
+          <option value="cancelled">cancelled</option>
+        </select>
+        <label for="payableStatusUpdate">Status pagar</label>
+        <select id="payableStatusUpdate">
+          <option value="paid">paid</option>
+          <option value="pending">pending</option>
+          <option value="overdue">overdue</option>
+          <option value="cancelled">cancelled</option>
+        </select>
         <button onclick="loadReceivables()">Listar receber</button>
         <button onclick="loadPayables()">Listar pagar</button>
       </div>
@@ -166,6 +210,13 @@
         <label for="whatsappSessionId">Provider Session ID</label>
         <input id="whatsappSessionId" value="panel-session">
         <button onclick="connectWhatsapp()">Conectar sessao</button>
+        <label for="whatsappSessionStatus">Status sessao</label>
+        <select id="whatsappSessionStatus">
+          <option value="connected">connected</option>
+          <option value="connecting">connecting</option>
+          <option value="disconnected">disconnected</option>
+          <option value="failed">failed</option>
+        </select>
         <button onclick="updateWhatsappSessionStatus()">Atualizar status da sessao</button>
         <label for="whatsappBody">Mensagem</label>
         <textarea id="whatsappBody">Mensagem enviada pelo painel</textarea>
@@ -174,6 +225,13 @@
         <label for="whatsappLeadId">Lead ID</label>
         <input id="whatsappLeadId" placeholder="Opcional">
         <button onclick="sendWhatsapp()">Enviar mensagem</button>
+        <label for="messageStatusUpdate">Status mensagem</label>
+        <select id="messageStatusUpdate">
+          <option value="read">read</option>
+          <option value="sent">sent</option>
+          <option value="delivered">delivered</option>
+          <option value="failed">failed</option>
+        </select>
       </div>
 
       <div class="card">
@@ -227,6 +285,9 @@
     <pre class="output" id="output">Pronto para operar.</pre>
   </div>
 
+  <script src="/static/admin_panel_shared.js"></script>
+  <script src="/static/admin_panel_render.js"></script>
+  <script src="/static/admin_panel_actions.js"></script>
   <script src="/static/admin_panel.js"></script>
 </body>
 </html>

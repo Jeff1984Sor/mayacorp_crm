@@ -71,7 +71,26 @@ def test_healthcheck(tmp_path: Path) -> None:
     assert "Leads e Clients" in panel_response.text
     assert "Pedidos" in panel_response.text
     assert "/static/admin_panel.css" in panel_response.text
+    assert "/static/admin_panel_shared.js" in panel_response.text
+    assert "/static/admin_panel_render.js" in panel_response.text
+    assert "/static/admin_panel_actions.js" in panel_response.text
     assert "/static/admin_panel.js" in panel_response.text
+
+    shared_js_response = client.get("/static/admin_panel_shared.js")
+    assert shared_js_response.status_code == 200
+    assert "showToast" in shared_js_response.text
+    assert "toOptionalInt" in shared_js_response.text
+
+    render_js_response = client.get("/static/admin_panel_render.js")
+    assert render_js_response.status_code == 200
+    assert "renderSummary" in render_js_response.text
+    assert "updateMessageStatus" in render_js_response.text
+
+    actions_js_response = client.get("/static/admin_panel_actions.js")
+    assert actions_js_response.status_code == 200
+    assert "createContract" in actions_js_response.text
+    assert "credentials: \"same-origin\"" in actions_js_response.text
+    assert "loadReceivables" in actions_js_response.text
 
     css_response = client.get("/static/admin_panel.css")
     assert css_response.status_code == 200
@@ -79,12 +98,7 @@ def test_healthcheck(tmp_path: Path) -> None:
 
     js_response = client.get("/static/admin_panel.js")
     assert js_response.status_code == 200
-    assert "createContract" in js_response.text
-    assert "credentials: \"same-origin\"" in js_response.text
-    assert "showToast" in js_response.text
-    assert "updateReceivableStatus" in js_response.text
-    assert "updateMessageStatus" in js_response.text
-    assert "loadReceivables" in js_response.text
+    assert "admin_panel_actions.js" in js_response.text
 
 
 def test_central_create_tenant_and_dashboard(tmp_path: Path) -> None:
@@ -571,7 +585,9 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert payables_payload["filters"]["category"] == "Operacional"
     assert payables_payload["items"]
 
-    panel_summary = client.get(f"/admin/panel/{workspace_slug}/summary?page=1&page_size=3")
+    panel_summary = client.get(
+        f"/admin/panel/{workspace_slug}/summary?page=1&page_size=3&document_q=Editad&message_status=read&message_direction=outbound"
+    )
     assert panel_summary.status_code == 200
     summary_payload = panel_data(panel_summary)
     assert summary_payload["sales_orders"]
@@ -588,6 +604,9 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert summary_payload["page"] == 1
     assert summary_payload["page_size"] == 3
     assert summary_payload["query"] is None
+    assert summary_payload["document_query"] == "Editad"
+    assert summary_payload["message_status"] == "read"
+    assert summary_payload["message_direction"] == "outbound"
 
     filtered_summary = client.get(f"/admin/panel/{workspace_slug}/summary?page=1&page_size=3&q=Editado")
     assert filtered_summary.status_code == 200
