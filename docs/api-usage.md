@@ -107,6 +107,8 @@ O painel e propositalmente simples e cobre:
 - envio rapido de assinatura
 - listagem resumida de pedidos, propostas e contratos
 - listagem visual de leads e clients
+- CRUD visual basico de leads, clients, pedidos, propostas e contratos no painel
+- resumo com `page`, `page_size` e filtro `q`
 - acao rapida de categoria financeira
 - conexao rapida de sessao WhatsApp
 - sessao do painel em cookies HttpOnly para central e tenant

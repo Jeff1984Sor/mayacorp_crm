@@ -145,6 +145,36 @@ button:hover { background: var(--brand-dark); }
   color: var(--muted);
   font-size: 13px;
 }
+.toast {
+  position: sticky;
+  top: 12px;
+  z-index: 20;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  display: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+.toast.show {
+  display: block;
+}
+.toast.success {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+.toast.error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+.list-item button {
+  margin-top: 8px;
+  width: auto;
+  padding: 6px 10px;
+  font-size: 12px;
+}
 @media (max-width: 640px) {
   .row {
     grid-template-columns: 1fr;

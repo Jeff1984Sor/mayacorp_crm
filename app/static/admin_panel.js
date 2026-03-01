@@ -1,4 +1,17 @@
 const output = document.getElementById("output");
+const toast = document.getElementById("toast");
+
+function showToast(message, type = "success") {
+  if (!toast) {
+    return;
+  }
+  toast.textContent = message;
+  toast.className = `toast show ${type}`;
+  window.clearTimeout(showToast._timer);
+  showToast._timer = window.setTimeout(() => {
+    toast.className = "toast";
+  }, 3000);
+}
 
 function renderList(targetId, items, renderItem) {
   const target = document.getElementById(targetId);
@@ -14,19 +27,29 @@ function renderList(targetId, items, renderItem) {
 
 function renderSummary(summary) {
   renderList("salesOrdersList", summary.sales_orders || [], (item) =>
-    `#${item.id} | ${item.status} | R$ ${Number(item.total_amount).toFixed(2)}`
+    `#${item.id} | ${item.status} | R$ ${Number(item.total_amount).toFixed(2)}<br>
+    <button onclick="updateSalesOrderStatus(${item.id})">Atualizar status</button>
+    <button onclick="deleteSalesOrder(${item.id})">Excluir</button>`
   );
   renderList("proposalsList", summary.proposals || [], (item) =>
-    `#${item.id} | ${item.title}<br>${item.pdf_path || "sem pdf"}`
+    `#${item.id} | ${item.title}<br>${item.pdf_path || "sem pdf"}<br>
+    <button onclick="renameProposal(${item.id})">Renomear</button>
+    <button onclick="deleteProposal(${item.id})">Excluir</button>`
   );
   renderList("contractsList", summary.contracts || [], (item) =>
-    `#${item.id} | ${item.title} | ${item.status}`
+    `#${item.id} | ${item.title} | ${item.status}<br>
+    <button onclick="renameContract(${item.id})">Renomear</button>
+    <button onclick="deleteContract(${item.id})">Excluir</button>`
   );
   renderList("leadsList", summary.leads || [], (item) =>
-    `#${item.id} | ${item.name}<br>${item.email || "-"}`
+    `#${item.id} | ${item.name}<br>${item.email || "-"}<br>
+    <button onclick="renameLead(${item.id})">Editar</button>
+    <button onclick="deleteLead(${item.id})">Excluir</button>`
   );
   renderList("clientsList", summary.clients || [], (item) =>
-    `#${item.id} | ${item.name}<br>${item.email || "-"}`
+    `#${item.id} | ${item.name}<br>${item.email || "-"}<br>
+    <button onclick="renameClient(${item.id})">Editar</button>
+    <button onclick="deleteClient(${item.id})">Excluir</button>`
   );
   const meta = [];
   meta.push(`Categorias: ${summary.finance?.category_count || 0}`);
@@ -47,6 +70,11 @@ async function showResult(response) {
     try {
       const parsed = JSON.parse(text);
       output.textContent = JSON.stringify(parsed, null, 2);
+      if (response.ok) {
+        showToast("Operacao concluida.", "success");
+      } else {
+        showToast(parsed.detail || "Falha na operacao.", "error");
+      }
       if (parsed && parsed.sales_orders && parsed.proposals && parsed.contracts) {
         renderSummary(parsed);
       }
@@ -54,6 +82,7 @@ async function showResult(response) {
     } catch (error) {}
   }
   output.textContent = text;
+  showToast(response.ok ? "Operacao concluida." : text, response.ok ? "success" : "error");
   return text;
 }
 
@@ -224,7 +253,15 @@ async function signContract() {
 
 async function loadWorkspaceSummary() {
   const slug = document.getElementById("tenantSlug").value.trim();
-  const response = await fetch("/admin/panel/" + slug + "/summary", {
+  const query = new URLSearchParams({
+    page: document.getElementById("summaryPage").value || "1",
+    page_size: document.getElementById("summaryPageSize").value || "5"
+  });
+  const filterValue = document.getElementById("summaryQuery").value.trim();
+  if (filterValue) {
+    query.set("q", filterValue);
+  }
+  const response = await fetch("/admin/panel/" + slug + "/summary?" + query.toString(), {
     credentials: "same-origin"
   });
   await showResult(response);
@@ -255,4 +292,134 @@ async function connectWhatsapp() {
     })
   });
   await showResult(response);
+}
+
+async function renameLead(id) {
+  const name = window.prompt("Novo nome do lead:");
+  if (!name) {
+    return;
+  }
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch(`/admin/panel/${slug}/lead/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ name, email: null, phone: null })
+  });
+  await showResult(response);
+  await loadWorkspaceSummary();
+}
+
+async function deleteLead(id) {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch(`/admin/panel/${slug}/lead/${id}`, {
+    method: "DELETE",
+    credentials: "same-origin"
+  });
+  await showResult(response);
+  await loadWorkspaceSummary();
+}
+
+async function renameClient(id) {
+  const name = window.prompt("Novo nome do client:");
+  if (!name) {
+    return;
+  }
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch(`/admin/panel/${slug}/client/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ name, email: null, phone: null })
+  });
+  await showResult(response);
+  await loadWorkspaceSummary();
+}
+
+async function deleteClient(id) {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch(`/admin/panel/${slug}/client/${id}`, {
+    method: "DELETE",
+    credentials: "same-origin"
+  });
+  await showResult(response);
+  await loadWorkspaceSummary();
+}
+
+async function updateSalesOrderStatus(id) {
+  const status = window.prompt("Novo status do pedido:", "confirmed");
+  if (!status) {
+    return;
+  }
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch(`/admin/panel/${slug}/sales-order/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ status })
+  });
+  await showResult(response);
+  await loadWorkspaceSummary();
+}
+
+async function deleteSalesOrder(id) {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch(`/admin/panel/${slug}/sales-order/${id}`, {
+    method: "DELETE",
+    credentials: "same-origin"
+  });
+  await showResult(response);
+  await loadWorkspaceSummary();
+}
+
+async function renameProposal(id) {
+  const title = window.prompt("Novo titulo da proposta:");
+  if (!title) {
+    return;
+  }
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch(`/admin/panel/${slug}/proposal/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ title, sales_order_id: toOptionalInt(document.getElementById("proposalOrderId").value) })
+  });
+  await showResult(response);
+  await loadWorkspaceSummary();
+}
+
+async function deleteProposal(id) {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch(`/admin/panel/${slug}/proposal/${id}`, {
+    method: "DELETE",
+    credentials: "same-origin"
+  });
+  await showResult(response);
+  await loadWorkspaceSummary();
+}
+
+async function renameContract(id) {
+  const title = window.prompt("Novo titulo do contrato:");
+  if (!title) {
+    return;
+  }
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch(`/admin/panel/${slug}/contract/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ title, sales_order_id: toOptionalInt(document.getElementById("contractOrderId").value) })
+  });
+  await showResult(response);
+  await loadWorkspaceSummary();
+}
+
+async function deleteContract(id) {
+  const slug = document.getElementById("tenantSlug").value.trim();
+  const response = await fetch(`/admin/panel/${slug}/contract/${id}`, {
+    method: "DELETE",
+    credentials: "same-origin"
+  });
+  await showResult(response);
+  await loadWorkspaceSummary();
 }

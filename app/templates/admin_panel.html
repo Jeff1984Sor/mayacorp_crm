@@ -56,6 +56,18 @@
         <button onclick="tenantLogin()">Entrar</button>
         <button onclick="tenantHealth()">Health</button>
         <button onclick="loadWorkspaceSummary()">Resumo</button>
+        <label for="summaryQuery">Filtro</label>
+        <input id="summaryQuery" placeholder="Nome ou titulo">
+        <div class="row">
+          <div>
+            <label for="summaryPage">Pagina</label>
+            <input id="summaryPage" value="1">
+          </div>
+          <div>
+            <label for="summaryPageSize">Itens</label>
+            <input id="summaryPageSize" value="5">
+          </div>
+        </div>
       </div>
 
       <div class="card">
@@ -138,6 +150,8 @@
         <button onclick="logoutPanel()">Encerrar sessao</button>
       </div>
     </section>
+
+    <div id="toast" class="toast"></div>
 
     <section class="dashboard">
       <div class="dashboard-card">

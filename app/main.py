@@ -8,6 +8,7 @@ from fastapi import Cookie, Depends, FastAPI, HTTPException, Response
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import central_session_dep, tenant_context_dep, tenant_session_dep
@@ -93,6 +94,10 @@ class PanelClientRequest(BaseModel):
     name: str = Field(min_length=2, max_length=255)
     email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=40)
+
+
+class PanelStatusRequest(BaseModel):
+    status: str = Field(min_length=2, max_length=40)
 
 
 bootstrap_central_database()
@@ -314,6 +319,37 @@ def admin_panel_create_lead(
     return {"id": lead.id, "name": lead.name, "email": lead.email, "phone": lead.phone}
 
 
+@app.patch("/admin/panel/{workspace_slug}/lead/{lead_id}", tags=["health"])
+def admin_panel_update_lead(
+    lead_id: int,
+    payload: PanelLeadRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> dict:
+    lead = session.query(Lead).filter(Lead.id == lead_id).one_or_none()
+    if lead is None:
+        raise HTTPException(status_code=404, detail="Lead not found.")
+    lead.name = payload.name
+    lead.email = payload.email
+    lead.phone = payload.phone
+    session.commit()
+    return {"id": lead.id, "name": lead.name, "email": lead.email, "phone": lead.phone}
+
+
+@app.delete("/admin/panel/{workspace_slug}/lead/{lead_id}", tags=["health"])
+def admin_panel_delete_lead(
+    lead_id: int,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> dict:
+    lead = session.query(Lead).filter(Lead.id == lead_id).one_or_none()
+    if lead is None:
+        raise HTTPException(status_code=404, detail="Lead not found.")
+    session.delete(lead)
+    session.commit()
+    return {"status": "deleted", "id": lead_id}
+
+
 @app.post("/admin/panel/{workspace_slug}/client", status_code=201, tags=["health"])
 def admin_panel_create_client(
     payload: PanelClientRequest,
@@ -325,6 +361,37 @@ def admin_panel_create_client(
     session.commit()
     session.refresh(client)
     return {"id": client.id, "name": client.name, "email": client.email, "phone": client.phone}
+
+
+@app.patch("/admin/panel/{workspace_slug}/client/{client_id}", tags=["health"])
+def admin_panel_update_client(
+    client_id: int,
+    payload: PanelClientRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> dict:
+    client = session.query(Client).filter(Client.id == client_id).one_or_none()
+    if client is None:
+        raise HTTPException(status_code=404, detail="Client not found.")
+    client.name = payload.name
+    client.email = payload.email
+    client.phone = payload.phone
+    session.commit()
+    return {"id": client.id, "name": client.name, "email": client.email, "phone": client.phone}
+
+
+@app.delete("/admin/panel/{workspace_slug}/client/{client_id}", tags=["health"])
+def admin_panel_delete_client(
+    client_id: int,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> dict:
+    client = session.query(Client).filter(Client.id == client_id).one_or_none()
+    if client is None:
+        raise HTTPException(status_code=404, detail="Client not found.")
+    session.delete(client)
+    session.commit()
+    return {"status": "deleted", "id": client_id}
 
 
 @app.post("/admin/panel/{workspace_slug}/sales-order", tags=["health"])
@@ -353,6 +420,37 @@ def admin_panel_create_sales_order(
     return {"id": order.id, "status": order.status, "total_amount": float(total_amount), "workspace_slug": workspace_slug}
 
 
+@app.patch("/admin/panel/{workspace_slug}/sales-order/{order_id}", tags=["health"])
+def admin_panel_update_sales_order(
+    order_id: int,
+    payload: PanelStatusRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> dict:
+    order = session.query(SalesOrder).filter(SalesOrder.id == order_id).one_or_none()
+    if order is None:
+        raise HTTPException(status_code=404, detail="Sales order not found.")
+    order.status = payload.status
+    session.commit()
+    return {"id": order.id, "status": order.status}
+
+
+@app.delete("/admin/panel/{workspace_slug}/sales-order/{order_id}", tags=["health"])
+def admin_panel_delete_sales_order(
+    order_id: int,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> dict:
+    order = session.query(SalesOrder).filter(SalesOrder.id == order_id).one_or_none()
+    if order is None:
+        raise HTTPException(status_code=404, detail="Sales order not found.")
+    session.query(AccountsReceivable).filter(AccountsReceivable.sales_order_id == order.id).delete()
+    session.query(SalesItem).filter(SalesItem.sales_order_id == order.id).delete()
+    session.delete(order)
+    session.commit()
+    return {"status": "deleted", "id": order_id}
+
+
 @app.post("/admin/panel/{workspace_slug}/proposal", tags=["health"])
 def admin_panel_create_proposal(
     workspace_slug: str,
@@ -371,6 +469,38 @@ def admin_panel_create_proposal(
     proposal.pdf_path = _write_document_file(workspace_slug, "proposals", proposal.id, proposal.title)
     session.commit()
     return {"id": proposal.id, "title": proposal.title, "pdf_path": proposal.pdf_path}
+
+
+@app.patch("/admin/panel/{workspace_slug}/proposal/{proposal_id}", tags=["health"])
+def admin_panel_update_proposal(
+    workspace_slug: str,
+    proposal_id: int,
+    payload: PanelProposalRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> dict:
+    proposal = session.query(Proposal).filter(Proposal.id == proposal_id).one_or_none()
+    if proposal is None:
+        raise HTTPException(status_code=404, detail="Proposal not found.")
+    proposal.title = payload.title
+    proposal.sales_order_id = payload.sales_order_id
+    proposal.pdf_path = _write_document_file(workspace_slug, "proposals", proposal.id, proposal.title)
+    session.commit()
+    return {"id": proposal.id, "title": proposal.title, "pdf_path": proposal.pdf_path}
+
+
+@app.delete("/admin/panel/{workspace_slug}/proposal/{proposal_id}", tags=["health"])
+def admin_panel_delete_proposal(
+    proposal_id: int,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> dict:
+    proposal = session.query(Proposal).filter(Proposal.id == proposal_id).one_or_none()
+    if proposal is None:
+        raise HTTPException(status_code=404, detail="Proposal not found.")
+    session.delete(proposal)
+    session.commit()
+    return {"status": "deleted", "id": proposal_id}
 
 
 @app.post("/admin/panel/{workspace_slug}/contract", tags=["health"])
@@ -393,6 +523,38 @@ def admin_panel_create_contract(
     return {"id": contract.id, "title": contract.title, "status": contract.status, "pdf_path": contract.pdf_path}
 
 
+@app.patch("/admin/panel/{workspace_slug}/contract/{contract_id}", tags=["health"])
+def admin_panel_update_contract(
+    workspace_slug: str,
+    contract_id: int,
+    payload: PanelContractRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("contracts.write")),
+) -> dict:
+    contract = session.query(Contract).filter(Contract.id == contract_id).one_or_none()
+    if contract is None:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+    contract.title = payload.title
+    contract.sales_order_id = payload.sales_order_id
+    contract.pdf_path = _write_document_file(workspace_slug, "contracts", contract.id, contract.title)
+    session.commit()
+    return {"id": contract.id, "title": contract.title, "status": contract.status, "pdf_path": contract.pdf_path}
+
+
+@app.delete("/admin/panel/{workspace_slug}/contract/{contract_id}", tags=["health"])
+def admin_panel_delete_contract(
+    contract_id: int,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("contracts.write")),
+) -> dict:
+    contract = session.query(Contract).filter(Contract.id == contract_id).one_or_none()
+    if contract is None:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+    session.delete(contract)
+    session.commit()
+    return {"status": "deleted", "id": contract_id}
+
+
 @app.post("/admin/panel/{workspace_slug}/contract/sign", tags=["health"])
 def admin_panel_sign_contract(
     workspace_slug: str,
@@ -412,15 +574,33 @@ def admin_panel_sign_contract(
 @app.get("/admin/panel/{workspace_slug}/summary", tags=["health"])
 def admin_panel_workspace_summary(
     workspace_slug: str,
+    page: int = 1,
+    page_size: int = 5,
+    q: str | None = None,
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> dict:
-    sales_orders = session.query(SalesOrder).order_by(SalesOrder.id.desc()).limit(5).all()
-    proposals = session.query(Proposal).order_by(Proposal.id.desc()).limit(5).all()
-    contracts = session.query(Contract).order_by(Contract.id.desc()).limit(5).all()
+    page = max(page, 1)
+    page_size = max(1, min(page_size, 20))
+    offset = (page - 1) * page_size
+
+    sales_orders = session.query(SalesOrder).order_by(SalesOrder.id.desc()).offset(offset).limit(page_size).all()
+    proposals_query = session.query(Proposal).order_by(Proposal.id.desc())
+    contracts_query = session.query(Contract).order_by(Contract.id.desc())
+    leads_query = session.query(Lead).order_by(Lead.id.desc())
+    clients_query = session.query(Client).order_by(Client.id.desc())
+    if q:
+        like_q = f"%{q}%"
+        lowered_q = like_q.lower()
+        proposals_query = proposals_query.filter(func.lower(Proposal.title).like(lowered_q))
+        contracts_query = contracts_query.filter(func.lower(Contract.title).like(lowered_q))
+        leads_query = leads_query.filter(func.lower(Lead.name).like(lowered_q))
+        clients_query = clients_query.filter(func.lower(Client.name).like(lowered_q))
+    proposals = proposals_query.offset(offset).limit(page_size).all()
+    contracts = contracts_query.offset(offset).limit(page_size).all()
     categories = session.query(FinanceCategory).order_by(FinanceCategory.name.asc()).limit(10).all()
-    leads = session.query(Lead).order_by(Lead.id.desc()).limit(5).all()
-    clients = session.query(Client).order_by(Client.id.desc()).limit(5).all()
+    leads = leads_query.offset(offset).limit(page_size).all()
+    clients = clients_query.offset(offset).limit(page_size).all()
     whatsapp = session.query(TenantWhatsappAccount).order_by(TenantWhatsappAccount.id.asc()).first()
 
     receivables = session.query(AccountsReceivable).all()
@@ -451,6 +631,9 @@ def admin_panel_workspace_summary(
             else None
         ),
         "generated_at": datetime.now(UTC).isoformat(),
+        "page": page,
+        "page_size": page_size,
+        "query": q,
     }
 
 
