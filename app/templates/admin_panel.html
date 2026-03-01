@@ -56,10 +56,21 @@
         <button onclick="tenantLogin()">Entrar</button>
         <button onclick="tenantHealth()">Health</button>
         <button onclick="loadWorkspaceSummary()">Resumo</button>
+        <button onclick="loadDocumentsSummary()">Docs</button>
+        <button onclick="loadMessagesSummary()">Msgs</button>
+        <button onclick="loadFinanceSummary()">Financeiro</button>
         <label for="summaryQuery">Filtro</label>
         <input id="summaryQuery" placeholder="Nome ou titulo">
         <label for="documentQuery">Filtro documentos</label>
         <input id="documentQuery" placeholder="Proposta ou contrato">
+        <label for="contractStatusFilter">Filtro status contrato</label>
+        <select id="contractStatusFilter">
+          <option value="">Todos</option>
+          <option value="draft">draft</option>
+          <option value="sent">sent</option>
+          <option value="signed">signed</option>
+          <option value="cancelled">cancelled</option>
+        </select>
         <label for="messageStatusFilter">Filtro status mensagem</label>
         <select id="messageStatusFilter">
           <option value="">Todos</option>
@@ -167,6 +178,13 @@
         <button onclick="createContract()">Criar contrato</button>
         <label for="contractEditTitle">Editar contrato (titulo)</label>
         <input id="contractEditTitle" placeholder="Novo titulo do contrato">
+        <label for="contractStatusUpdate">Status contrato</label>
+        <select id="contractStatusUpdate">
+          <option value="draft">draft</option>
+          <option value="sent">sent</option>
+          <option value="signed">signed</option>
+          <option value="cancelled">cancelled</option>
+        </select>
       </div>
 
       <div class="card">
@@ -288,6 +306,7 @@
       </div>
       <div class="dashboard-card">
         <h3>Propostas</h3>
+        <div id="documentsMeta" class="helper"></div>
         <div id="proposalsList" class="listbox"></div>
       </div>
       <div class="dashboard-card">
@@ -316,6 +335,7 @@
       </div>
       <div class="dashboard-card">
         <h3>Mensagens</h3>
+        <div id="messagesMeta" class="helper"></div>
         <div id="messagesList" class="listbox"></div>
       </div>
     </section>
@@ -323,6 +343,7 @@
     <pre class="output" id="output">Pronto para operar.</pre>
   </div>
 
+  <script src="/static/admin_panel_constants.js"></script>
   <script src="/static/admin_panel_shared.js"></script>
   <script src="/static/admin_panel_render.js"></script>
   <script src="/static/admin_panel_actions.js"></script>

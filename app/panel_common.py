@@ -13,6 +13,7 @@ PANEL_ORDER_STATUSES = {"pending", "confirmed", "closed", "cancelled"}
 PANEL_FINANCE_STATUSES = {"pending", "paid", "overdue", "cancelled"}
 PANEL_WHATSAPP_SESSION_STATUSES = {"connecting", "connected", "disconnected", "failed"}
 PANEL_MESSAGE_STATUSES = {"sending", "sent", "delivered", "read", "failed"}
+PANEL_CONTRACT_STATUSES = {"draft", "sent", "signed", "cancelled"}
 
 
 class PanelCentralLoginRequest(BaseModel):

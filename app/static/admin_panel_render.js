@@ -6,21 +6,26 @@ function renderSummary(summary) {
   );
   renderList("proposalsList", summary.proposals || [], (item) =>
     `#${item.id} | ${item.title}<br>${item.pdf_path || "sem pdf"}<br>
+    <input id="proposalTitleEdit-${item.id}" placeholder="Novo titulo">
     <button onclick="renameProposal(${item.id})">Renomear</button>
     <button onclick="deleteProposal(${item.id})">Excluir</button>`
   );
   renderList("contractsList", summary.contracts || [], (item) =>
     `#${item.id} | ${item.title} | ${item.status}<br>
+    <input id="contractTitleEdit-${item.id}" placeholder="Novo titulo">
     <button onclick="renameContract(${item.id})">Renomear</button>
+    <button onclick="updateContractStatus(${item.id})">Atualizar status</button>
     <button onclick="deleteContract(${item.id})">Excluir</button>`
   );
   renderList("leadsList", summary.leads || [], (item) =>
     `#${item.id} | ${item.name}<br>${item.email || "-"}<br>
+    <input id="leadNameEdit-${item.id}" placeholder="Novo nome">
     <button onclick="renameLead(${item.id})">Editar</button>
     <button onclick="deleteLead(${item.id})">Excluir</button>`
   );
   renderList("clientsList", summary.clients || [], (item) =>
     `#${item.id} | ${item.name}<br>${item.email || "-"}<br>
+    <input id="clientNameEdit-${item.id}" placeholder="Novo nome">
     <button onclick="renameClient(${item.id})">Editar</button>
     <button onclick="deleteClient(${item.id})">Excluir</button>`
   );
@@ -55,4 +60,12 @@ function renderSummary(summary) {
     `#${item.id} | ${item.direction} | ${item.status}<br>${item.body}<br>
     <button onclick="updateMessageStatus(${item.id})">Atualizar status</button>`
   );
+  const docsMeta = document.getElementById("documentsMeta");
+  if (docsMeta) {
+    docsMeta.textContent = `Docs: pagina ${summary.documents_page}/${Math.max(1, Math.ceil((summary.documents_total || 0) / Math.max(summary.documents_page_size || 1, 1)))}, total ${summary.documents_total || 0}`;
+  }
+  const messagesMeta = document.getElementById("messagesMeta");
+  if (messagesMeta) {
+    messagesMeta.textContent = `Msgs: pagina ${summary.messages_page}/${Math.max(1, Math.ceil((summary.messages_total || 0) / Math.max(summary.messages_page_size || 1, 1)))}, total ${summary.messages_total || 0}`;
+  }
 }

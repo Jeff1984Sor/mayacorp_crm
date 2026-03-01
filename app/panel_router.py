@@ -45,6 +45,7 @@ def admin_panel_workspace_summary(
     messages_page_size: int = 5,
     q: str | None = None,
     document_q: str | None = None,
+    contract_status: str | None = None,
     message_status: str | None = None,
     message_direction: str | None = None,
     session: Session = Depends(tenant_session_dep),
@@ -73,6 +74,8 @@ def admin_panel_workspace_summary(
         doc_like = f"%{document_q or q}%".lower()
         proposals_query = proposals_query.filter(func.lower(Proposal.title).like(doc_like))
         contracts_query = contracts_query.filter(func.lower(Contract.title).like(doc_like))
+    if contract_status:
+        contracts_query = contracts_query.filter(Contract.status == contract_status)
     proposals_total = proposals_query.count()
     contracts_total = contracts_query.count()
     proposals = proposals_query.offset(documents_offset).limit(documents_page_size).all()
@@ -139,8 +142,111 @@ def admin_panel_workspace_summary(
             "messages_total": messages_total,
             "query": q,
             "document_query": document_q,
+            "contract_status": contract_status,
             "message_status": message_status,
             "message_direction": message_direction,
+        },
+    )
+
+
+@panel_router.get("/admin/panel/{workspace_slug}/summary/documents")
+def admin_panel_documents_summary(
+    documents_page: int = 1,
+    documents_page_size: int = 5,
+    document_q: str | None = None,
+    contract_status: str | None = None,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> dict:
+    documents_page = max(documents_page, 1)
+    documents_page_size = max(1, min(documents_page_size, 20))
+    documents_offset = (documents_page - 1) * documents_page_size
+    proposals_query = session.query(Proposal).order_by(Proposal.id.desc())
+    contracts_query = session.query(Contract).order_by(Contract.id.desc())
+    if document_q:
+        doc_like = f"%{document_q}%".lower()
+        proposals_query = proposals_query.filter(func.lower(Proposal.title).like(doc_like))
+        contracts_query = contracts_query.filter(func.lower(Contract.title).like(doc_like))
+    if contract_status:
+        contracts_query = contracts_query.filter(Contract.status == contract_status)
+    proposals_total = proposals_query.count()
+    contracts_total = contracts_query.count()
+    proposals = proposals_query.offset(documents_offset).limit(documents_page_size).all()
+    contracts = contracts_query.offset(documents_offset).limit(documents_page_size).all()
+    return panel_response(
+        "Resumo de documentos carregado.",
+        {
+            "proposals": [{"id": item.id, "title": item.title, "pdf_path": item.pdf_path} for item in proposals],
+            "contracts": [{"id": item.id, "title": item.title, "status": item.status, "signed_file_path": item.signed_file_path} for item in contracts],
+            "documents_page": documents_page,
+            "documents_page_size": documents_page_size,
+            "documents_total": max(proposals_total, contracts_total),
+            "document_query": document_q,
+            "contract_status": contract_status,
+        },
+    )
+
+
+@panel_router.get("/admin/panel/{workspace_slug}/summary/messages")
+def admin_panel_messages_summary(
+    messages_page: int = 1,
+    messages_page_size: int = 5,
+    message_status: str | None = None,
+    message_direction: str | None = None,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> dict:
+    messages_page = max(messages_page, 1)
+    messages_page_size = max(1, min(messages_page_size, 20))
+    messages_offset = (messages_page - 1) * messages_page_size
+    messages_query = session.query(Message).order_by(Message.id.desc())
+    if message_status:
+        messages_query = messages_query.filter(Message.status == message_status)
+    if message_direction:
+        messages_query = messages_query.filter(Message.direction == message_direction)
+    messages_total = messages_query.count()
+    messages = messages_query.offset(messages_offset).limit(messages_page_size).all()
+    return panel_response(
+        "Resumo de mensagens carregado.",
+        {
+            "messages": [{"id": item.id, "direction": item.direction, "status": item.status, "body": item.body} for item in messages],
+            "messages_page": messages_page,
+            "messages_page_size": messages_page_size,
+            "messages_total": messages_total,
+            "message_status": message_status,
+            "message_direction": message_direction,
+        },
+    )
+
+
+@panel_router.get("/admin/panel/{workspace_slug}/summary/finance")
+def admin_panel_finance_summary(
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("finance.write")),
+) -> dict:
+    categories = session.query(FinanceCategory).order_by(FinanceCategory.name.asc()).limit(10).all()
+    receivables = session.query(AccountsReceivable).order_by(AccountsReceivable.id.desc()).limit(5).all()
+    payables = session.query(AccountsPayable).order_by(AccountsPayable.id.desc()).limit(5).all()
+    all_receivables = session.query(AccountsReceivable).all()
+    receivable_total = float(sum(float(item.amount) for item in all_receivables))
+    receivable_pending = float(sum(float(item.amount) for item in all_receivables if item.status == "pending"))
+    return panel_response(
+        "Resumo financeiro carregado.",
+        {
+            "receivables": [
+                {"id": item.id, "amount": float(item.amount), "status": item.status, "category": item.category, "due_date": item.due_date.isoformat()}
+                for item in receivables
+            ],
+            "payables": [
+                {"id": item.id, "amount": float(item.amount), "status": item.status, "category": item.category, "due_date": item.due_date.isoformat()}
+                for item in payables
+            ],
+            "finance": {
+                "category_count": len(categories),
+                "categories": [{"id": item.id, "name": item.name, "entry_type": item.entry_type} for item in categories],
+                "receivable_total": receivable_total,
+                "receivable_pending": receivable_pending,
+            },
         },
     )
 

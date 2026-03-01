@@ -10,6 +10,7 @@ from app.api.deps import tenant_session_dep
 from app.api.routes import _write_document_file, _write_signed_contract_file
 from app.models.tenant import AccountsReceivable, Client, Contract, Lead, Proposal, SalesItem, SalesOrder, User
 from app.panel_common import (
+    PANEL_CONTRACT_STATUSES,
     PANEL_ORDER_STATUSES,
     PanelClientRequest,
     PanelContractRequest,
@@ -259,6 +260,21 @@ def admin_panel_update_contract(
     contract.pdf_path = _write_document_file(workspace_slug, "contracts", contract.id, contract.title)
     session.commit()
     return panel_response("Contrato atualizado.", {"id": contract.id, "title": contract.title, "status": contract.status, "pdf_path": contract.pdf_path})
+
+
+@panel_crm_router.patch("/admin/panel/{workspace_slug}/contract/{contract_id}/status")
+def admin_panel_update_contract_status(
+    contract_id: int,
+    payload: PanelStatusRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("contracts.write")),
+) -> dict:
+    contract = session.query(Contract).filter(Contract.id == contract_id).one_or_none()
+    if contract is None:
+        raise HTTPException(status_code=404, detail="Contract not found.")
+    contract.status = ensure_panel_status(payload.status, PANEL_CONTRACT_STATUSES, "contract")
+    session.commit()
+    return panel_response("Status do contrato atualizado.", {"id": contract.id, "status": contract.status})
 
 
 @panel_crm_router.delete("/admin/panel/{workspace_slug}/contract/{contract_id}")

@@ -155,6 +155,7 @@ async function loadWorkspaceSummary() {
   });
   const filterValue = document.getElementById("summaryQuery").value.trim();
   const documentFilter = document.getElementById("documentQuery").value.trim();
+  const contractStatus = selectedValue("contractStatusFilter");
   const messageStatus = selectedValue("messageStatusFilter");
   const messageDirection = selectedValue("messageDirectionFilter");
   if (filterValue) {
@@ -162,6 +163,9 @@ async function loadWorkspaceSummary() {
   }
   if (documentFilter) {
     query.set("document_q", documentFilter);
+  }
+  if (contractStatus) {
+    query.set("contract_status", contractStatus);
   }
   if (messageStatus) {
     query.set("message_status", messageStatus);
@@ -357,7 +361,7 @@ async function updateMessageStatus(id) {
 }
 
 async function renameLead(id) {
-  const name = document.getElementById("leadEditName").value.trim();
+  const name = document.getElementById(`leadNameEdit-${id}`)?.value.trim() || "";
   if (!name) {
     showToast("Informe o novo nome do lead.", "error");
     return;
@@ -379,7 +383,7 @@ async function deleteLead(id) {
 }
 
 async function renameClient(id) {
-  const name = document.getElementById("clientEditName").value.trim();
+  const name = document.getElementById(`clientNameEdit-${id}`)?.value.trim() || "";
   if (!name) {
     showToast("Informe o novo nome do client.", "error");
     return;
@@ -418,7 +422,7 @@ async function deleteSalesOrder(id) {
 }
 
 async function renameProposal(id) {
-  const title = document.getElementById("proposalEditTitle").value.trim();
+  const title = document.getElementById(`proposalTitleEdit-${id}`)?.value.trim() || "";
   if (!title) {
     showToast("Informe o novo titulo da proposta.", "error");
     return;
@@ -440,7 +444,7 @@ async function deleteProposal(id) {
 }
 
 async function renameContract(id) {
-  const title = document.getElementById("contractEditTitle").value.trim();
+  const title = document.getElementById(`contractTitleEdit-${id}`)?.value.trim() || "";
   if (!title) {
     showToast("Informe o novo titulo do contrato.", "error");
     return;
@@ -459,4 +463,97 @@ async function deleteContract(id) {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/contract/${id}`, { method: "DELETE", credentials: "same-origin" });
   await showResult(response);
   await loadWorkspaceSummary();
+}
+
+async function updateContractStatus(id) {
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/contract/${id}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ status: selectedValue("contractStatusUpdate", "sent") })
+  });
+  await showResult(response);
+  await loadWorkspaceSummary();
+}
+
+async function loadDocumentsSummary() {
+  const query = new URLSearchParams({
+    documents_page: document.getElementById("documentsPage").value || "1",
+    documents_page_size: document.getElementById("documentsPageSize").value || "5"
+  });
+  const documentFilter = document.getElementById("documentQuery").value.trim();
+  const contractStatus = selectedValue("contractStatusFilter");
+  if (documentFilter) {
+    query.set("document_q", documentFilter);
+  }
+  if (contractStatus) {
+    query.set("contract_status", contractStatus);
+  }
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/documents?${query.toString()}`, { credentials: "same-origin" });
+  const payload = await showResult(response);
+  if (payload) {
+    renderList("proposalsList", payload.proposals || [], (item) =>
+      `#${item.id} | ${item.title}<br>${item.pdf_path || "sem pdf"}<br>
+      <input id="proposalTitleEdit-${item.id}" placeholder="Novo titulo">
+      <button onclick="renameProposal(${item.id})">Renomear</button>
+      <button onclick="deleteProposal(${item.id})">Excluir</button>`
+    );
+    renderList("contractsList", payload.contracts || [], (item) =>
+      `#${item.id} | ${item.title} | ${item.status}<br>
+      <input id="contractTitleEdit-${item.id}" placeholder="Novo titulo">
+      <button onclick="renameContract(${item.id})">Renomear</button>
+      <button onclick="updateContractStatus(${item.id})">Atualizar status</button>
+      <button onclick="deleteContract(${item.id})">Excluir</button>`
+    );
+    const docsMeta = document.getElementById("documentsMeta");
+    if (docsMeta) {
+      docsMeta.textContent = `Docs: pagina ${payload.documents_page}/${Math.max(1, Math.ceil((payload.documents_total || 0) / Math.max(payload.documents_page_size || 1, 1)))}, total ${payload.documents_total || 0}`;
+    }
+  }
+}
+
+async function loadMessagesSummary() {
+  const query = new URLSearchParams({
+    messages_page: document.getElementById("messagesPage").value || "1",
+    messages_page_size: document.getElementById("messagesPageSize").value || "5"
+  });
+  const messageStatus = selectedValue("messageStatusFilter");
+  const messageDirection = selectedValue("messageDirectionFilter");
+  if (messageStatus) {
+    query.set("message_status", messageStatus);
+  }
+  if (messageDirection) {
+    query.set("message_direction", messageDirection);
+  }
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/messages?${query.toString()}`, { credentials: "same-origin" });
+  const payload = await showResult(response);
+  if (payload) {
+    renderList("messagesList", payload.messages || [], (item) =>
+      `#${item.id} | ${item.direction} | ${item.status}<br>${item.body}<br>
+      <button onclick="updateMessageStatus(${item.id})">Atualizar status</button>`
+    );
+    const messagesMeta = document.getElementById("messagesMeta");
+    if (messagesMeta) {
+      messagesMeta.textContent = `Msgs: pagina ${payload.messages_page}/${Math.max(1, Math.ceil((payload.messages_total || 0) / Math.max(payload.messages_page_size || 1, 1)))}, total ${payload.messages_total || 0}`;
+    }
+  }
+}
+
+async function loadFinanceSummary() {
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/finance`, { credentials: "same-origin" });
+  const payload = await showResult(response);
+  if (payload) {
+    renderList("receivablesList", payload.receivables || [], (item) =>
+      `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
+      ${item.category || "-"} | ${item.due_date || "-"}<br>
+      <button onclick="updateReceivableStatus(${item.id})">Atualizar status</button>
+      <button onclick="deleteReceivable(${item.id})">Excluir</button>`
+    );
+    renderList("payablesList", payload.payables || [], (item) =>
+      `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
+      ${item.category || "-"} | ${item.due_date || "-"}<br>
+      <button onclick="updatePayableStatus(${item.id})">Atualizar status</button>
+      <button onclick="deletePayable(${item.id})">Excluir</button>`
+    );
+  }
 }
