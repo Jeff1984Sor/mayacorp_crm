@@ -280,6 +280,23 @@
         <label for="salesDueDate">Primeiro vencimento</label>
         <input id="salesDueDate" value="2026-03-01">
         <button onclick="createSalesOrder()">Criar pedido</button>
+        <label for="salesEditOrderId">Editar pedido ID</label>
+        <input id="salesEditOrderId" placeholder="ID do pedido">
+        <label for="salesEditDescription">Nova descricao</label>
+        <input id="salesEditDescription" value="Servico Mensal Ajustado">
+        <div class="row">
+          <div>
+            <label for="salesEditQuantity">Nova quantidade</label>
+            <input id="salesEditQuantity" value="1">
+          </div>
+          <div>
+            <label for="salesEditPrice">Novo valor</label>
+            <input id="salesEditPrice" value="250">
+          </div>
+        </div>
+        <label for="salesEditDueDate">Novo vencimento</label>
+        <input id="salesEditDueDate" value="2026-03-10">
+        <button onclick="updateSalesOrderDetails()">Atualizar pedido completo</button>
         <label for="salesOrderStatusUpdate">Status update</label>
         <select id="salesOrderStatusUpdate">
           <option value="confirmed">confirmed</option>
@@ -409,6 +426,7 @@
         </select>
         <button onclick="loadReceivables()">Listar receber</button>
         <button onclick="loadPayables()">Listar pagar</button>
+        <button onclick="runFinanceReconcile()">Conciliar financeiro</button>
       </div>
 
       <div class="card">

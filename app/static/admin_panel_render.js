@@ -91,12 +91,14 @@ function renderSummary(summary) {
   renderList("receivablesList", summary.receivables || [], (item) =>
     `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
     ${item.category || "-"} | ${item.due_date || "-"}<br>
+    <button onclick="settleReceivable(${item.id})">Dar baixa</button>
     <button onclick="updateReceivableStatus(${item.id})">Atualizar status</button>
     <button onclick="deleteReceivable(${item.id})">Excluir</button>`
   );
   renderList("payablesList", summary.payables || [], (item) =>
     `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
     ${item.category || "-"} | ${item.due_date || "-"}<br>
+    <button onclick="settlePayable(${item.id})">Conciliar</button>
     <button onclick="updatePayableStatus(${item.id})">Atualizar status</button>
     <button onclick="deletePayable(${item.id})">Excluir</button>`
   );

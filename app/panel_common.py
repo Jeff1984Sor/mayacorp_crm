@@ -41,6 +41,13 @@ class PanelSalesOrderRequest(BaseModel):
     first_due_date: str
 
 
+class PanelSalesOrderEditRequest(BaseModel):
+    title: str = Field(min_length=2, max_length=255)
+    quantity: float = Field(default=1, gt=0)
+    unit_price: float = Field(gt=0)
+    first_due_date: str
+
+
 class PanelProposalRequest(BaseModel):
     title: str = Field(min_length=2, max_length=255)
     sales_order_id: int | None = None
@@ -88,6 +95,13 @@ class PanelFinanceEntryRequest(BaseModel):
     category: str | None = Field(default=None, max_length=80)
     cost_center: str | None = Field(default=None, max_length=80)
     status: str = Field(default="pending", max_length=40)
+
+
+class PanelFinanceReconcileRequest(BaseModel):
+    status: str | None = Field(default=None, max_length=40)
+    category: str | None = Field(default=None, max_length=80)
+    due_from: str | None = None
+    due_to: str | None = None
 
 
 class PanelWhatsappSendRequest(BaseModel):

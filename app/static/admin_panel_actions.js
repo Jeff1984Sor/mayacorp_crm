@@ -100,7 +100,30 @@ async function createSalesOrder() {
   if (payload && payload.id) {
     document.getElementById("proposalOrderId").value = payload.id;
     document.getElementById("contractOrderId").value = payload.id;
+    document.getElementById("salesEditOrderId").value = payload.id;
   }
+  await loadOrdersSummary();
+}
+
+async function updateSalesOrderDetails() {
+  const orderId = Number(document.getElementById("salesEditOrderId").value || "0");
+  if (!orderId) {
+    showToast("Informe o ID do pedido para editar.", "error");
+    return;
+  }
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/sales-order/${orderId}/details`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({
+      title: document.getElementById("salesEditDescription").value,
+      quantity: Number(document.getElementById("salesEditQuantity").value || "1"),
+      unit_price: Number(document.getElementById("salesEditPrice").value || "0"),
+      first_due_date: document.getElementById("salesEditDueDate").value
+    })
+  });
+  await showResult(response);
+  invalidatePanelDomains("orders", "finance");
   await loadOrdersSummary();
 }
 
@@ -388,6 +411,7 @@ async function loadReceivables() {
   renderList("receivablesList", (payload && payload.items) || [], (item) =>
     `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
     ${item.category || "-"} | ${item.due_date}<br>
+    <button onclick="settleReceivable(${item.id})">Dar baixa</button>
     <button onclick="updateReceivableStatus(${item.id})">Atualizar status</button>
     <button onclick="deleteReceivable(${item.id})">Excluir</button>`
   );
@@ -427,6 +451,7 @@ async function loadPayables() {
   renderList("payablesList", (payload && payload.items) || [], (item) =>
     `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
     ${item.category || "-"} | ${item.due_date}<br>
+    <button onclick="settlePayable(${item.id})">Conciliar</button>
     <button onclick="updatePayableStatus(${item.id})">Atualizar status</button>
     <button onclick="deletePayable(${item.id})">Excluir</button>`
   );
@@ -454,6 +479,7 @@ async function loadReceivablesOnly() {
     renderList("receivablesList", payload.receivables || [], (item) =>
       `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
       ${item.category || "-"} | ${item.due_date || "-"}<br>
+      <button onclick="settleReceivable(${item.id})">Dar baixa</button>
       <button onclick="updateReceivableStatus(${item.id})">Atualizar status</button>
       <button onclick="deleteReceivable(${item.id})">Excluir</button>`
     );
@@ -478,6 +504,7 @@ async function loadPayablesOnly() {
     renderList("payablesList", payload.payables || [], (item) =>
       `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
       ${item.category || "-"} | ${item.due_date || "-"}<br>
+      <button onclick="settlePayable(${item.id})">Conciliar</button>
       <button onclick="updatePayableStatus(${item.id})">Atualizar status</button>
       <button onclick="deletePayable(${item.id})">Excluir</button>`
     );
@@ -591,6 +618,16 @@ async function updateReceivableStatus(id) {
   await loadReceivables();
 }
 
+async function settleReceivable(id) {
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/finance/receivable/${id}/settle`, {
+    method: "POST",
+    credentials: "same-origin"
+  });
+  await showResult(response);
+  invalidatePanelDomains("finance");
+  await loadReceivables();
+}
+
 async function deleteReceivable(id) {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/finance/receivable/${id}`, {
     method: "DELETE",
@@ -607,6 +644,16 @@ async function updatePayableStatus(id) {
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
     body: JSON.stringify({ status: selectedValue("payableStatusUpdate", "paid") })
+  });
+  await showResult(response);
+  invalidatePanelDomains("finance");
+  await loadPayables();
+}
+
+async function settlePayable(id) {
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/finance/payable/${id}/settle`, {
+    method: "POST",
+    credentials: "same-origin"
   });
   await showResult(response);
   invalidatePanelDomains("finance");
@@ -853,15 +900,38 @@ async function loadFinanceSummary() {
     renderList("receivablesList", payload.receivables || [], (item) =>
       `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
       ${item.category || "-"} | ${item.due_date || "-"}<br>
+      <button onclick="settleReceivable(${item.id})">Dar baixa</button>
       <button onclick="updateReceivableStatus(${item.id})">Atualizar status</button>
       <button onclick="deleteReceivable(${item.id})">Excluir</button>`
     );
     renderList("payablesList", payload.payables || [], (item) =>
       `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
       ${item.category || "-"} | ${item.due_date || "-"}<br>
+      <button onclick="settlePayable(${item.id})">Conciliar</button>
       <button onclick="updatePayableStatus(${item.id})">Atualizar status</button>
       <button onclick="deletePayable(${item.id})">Excluir</button>`
     );
+  }
+}
+
+async function runFinanceReconcile() {
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/finance/reconcile`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({
+      status: selectedValue("financeFilterStatus") || null,
+      category: document.getElementById("financeFilterCategory").value.trim() || null,
+      due_from: document.getElementById("financeFilterFrom").value.trim() || null,
+      due_to: document.getElementById("financeFilterTo").value.trim() || null
+    })
+  });
+  const payload = await showResult(response);
+  if (payload) {
+    const financeMeta = document.getElementById("financeMeta");
+    if (financeMeta) {
+      financeMeta.textContent = `Conciliacao: AR ${payload.receivable_count} / R$ ${Number(payload.receivable_total || 0).toFixed(2)} | AP ${payload.payable_count} / R$ ${Number(payload.payable_total || 0).toFixed(2)} | Saldo R$ ${Number(payload.net_total || 0).toFixed(2)}`;
+    }
   }
 }
 

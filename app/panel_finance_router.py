@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 from datetime import date
 import io
+from sqlalchemy import func
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
@@ -14,6 +15,7 @@ from app.panel_common import (
     PANEL_FINANCE_STATUSES,
     PanelFinanceCategoryRequest,
     PanelFinanceEntryRequest,
+    PanelFinanceReconcileRequest,
     PanelStatusRequest,
     ensure_panel_status,
     panel_response,
@@ -241,6 +243,20 @@ def admin_panel_delete_receivable(
     return panel_response("Conta a receber removida.", {"id": entry_id, "status": "deleted"})
 
 
+@panel_finance_router.post("/admin/panel/{workspace_slug}/finance/receivable/{entry_id}/settle")
+def admin_panel_settle_receivable(
+    entry_id: int,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("finance.write")),
+) -> dict:
+    entry = session.query(AccountsReceivable).filter(AccountsReceivable.id == entry_id).one_or_none()
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Accounts receivable not found.")
+    entry.status = "paid"
+    session.commit()
+    return panel_response("Conta a receber baixada.", {"id": entry.id, "status": entry.status, "amount": float(entry.amount)})
+
+
 @panel_finance_router.post("/admin/panel/{workspace_slug}/finance/payable", status_code=201)
 def admin_panel_create_payable(
     payload: PanelFinanceEntryRequest,
@@ -288,3 +304,61 @@ def admin_panel_delete_payable(
     session.delete(entry)
     session.commit()
     return panel_response("Conta a pagar removida.", {"id": entry_id, "status": "deleted"})
+
+
+@panel_finance_router.post("/admin/panel/{workspace_slug}/finance/payable/{entry_id}/settle")
+def admin_panel_settle_payable(
+    entry_id: int,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("finance.write")),
+) -> dict:
+    entry = session.query(AccountsPayable).filter(AccountsPayable.id == entry_id).one_or_none()
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Accounts payable not found.")
+    entry.status = "paid"
+    session.commit()
+    return panel_response("Conta a pagar conciliada.", {"id": entry.id, "status": entry.status, "amount": float(entry.amount)})
+
+
+@panel_finance_router.post("/admin/panel/{workspace_slug}/finance/reconcile")
+def admin_panel_reconcile_finance(
+    payload: PanelFinanceReconcileRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("finance.write")),
+) -> dict:
+    receivables_query = _apply_finance_filters(
+        session.query(AccountsReceivable),
+        AccountsReceivable,
+        status=payload.status,
+        category=payload.category,
+        due_from=payload.due_from,
+        due_to=payload.due_to,
+    )
+    payables_query = _apply_finance_filters(
+        session.query(AccountsPayable),
+        AccountsPayable,
+        status=payload.status,
+        category=payload.category,
+        due_from=payload.due_from,
+        due_to=payload.due_to,
+    )
+    receivable_total = float(receivables_query.with_entities(func.coalesce(func.sum(AccountsReceivable.amount), 0)).scalar() or 0)
+    payable_total = float(payables_query.with_entities(func.coalesce(func.sum(AccountsPayable.amount), 0)).scalar() or 0)
+    receivable_count = receivables_query.count()
+    payable_count = payables_query.count()
+    return panel_response(
+        "Conciliacao financeira carregada.",
+        {
+            "filters": {
+                "status": payload.status,
+                "category": payload.category,
+                "due_from": payload.due_from,
+                "due_to": payload.due_to,
+            },
+            "receivable_count": receivable_count,
+            "payable_count": payable_count,
+            "receivable_total": receivable_total,
+            "payable_total": payable_total,
+            "net_total": round(receivable_total - payable_total, 2),
+        },
+    )

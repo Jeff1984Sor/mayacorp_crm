@@ -10,6 +10,13 @@ EnvironmentFile=/opt/mayacorp_crm/.env
 ExecStart=/opt/mayacorp_crm/.venv/bin/gunicorn -k uvicorn.workers.UvicornWorker -w 4 -b 127.0.0.1:8011 app.main:app
 Restart=always
 RestartSec=5
+Type=simple
+KillSignal=SIGINT
+TimeoutStopSec=30
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
 
 [Install]
 WantedBy=multi-user.target

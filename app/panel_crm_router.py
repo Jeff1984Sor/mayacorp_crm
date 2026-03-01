@@ -18,6 +18,7 @@ from app.panel_common import (
     PanelLeadRequest,
     PanelProposalRequest,
     PanelSalesOrderRequest,
+    PanelSalesOrderEditRequest,
     PanelStatusRequest,
     ensure_panel_status,
     panel_response,
@@ -161,6 +162,42 @@ def admin_panel_update_sales_order(
     order.status = ensure_panel_status(payload.status, PANEL_ORDER_STATUSES, "sales order")
     session.commit()
     return panel_response("Pedido atualizado.", {"id": order.id, "status": order.status})
+
+
+@panel_crm_router.patch("/admin/panel/{workspace_slug}/sales-order/{order_id}/details")
+def admin_panel_update_sales_order_details(
+    order_id: int,
+    payload: PanelSalesOrderEditRequest,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> dict:
+    order = session.query(SalesOrder).filter(SalesOrder.id == order_id).one_or_none()
+    if order is None:
+        raise HTTPException(status_code=404, detail="Sales order not found.")
+    item = session.query(SalesItem).filter(SalesItem.sales_order_id == order.id).order_by(SalesItem.id.asc()).first()
+    receivable = session.query(AccountsReceivable).filter(AccountsReceivable.sales_order_id == order.id).order_by(AccountsReceivable.id.asc()).first()
+    total_amount = (Decimal(str(payload.quantity)) * Decimal(str(payload.unit_price))).quantize(Decimal("0.01"))
+    order.total_amount = total_amount
+    if item is not None:
+        item.description = payload.title
+        item.quantity = payload.quantity
+        item.unit_price = payload.unit_price
+    if receivable is not None:
+        receivable.amount = total_amount
+        receivable.due_date = date.fromisoformat(payload.first_due_date)
+    session.commit()
+    return panel_response(
+        "Pedido detalhado atualizado.",
+        {
+            "id": order.id,
+            "status": order.status,
+            "total_amount": float(total_amount),
+            "title": payload.title,
+            "quantity": payload.quantity,
+            "unit_price": payload.unit_price,
+            "first_due_date": payload.first_due_date,
+        },
+    )
 
 
 @panel_crm_router.delete("/admin/panel/{workspace_slug}/sales-order/{order_id}")
