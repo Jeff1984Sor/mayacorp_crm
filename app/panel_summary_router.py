@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import csv
+import io
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Query, Session
 
 from app.api.deps import tenant_session_dep
@@ -21,68 +23,22 @@ from app.models.tenant import (
     User,
 )
 from app.panel_common import panel_response, panel_tenant_permission_dep
+from app.panel_summary_queries import (
+    apply_document_filters,
+    apply_message_filters,
+    apply_order_filters,
+    apply_people_filters,
+    bounded_page,
+)
+from app.panel_summary_serializers import (
+    serialize_documents,
+    serialize_finance_rows,
+    serialize_messages,
+    serialize_people,
+    serialize_sales_orders,
+)
 
 panel_summary_router = APIRouter(tags=["health"])
-
-
-def _bounded_page(value: int, limit: int = 20) -> int:
-    return max(1, min(value, limit))
-
-
-def _serialize_sales_orders(items: list[SalesOrder]) -> list[dict]:
-    return [{"id": item.id, "status": item.status, "total_amount": float(item.total_amount)} for item in items]
-
-
-def _serialize_documents(items: list[Proposal] | list[Contract]) -> list[dict]:
-    payload: list[dict] = []
-    for item in items:
-        row = {"id": item.id, "title": item.title, "sales_order_id": item.sales_order_id}
-        if isinstance(item, Proposal):
-            row["pdf_path"] = item.pdf_path
-        else:
-            row["status"] = item.status
-            row["signed_file_path"] = item.signed_file_path
-        payload.append(row)
-    return payload
-
-
-def _serialize_people(items: list[Lead] | list[Client]) -> list[dict]:
-    return [{"id": item.id, "name": item.name, "email": item.email, "phone": item.phone} for item in items]
-
-
-def _serialize_finance_rows(items: list[AccountsReceivable] | list[AccountsPayable]) -> list[dict]:
-    return [
-        {"id": item.id, "amount": float(item.amount), "status": item.status, "category": item.category, "due_date": item.due_date.isoformat()}
-        for item in items
-    ]
-
-
-def _serialize_messages(items: list[Message]) -> list[dict]:
-    return [{"id": item.id, "direction": item.direction, "status": item.status, "body": item.body} for item in items]
-
-
-def _apply_document_filters(
-    proposals_query: Query,
-    contracts_query: Query,
-    *,
-    document_q: str | None,
-    contract_status: str | None,
-) -> tuple[Query, Query]:
-    if document_q:
-        doc_like = f"%{document_q}%".lower()
-        proposals_query = proposals_query.filter(func.lower(Proposal.title).like(doc_like))
-        contracts_query = contracts_query.filter(func.lower(Contract.title).like(doc_like))
-    if contract_status:
-        contracts_query = contracts_query.filter(Contract.status == contract_status)
-    return proposals_query, contracts_query
-
-
-def _apply_message_filters(messages_query: Query, *, message_status: str | None, message_direction: str | None) -> Query:
-    if message_status:
-        messages_query = messages_query.filter(Message.status == message_status)
-    if message_direction:
-        messages_query = messages_query.filter(Message.direction == message_direction)
-    return messages_query
 
 
 def _load_finance_snapshot(session: Session) -> dict:
@@ -93,8 +49,8 @@ def _load_finance_snapshot(session: Session) -> dict:
     receivable_total = float(sum(float(item.amount) for item in all_receivables))
     receivable_pending = float(sum(float(item.amount) for item in all_receivables if item.status == "pending"))
     return {
-        "receivables": _serialize_finance_rows(receivables),
-        "payables": _serialize_finance_rows(payables),
+        "receivables": serialize_finance_rows(receivables),
+        "payables": serialize_finance_rows(payables),
         "finance": {
             "category_count": len(categories),
             "categories": [{"id": item.id, "name": item.name, "entry_type": item.entry_type} for item in categories],
@@ -105,13 +61,13 @@ def _load_finance_snapshot(session: Session) -> dict:
 
 
 def _people_payload(query: Query, *, page: int, page_size: int) -> dict:
-    page = _bounded_page(page)
-    page_size = _bounded_page(page_size)
+    page = bounded_page(page)
+    page_size = bounded_page(page_size)
     offset = (page - 1) * page_size
     total = query.count()
     items = query.offset(offset).limit(page_size).all()
     return {
-        "items": _serialize_people(items),
+        "items": serialize_people(items),
         "page": page,
         "page_size": page_size,
         "total": total,
@@ -119,13 +75,13 @@ def _people_payload(query: Query, *, page: int, page_size: int) -> dict:
 
 
 def _orders_payload(query: Query, *, page: int, page_size: int, order_status: str | None) -> dict:
-    page = _bounded_page(page)
-    page_size = _bounded_page(page_size)
+    page = bounded_page(page)
+    page_size = bounded_page(page_size)
     offset = (page - 1) * page_size
     total = query.count()
     items = query.offset(offset).limit(page_size).all()
     return {
-        "sales_orders": _serialize_sales_orders(items),
+        "sales_orders": serialize_sales_orders(items),
         "sales_orders_total": total,
         "page": page,
         "page_size": page_size,
@@ -147,24 +103,32 @@ def admin_panel_workspace_summary(
     messages_page: int = 1,
     messages_page_size: int = 5,
     q: str | None = None,
+    people_email: str | None = None,
+    people_phone: str | None = None,
     document_q: str | None = None,
     contract_status: str | None = None,
     order_status: str | None = None,
+    order_sort_by: str = "id",
+    order_sort_dir: str = "desc",
+    people_sort_by: str = "id",
+    people_sort_dir: str = "desc",
+    document_sort_by: str = "id",
+    document_sort_dir: str = "desc",
     message_status: str | None = None,
     message_direction: str | None = None,
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> dict:
-    page = _bounded_page(page)
-    page_size = _bounded_page(page_size)
-    leads_page = _bounded_page(leads_page)
-    leads_page_size = _bounded_page(leads_page_size)
-    clients_page = _bounded_page(clients_page)
-    clients_page_size = _bounded_page(clients_page_size)
-    documents_page = _bounded_page(documents_page)
-    documents_page_size = _bounded_page(documents_page_size)
-    messages_page = _bounded_page(messages_page)
-    messages_page_size = _bounded_page(messages_page_size)
+    page = bounded_page(page)
+    page_size = bounded_page(page_size)
+    leads_page = bounded_page(leads_page)
+    leads_page_size = bounded_page(leads_page_size)
+    clients_page = bounded_page(clients_page)
+    clients_page_size = bounded_page(clients_page_size)
+    documents_page = bounded_page(documents_page)
+    documents_page_size = bounded_page(documents_page_size)
+    messages_page = bounded_page(messages_page)
+    messages_page_size = bounded_page(messages_page_size)
 
     offset = (page - 1) * page_size
     leads_offset = (leads_page - 1) * leads_page_size
@@ -172,25 +136,40 @@ def admin_panel_workspace_summary(
     documents_offset = (documents_page - 1) * documents_page_size
     messages_offset = (messages_page - 1) * messages_page_size
 
-    sales_orders_query = session.query(SalesOrder).order_by(SalesOrder.id.desc())
-    if order_status:
-        sales_orders_query = sales_orders_query.filter(SalesOrder.status == order_status)
+    sales_orders_query = apply_order_filters(
+        session.query(SalesOrder),
+        order_status=order_status,
+        sort_by=order_sort_by,
+        sort_dir=order_sort_dir,
+    )
     sales_orders_total = sales_orders_query.count()
     sales_orders = sales_orders_query.offset(offset).limit(page_size).all()
 
-    proposals_query = session.query(Proposal).order_by(Proposal.id.desc())
-    contracts_query = session.query(Contract).order_by(Contract.id.desc())
-    leads_query = session.query(Lead).order_by(Lead.id.desc())
-    clients_query = session.query(Client).order_by(Client.id.desc())
-    if q:
-        lowered_q = f"%{q}%".lower()
-        leads_query = leads_query.filter(func.lower(Lead.name).like(lowered_q))
-        clients_query = clients_query.filter(func.lower(Client.name).like(lowered_q))
-    proposals_query, contracts_query = _apply_document_filters(
-        proposals_query,
-        contracts_query,
+    proposals_query, contracts_query = apply_document_filters(
+        session.query(Proposal),
+        session.query(Contract),
         document_q=document_q or q,
         contract_status=contract_status,
+        sort_by=document_sort_by,
+        sort_dir=document_sort_dir,
+    )
+    leads_query = apply_people_filters(
+        session.query(Lead),
+        Lead,
+        q=q,
+        email=people_email,
+        phone=people_phone,
+        sort_by=people_sort_by,
+        sort_dir=people_sort_dir,
+    )
+    clients_query = apply_people_filters(
+        session.query(Client),
+        Client,
+        q=q,
+        email=people_email,
+        phone=people_phone,
+        sort_by=people_sort_by,
+        sort_dir=people_sort_dir,
     )
     proposals_total = proposals_query.count()
     contracts_total = contracts_query.count()
@@ -202,7 +181,7 @@ def admin_panel_workspace_summary(
     clients = clients_query.offset(clients_offset).limit(clients_page_size).all()
 
     whatsapp = session.query(TenantWhatsappAccount).order_by(TenantWhatsappAccount.id.asc()).first()
-    messages_query = _apply_message_filters(
+    messages_query = apply_message_filters(
         session.query(Message).order_by(Message.id.desc()),
         message_status=message_status,
         message_direction=message_direction,
@@ -216,15 +195,15 @@ def admin_panel_workspace_summary(
         "Resumo carregado.",
         {
             "workspace_slug": workspace_slug,
-            "sales_orders": _serialize_sales_orders(sales_orders),
+            "sales_orders": serialize_sales_orders(sales_orders),
             "sales_orders_total": sales_orders_total,
-            "proposals": _serialize_documents(proposals),
-            "contracts": _serialize_documents(contracts),
-            "leads": _serialize_people(leads),
-            "clients": _serialize_people(clients),
+            "proposals": serialize_documents(proposals),
+            "contracts": serialize_documents(contracts),
+            "leads": serialize_people(leads),
+            "clients": serialize_people(clients),
             "receivables": finance_snapshot["receivables"],
             "payables": finance_snapshot["payables"],
-            "messages": _serialize_messages(messages),
+            "messages": serialize_messages(messages),
             "finance": finance_snapshot["finance"],
             "whatsapp": (
                 {
@@ -252,9 +231,17 @@ def admin_panel_workspace_summary(
             "messages_page_size": messages_page_size,
             "messages_total": messages_total,
             "query": q,
+            "people_email": people_email,
+            "people_phone": people_phone,
             "document_query": document_q,
             "contract_status": contract_status,
             "order_status": order_status,
+            "order_sort_by": order_sort_by,
+            "order_sort_dir": order_sort_dir,
+            "people_sort_by": people_sort_by,
+            "people_sort_dir": people_sort_dir,
+            "document_sort_by": document_sort_by,
+            "document_sort_dir": document_sort_dir,
             "message_status": message_status,
             "message_direction": message_direction,
         },
@@ -266,12 +253,12 @@ def admin_panel_orders_summary(
     page: int = 1,
     page_size: int = 5,
     order_status: str | None = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> dict:
-    sales_orders_query = session.query(SalesOrder).order_by(SalesOrder.id.desc())
-    if order_status:
-        sales_orders_query = sales_orders_query.filter(SalesOrder.status == order_status)
+    sales_orders_query = apply_order_filters(session.query(SalesOrder), order_status=order_status, sort_by=sort_by, sort_dir=sort_dir)
     return panel_response(
         "Resumo de pedidos carregado.",
         _orders_payload(sales_orders_query, page=page, page_size=page_size, order_status=order_status),
@@ -281,6 +268,10 @@ def admin_panel_orders_summary(
 @panel_summary_router.get("/admin/panel/{workspace_slug}/summary/people")
 def admin_panel_people_summary(
     q: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
     leads_page: int = 1,
     leads_page_size: int = 5,
     clients_page: int = 1,
@@ -288,18 +279,18 @@ def admin_panel_people_summary(
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> dict:
-    leads_query = session.query(Lead).order_by(Lead.id.desc())
-    clients_query = session.query(Client).order_by(Client.id.desc())
-    if q:
-        lowered_q = f"%{q}%".lower()
-        leads_query = leads_query.filter(func.lower(Lead.name).like(lowered_q))
-        clients_query = clients_query.filter(func.lower(Client.name).like(lowered_q))
+    leads_query = apply_people_filters(session.query(Lead), Lead, q=q, email=email, phone=phone, sort_by=sort_by, sort_dir=sort_dir)
+    clients_query = apply_people_filters(session.query(Client), Client, q=q, email=email, phone=phone, sort_by=sort_by, sort_dir=sort_dir)
     return panel_response(
         "Resumo de pessoas carregado.",
         {
             "leads": _people_payload(leads_query, page=leads_page, page_size=leads_page_size),
             "clients": _people_payload(clients_query, page=clients_page, page_size=clients_page_size),
             "query": q,
+            "email": email,
+            "phone": phone,
+            "sort_by": sort_by,
+            "sort_dir": sort_dir,
         },
     )
 
@@ -310,17 +301,21 @@ def admin_panel_documents_summary(
     documents_page_size: int = 5,
     document_q: str | None = None,
     contract_status: str | None = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> dict:
-    documents_page = _bounded_page(documents_page)
-    documents_page_size = _bounded_page(documents_page_size)
+    documents_page = bounded_page(documents_page)
+    documents_page_size = bounded_page(documents_page_size)
     documents_offset = (documents_page - 1) * documents_page_size
-    proposals_query, contracts_query = _apply_document_filters(
-        session.query(Proposal).order_by(Proposal.id.desc()),
-        session.query(Contract).order_by(Contract.id.desc()),
+    proposals_query, contracts_query = apply_document_filters(
+        session.query(Proposal),
+        session.query(Contract),
         document_q=document_q,
         contract_status=contract_status,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
     proposals_total = proposals_query.count()
     contracts_total = contracts_query.count()
@@ -329,13 +324,15 @@ def admin_panel_documents_summary(
     return panel_response(
         "Resumo de documentos carregado.",
         {
-            "proposals": _serialize_documents(proposals),
-            "contracts": _serialize_documents(contracts),
+            "proposals": serialize_documents(proposals),
+            "contracts": serialize_documents(contracts),
             "documents_page": documents_page,
             "documents_page_size": documents_page_size,
             "documents_total": max(proposals_total, contracts_total),
             "document_query": document_q,
             "contract_status": contract_status,
+            "sort_by": sort_by,
+            "sort_dir": sort_dir,
         },
     )
 
@@ -349,10 +346,10 @@ def admin_panel_messages_summary(
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> dict:
-    messages_page = _bounded_page(messages_page)
-    messages_page_size = _bounded_page(messages_page_size)
+    messages_page = bounded_page(messages_page)
+    messages_page_size = bounded_page(messages_page_size)
     messages_offset = (messages_page - 1) * messages_page_size
-    messages_query = _apply_message_filters(
+    messages_query = apply_message_filters(
         session.query(Message).order_by(Message.id.desc()),
         message_status=message_status,
         message_direction=message_direction,
@@ -362,7 +359,7 @@ def admin_panel_messages_summary(
     return panel_response(
         "Resumo de mensagens carregado.",
         {
-            "messages": _serialize_messages(messages),
+            "messages": serialize_messages(messages),
             "messages_page": messages_page,
             "messages_page_size": messages_page_size,
             "messages_total": messages_total,
@@ -378,3 +375,140 @@ def admin_panel_finance_summary(
     _: User = Depends(panel_tenant_permission_dep("finance.write")),
 ) -> dict:
     return panel_response("Resumo financeiro carregado.", _load_finance_snapshot(session))
+
+
+@panel_summary_router.get("/admin/panel/{workspace_slug}/summary/leads")
+def admin_panel_leads_summary(
+    q: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
+    page: int = 1,
+    page_size: int = 5,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> dict:
+    query = apply_people_filters(session.query(Lead), Lead, q=q, email=email, phone=phone, sort_by=sort_by, sort_dir=sort_dir)
+    return panel_response("Resumo de leads carregado.", _people_payload(query, page=page, page_size=page_size))
+
+
+@panel_summary_router.get("/admin/panel/{workspace_slug}/summary/clients")
+def admin_panel_clients_summary(
+    q: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
+    page: int = 1,
+    page_size: int = 5,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> dict:
+    query = apply_people_filters(session.query(Client), Client, q=q, email=email, phone=phone, sort_by=sort_by, sort_dir=sort_dir)
+    return panel_response("Resumo de clients carregado.", _people_payload(query, page=page, page_size=page_size))
+
+
+@panel_summary_router.get("/admin/panel/{workspace_slug}/summary/proposals")
+def admin_panel_proposals_summary(
+    page: int = 1,
+    page_size: int = 5,
+    document_q: str | None = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> dict:
+    page = bounded_page(page)
+    page_size = bounded_page(page_size)
+    offset = (page - 1) * page_size
+    proposals_query, _ = apply_document_filters(
+        session.query(Proposal),
+        session.query(Contract),
+        document_q=document_q,
+        contract_status=None,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
+    total = proposals_query.count()
+    items = proposals_query.offset(offset).limit(page_size).all()
+    return panel_response(
+        "Resumo de propostas carregado.",
+        {"items": serialize_documents(items), "page": page, "page_size": page_size, "total": total, "document_query": document_q},
+    )
+
+
+@panel_summary_router.get("/admin/panel/{workspace_slug}/summary/contracts")
+def admin_panel_contracts_summary(
+    page: int = 1,
+    page_size: int = 5,
+    document_q: str | None = None,
+    contract_status: str | None = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> dict:
+    page = bounded_page(page)
+    page_size = bounded_page(page_size)
+    offset = (page - 1) * page_size
+    _, contracts_query = apply_document_filters(
+        session.query(Proposal),
+        session.query(Contract),
+        document_q=document_q,
+        contract_status=contract_status,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
+    total = contracts_query.count()
+    items = contracts_query.offset(offset).limit(page_size).all()
+    return panel_response(
+        "Resumo de contratos carregado.",
+        {
+            "items": serialize_documents(items),
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "document_query": document_q,
+            "contract_status": contract_status,
+        },
+    )
+
+
+def _csv_response(fieldnames: list[str], rows: list[dict], filename: str) -> PlainTextResponse:
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(rows)
+    response = PlainTextResponse(buffer.getvalue(), media_type="text/csv")
+    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@panel_summary_router.get("/admin/panel/{workspace_slug}/summary/orders/export")
+def admin_panel_orders_export(
+    order_status: str | None = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> PlainTextResponse:
+    query = apply_order_filters(session.query(SalesOrder), order_status=order_status, sort_by=sort_by, sort_dir=sort_dir)
+    rows = serialize_sales_orders(query.limit(200).all())
+    return _csv_response(["id", "status", "total_amount"], rows, "orders.csv")
+
+
+@panel_summary_router.get("/admin/panel/{workspace_slug}/summary/people/export")
+def admin_panel_people_export(
+    q: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> PlainTextResponse:
+    leads = apply_people_filters(session.query(Lead), Lead, q=q, email=email, phone=phone, sort_by=sort_by, sort_dir=sort_dir).limit(100).all()
+    clients = apply_people_filters(session.query(Client), Client, q=q, email=email, phone=phone, sort_by=sort_by, sort_dir=sort_dir).limit(100).all()
+    rows = [{"kind": "lead", **item} for item in serialize_people(leads)] + [{"kind": "client", **item} for item in serialize_people(clients)]
+    return _csv_response(["kind", "id", "name", "email", "phone"], rows, "people.csv")

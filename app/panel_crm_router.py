@@ -210,6 +210,8 @@ def admin_panel_update_proposal(
     proposal = session.query(Proposal).filter(Proposal.id == proposal_id).one_or_none()
     if proposal is None:
         raise HTTPException(status_code=404, detail="Proposal not found.")
+    if proposal.pdf_path and proposal.sales_order_id != payload.sales_order_id:
+        raise HTTPException(status_code=409, detail="Proposal sales order cannot change after document generation.")
     if proposal.sales_order_id is not None and payload.sales_order_id is None:
         raise HTTPException(status_code=409, detail="Proposal cannot be detached from its sales order.")
     proposal.title = payload.title

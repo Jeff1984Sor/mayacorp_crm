@@ -158,9 +158,17 @@ async function loadWorkspaceSummary() {
     messages_page_size: document.getElementById("messagesPageSize").value || "5"
   });
   const filterValue = document.getElementById("summaryQuery").value.trim();
+  const peopleEmail = document.getElementById("peopleEmailFilter").value.trim();
+  const peoplePhone = document.getElementById("peoplePhoneFilter").value.trim();
   const orderStatus = selectedValue("orderStatusFilter");
+  const orderSortBy = selectedValue("orderSortBy", "id");
+  const orderSortDir = selectedValue("orderSortDir", "desc");
   const documentFilter = document.getElementById("documentQuery").value.trim();
   const contractStatus = selectedValue("contractStatusFilter");
+  const documentSortBy = selectedValue("documentSortBy", "id");
+  const documentSortDir = selectedValue("documentSortDir", "desc");
+  const peopleSortBy = selectedValue("peopleSortBy", "id");
+  const peopleSortDir = selectedValue("peopleSortDir", "desc");
   const messageStatus = selectedValue("messageStatusFilter");
   const messageDirection = selectedValue("messageDirectionFilter");
   if (filterValue) {
@@ -169,12 +177,24 @@ async function loadWorkspaceSummary() {
   if (orderStatus) {
     query.set("order_status", orderStatus);
   }
+  if (peopleEmail) {
+    query.set("people_email", peopleEmail);
+  }
+  if (peoplePhone) {
+    query.set("people_phone", peoplePhone);
+  }
+  query.set("order_sort_by", orderSortBy);
+  query.set("order_sort_dir", orderSortDir);
+  query.set("people_sort_by", peopleSortBy);
+  query.set("people_sort_dir", peopleSortDir);
   if (documentFilter) {
     query.set("document_q", documentFilter);
   }
   if (contractStatus) {
     query.set("contract_status", contractStatus);
   }
+  query.set("document_sort_by", documentSortBy);
+  query.set("document_sort_dir", documentSortDir);
   if (messageStatus) {
     query.set("message_status", messageStatus);
   }
@@ -514,6 +534,8 @@ async function loadDocumentsSummary() {
   });
   const documentFilter = document.getElementById("documentQuery").value.trim();
   const contractStatus = selectedValue("contractStatusFilter");
+  query.set("sort_by", selectedValue("documentSortBy", "id"));
+  query.set("sort_dir", selectedValue("documentSortDir", "desc"));
   if (documentFilter) {
     query.set("document_q", documentFilter);
   }
@@ -598,6 +620,8 @@ async function loadOrdersSummary() {
     page_size: document.getElementById("summaryPageSize").value || "5"
   });
   const orderStatus = selectedValue("orderStatusFilter");
+  query.set("sort_by", selectedValue("orderSortBy", "id"));
+  query.set("sort_dir", selectedValue("orderSortDir", "desc"));
   if (orderStatus) {
     query.set("order_status", orderStatus);
   }
@@ -625,8 +649,18 @@ async function loadPeopleSummary() {
     clients_page_size: document.getElementById("clientsPageSize").value || "5"
   });
   const filterValue = document.getElementById("summaryQuery").value.trim();
+  const email = document.getElementById("peopleEmailFilter").value.trim();
+  const phone = document.getElementById("peoplePhoneFilter").value.trim();
+  query.set("sort_by", selectedValue("peopleSortBy", "id"));
+  query.set("sort_dir", selectedValue("peopleSortDir", "desc"));
   if (filterValue) {
     query.set("q", filterValue);
+  }
+  if (email) {
+    query.set("email", email);
+  }
+  if (phone) {
+    query.set("phone", phone);
   }
   const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/people?${query.toString()}`, { credentials: "same-origin" });
   const payload = await showResult(response);
@@ -655,6 +689,41 @@ async function loadPeopleSummary() {
       clientsMeta.textContent = `Clients: pagina ${clientsBlock.page || 1}/${Math.max(1, Math.ceil((clientsBlock.total || 0) / Math.max(clientsBlock.page_size || 1, 1)))}, total ${clientsBlock.total || 0}`;
     }
   }
+}
+
+function openPanelDownload(path, query) {
+  const url = `/admin/panel/${getTenantSlug()}${path}?${query.toString()}`;
+  window.open(url, "_blank", "noopener");
+}
+
+async function exportOrdersCsv() {
+  const query = new URLSearchParams();
+  const orderStatus = selectedValue("orderStatusFilter");
+  if (orderStatus) {
+    query.set("order_status", orderStatus);
+  }
+  query.set("sort_by", selectedValue("orderSortBy", "id"));
+  query.set("sort_dir", selectedValue("orderSortDir", "desc"));
+  openPanelDownload("/summary/orders/export", query);
+}
+
+async function exportPeopleCsv() {
+  const query = new URLSearchParams();
+  const filterValue = document.getElementById("summaryQuery").value.trim();
+  const email = document.getElementById("peopleEmailFilter").value.trim();
+  const phone = document.getElementById("peoplePhoneFilter").value.trim();
+  if (filterValue) {
+    query.set("q", filterValue);
+  }
+  if (email) {
+    query.set("email", email);
+  }
+  if (phone) {
+    query.set("phone", phone);
+  }
+  query.set("sort_by", selectedValue("peopleSortBy", "id"));
+  query.set("sort_dir", selectedValue("peopleSortDir", "desc"));
+  openPanelDownload("/summary/people/export", query);
 }
 
 function shiftNumericInput(id, delta, minimum = 1) {

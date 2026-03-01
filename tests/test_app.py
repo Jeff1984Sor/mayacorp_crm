@@ -105,6 +105,10 @@ def test_healthcheck(tmp_path: Path) -> None:
     assert "loadDocumentsSummary" in actions_js_response.text
     assert "loadOrdersSummary" in actions_js_response.text
     assert "loadPeopleSummary" in actions_js_response.text
+    assert "exportOrdersCsv" in actions_js_response.text
+    assert "exportPeopleCsv" in actions_js_response.text
+    assert "people_email" in actions_js_response.text
+    assert "document_sort_by" in actions_js_response.text
     assert "updateContractStatus" in actions_js_response.text
     assert "prevOrdersPage" in actions_js_response.text
     assert "nextMessagesPage" in actions_js_response.text
@@ -510,6 +514,12 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     )
     assert panel_proposal_update.status_code == 200
 
+    proposal_rebind = client.patch(
+        f"/admin/panel/{workspace_slug}/proposal/{proposal_id}",
+        json={"title": "Proposta Editada", "sales_order_id": order_id + 999},
+    )
+    assert proposal_rebind.status_code == 409
+
     panel_contract = client.post(
         f"/admin/panel/{workspace_slug}/contract",
         json={"title": "Contrato Painel", "sales_order_id": order_id},
@@ -649,7 +659,7 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert messages_payload["message_status"] == "read"
 
     orders_summary = client.get(
-        f"/admin/panel/{workspace_slug}/summary/orders?page=1&page_size=2&order_status=closed"
+        f"/admin/panel/{workspace_slug}/summary/orders?page=1&page_size=2&order_status=closed&sort_by=total_amount&sort_dir=desc"
     )
     assert orders_summary.status_code == 200
     orders_payload = panel_data(orders_summary)
@@ -658,7 +668,7 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert orders_payload["order_status"] == "closed"
 
     people_summary = client.get(
-        f"/admin/panel/{workspace_slug}/summary/people?leads_page=1&leads_page_size=1&clients_page=1&clients_page_size=1&q=Editado"
+        f"/admin/panel/{workspace_slug}/summary/people?leads_page=1&leads_page_size=1&clients_page=1&clients_page_size=1&q=Editado&email=example.com&phone=5511&sort_by=name&sort_dir=asc"
     )
     assert people_summary.status_code == 200
     people_payload = panel_data(people_summary)
@@ -667,6 +677,43 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert people_payload["leads"]["page_size"] == 1
     assert people_payload["clients"]["page_size"] == 1
     assert people_payload["query"] == "Editado"
+    assert people_payload["email"] == "example.com"
+    assert people_payload["phone"] == "5511"
+    assert people_payload["sort_by"] == "name"
+
+    leads_summary = client.get(
+        f"/admin/panel/{workspace_slug}/summary/leads?page=1&page_size=1&q=Editado&email=example.com&phone=5511&sort_by=name&sort_dir=asc"
+    )
+    assert leads_summary.status_code == 200
+    assert panel_data(leads_summary)["items"]
+
+    clients_summary = client.get(
+        f"/admin/panel/{workspace_slug}/summary/clients?page=1&page_size=1&q=Editado&email=example.com&phone=5511&sort_by=name&sort_dir=asc"
+    )
+    assert clients_summary.status_code == 200
+    assert panel_data(clients_summary)["items"]
+
+    proposals_summary = client.get(
+        f"/admin/panel/{workspace_slug}/summary/proposals?page=1&page_size=2&document_q=Proposta&sort_by=title&sort_dir=asc"
+    )
+    assert proposals_summary.status_code == 200
+    assert panel_data(proposals_summary)["items"]
+
+    contracts_summary = client.get(
+        f"/admin/panel/{workspace_slug}/summary/contracts?page=1&page_size=2&document_q=Contrato&contract_status=signed&sort_by=title&sort_dir=asc"
+    )
+    assert contracts_summary.status_code == 200
+    assert panel_data(contracts_summary)["items"]
+
+    orders_export = client.get(f"/admin/panel/{workspace_slug}/summary/orders/export?order_status=closed")
+    assert orders_export.status_code == 200
+    assert "text/csv" in orders_export.headers["content-type"]
+    assert "id,status,total_amount" in orders_export.text
+
+    people_export = client.get(f"/admin/panel/{workspace_slug}/summary/people/export?q=Editado&email=example.com&phone=5511")
+    assert people_export.status_code == 200
+    assert "text/csv" in people_export.headers["content-type"]
+    assert "kind,id,name,email,phone" in people_export.text
 
     receivables_filtered = client.get(
         f"/admin/panel/{workspace_slug}/finance/receivables?status=paid&category=Mensalidades&due_from=2026-03-01&due_to=2026-03-31"
@@ -710,7 +757,7 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert invalid_message_status.status_code == 422
 
     panel_summary = client.get(
-        f"/admin/panel/{workspace_slug}/summary?page=1&page_size=3&documents_page=1&documents_page_size=2&messages_page=1&messages_page_size=2&document_q=Editad&contract_status=signed&order_status=closed&message_status=read&message_direction=outbound"
+        f"/admin/panel/{workspace_slug}/summary?page=1&page_size=3&leads_page=1&leads_page_size=2&clients_page=1&clients_page_size=2&documents_page=1&documents_page_size=2&messages_page=1&messages_page_size=2&document_q=Editad&contract_status=signed&order_status=closed&people_email=example.com&people_phone=5511&order_sort_by=total_amount&order_sort_dir=desc&people_sort_by=name&people_sort_dir=asc&document_sort_by=title&document_sort_dir=asc&message_status=read&message_direction=outbound"
     )
     assert panel_summary.status_code == 200
     summary_payload = panel_data(panel_summary)
@@ -729,10 +776,10 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert summary_payload["page"] == 1
     assert summary_payload["page_size"] == 3
     assert summary_payload["leads_page"] == 1
-    assert summary_payload["leads_page_size"] == 5
+    assert summary_payload["leads_page_size"] == 2
     assert summary_payload["leads_total"] >= 1
     assert summary_payload["clients_page"] == 1
-    assert summary_payload["clients_page_size"] == 5
+    assert summary_payload["clients_page_size"] == 2
     assert summary_payload["clients_total"] >= 1
     assert summary_payload["documents_page"] == 1
     assert summary_payload["documents_page_size"] == 2
@@ -741,9 +788,14 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert summary_payload["messages_page_size"] == 2
     assert summary_payload["messages_total"] >= 1
     assert summary_payload["query"] is None
+    assert summary_payload["people_email"] == "example.com"
+    assert summary_payload["people_phone"] == "5511"
     assert summary_payload["document_query"] == "Editad"
     assert summary_payload["contract_status"] == "signed"
     assert summary_payload["order_status"] == "closed"
+    assert summary_payload["order_sort_by"] == "total_amount"
+    assert summary_payload["people_sort_by"] == "name"
+    assert summary_payload["document_sort_by"] == "title"
     assert summary_payload["message_status"] == "read"
     assert summary_payload["message_direction"] == "outbound"
 

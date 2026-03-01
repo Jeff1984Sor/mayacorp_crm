@@ -59,8 +59,25 @@
         <button onclick="loadDocumentsSummary()">Docs</button>
         <button onclick="loadMessagesSummary()">Msgs</button>
         <button onclick="loadFinanceSummary()">Financeiro</button>
+        <button onclick="exportOrdersCsv()">Exportar pedidos CSV</button>
+        <button onclick="exportPeopleCsv()">Exportar pessoas CSV</button>
         <label for="summaryQuery">Filtro</label>
         <input id="summaryQuery" placeholder="Nome ou titulo">
+        <label for="peopleEmailFilter">Filtro email</label>
+        <input id="peopleEmailFilter" placeholder="email@dominio.com">
+        <label for="peoplePhoneFilter">Filtro telefone</label>
+        <input id="peoplePhoneFilter" placeholder="11999999999">
+        <label for="peopleSortBy">Ordenar pessoas</label>
+        <select id="peopleSortBy">
+          <option value="id">id</option>
+          <option value="name">name</option>
+          <option value="email">email</option>
+        </select>
+        <label for="peopleSortDir">Direcao pessoas</label>
+        <select id="peopleSortDir">
+          <option value="desc">desc</option>
+          <option value="asc">asc</option>
+        </select>
         <label for="orderStatusFilter">Filtro status pedido</label>
         <select id="orderStatusFilter">
           <option value="">Todos</option>
@@ -68,6 +85,17 @@
           <option value="confirmed">confirmed</option>
           <option value="closed">closed</option>
           <option value="cancelled">cancelled</option>
+        </select>
+        <label for="orderSortBy">Ordenar pedidos</label>
+        <select id="orderSortBy">
+          <option value="id">id</option>
+          <option value="status">status</option>
+          <option value="total_amount">total_amount</option>
+        </select>
+        <label for="orderSortDir">Direcao pedidos</label>
+        <select id="orderSortDir">
+          <option value="desc">desc</option>
+          <option value="asc">asc</option>
         </select>
         <label for="documentQuery">Filtro documentos</label>
         <input id="documentQuery" placeholder="Proposta ou contrato">
@@ -78,6 +106,16 @@
           <option value="sent">sent</option>
           <option value="signed">signed</option>
           <option value="cancelled">cancelled</option>
+        </select>
+        <label for="documentSortBy">Ordenar docs</label>
+        <select id="documentSortBy">
+          <option value="id">id</option>
+          <option value="title">title</option>
+        </select>
+        <label for="documentSortDir">Direcao docs</label>
+        <select id="documentSortDir">
+          <option value="desc">desc</option>
+          <option value="asc">asc</option>
         </select>
         <label for="messageStatusFilter">Filtro status mensagem</label>
         <select id="messageStatusFilter">
