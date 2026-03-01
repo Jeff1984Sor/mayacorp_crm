@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import bcrypt
-from jose import jwt
+from jose import JWTError, jwt
 
 from app.core.config import settings
 
@@ -30,3 +30,10 @@ def build_token(subject: str, expires_in_minutes: int = 30, extra: dict | None =
     if extra:
         payload.update(extra)
     return jwt.encode(payload, settings.bootstrap_jwt_secret, algorithm=ALGORITHM)
+
+
+def decode_token(token: str) -> dict:
+    try:
+        return jwt.decode(token, settings.bootstrap_jwt_secret, algorithms=[ALGORITHM])
+    except JWTError as exc:
+        raise ValueError("Invalid token.") from exc

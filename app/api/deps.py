@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 from fastapi import Depends, Header, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.core.security import decode_token
+from app.db.session import get_tenant_session
+from app.models.central import CentralUser
 from app.db.session import get_central_session
 from app.models.central import Tenant
+
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def central_session_dep(session: Session = Depends(get_central_session)) -> Session:
@@ -26,3 +32,28 @@ def tenant_context_dep(
 
     request.state.tenant = tenant
     return tenant
+
+
+def central_current_user_dep(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    session: Session = Depends(get_central_session),
+) -> CentralUser:
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Authorization token is required.")
+    try:
+        payload = decode_token(credentials.credentials)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid token.")
+
+    if payload.get("scope") != "central":
+        raise HTTPException(status_code=403, detail="Invalid token scope.")
+
+    email = payload.get("sub")
+    user = session.query(CentralUser).filter(CentralUser.email == email).one_or_none()
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=401, detail="User not found.")
+    return user
+
+
+def tenant_session_dep(tenant: Tenant = Depends(tenant_context_dep)):
+    yield from get_tenant_session(tenant.database_url)

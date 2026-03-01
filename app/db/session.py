@@ -31,3 +31,13 @@ def get_central_session() -> Generator[Session, None, None]:
 def build_tenant_engine(database_url: str):
     connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
     return create_engine(database_url, future=True, pool_pre_ping=True, connect_args=connect_args)
+
+
+def get_tenant_session(database_url: str) -> Generator[Session, None, None]:
+    engine = build_tenant_engine(database_url)
+    tenant_sessionmaker = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+    session = tenant_sessionmaker()
+    try:
+        yield session
+    finally:
+        session.close()
