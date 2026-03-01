@@ -98,7 +98,15 @@ O painel e propositalmente simples e cobre:
 
 - login central
 - consulta do dashboard central
+- criacao de tenant
+- login do tenant
 - consulta do health do tenant
+- criacao rapida de pedido
+
+Implementacao:
+
+- rota em `app/main.py`
+- template em `app/templates/admin_panel.html`
 
 ## Documentacao funcional por modulo
 

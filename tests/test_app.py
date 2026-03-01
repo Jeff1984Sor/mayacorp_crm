@@ -54,6 +54,8 @@ def test_healthcheck(tmp_path: Path) -> None:
     panel_response = client.get("/admin/panel")
     assert panel_response.status_code == 200
     assert "Mayacorp Admin Panel" in panel_response.text
+    assert "Criar Tenant" in panel_response.text
+    assert "Criar Pedido" in panel_response.text
 
 
 def test_central_create_tenant_and_dashboard(tmp_path: Path) -> None:
@@ -89,6 +91,25 @@ def test_central_create_tenant_and_dashboard(tmp_path: Path) -> None:
     assert payload["tenant_count"] == 1
     assert payload["pending_invoice_count"] == 1
     assert payload["total_invoice_amount"] > 0
+
+    panel_create_response = client.post(
+        "/central/tenants",
+        headers=headers,
+        json={
+            "company_name": "Painel Ltda",
+            "workspace_slug": f"painel-{unique}",
+            "company_document": "999",
+            "admin_name": "Painel Admin",
+            "admin_email": f"painel+{unique}@acme.com",
+            "admin_password": "1234",
+            "plan_code": "starter",
+            "billing_day": 5,
+            "discount_percent": 0,
+            "generate_invoice": True,
+            "issue_fiscal_document": False,
+        },
+    )
+    assert panel_create_response.status_code == 201
 
 
 def test_tenant_role_templates_crud(tmp_path: Path) -> None:
