@@ -227,7 +227,7 @@ async function createFinanceCategory() {
   await showResult(response);
 }
 
-function buildFinanceQuery() {
+function buildScopedFinanceQuery(pageId, pageSizeId) {
   const query = new URLSearchParams();
   const status = selectedValue("financeFilterStatus");
   const category = document.getElementById("financeFilterCategory").value.trim();
@@ -245,11 +245,15 @@ function buildFinanceQuery() {
   if (dueTo) {
     query.set("due_to", dueTo);
   }
-  query.set("page", document.getElementById("financePage").value || "1");
-  query.set("page_size", document.getElementById("financePageSize").value || "10");
+  query.set("page", document.getElementById(pageId).value || "1");
+  query.set("page_size", document.getElementById(pageSizeId).value || "10");
   query.set("sort_by", selectedValue("financeSortBy", "due_date"));
   query.set("sort_dir", selectedValue("financeSortDir", "asc"));
   return query;
+}
+
+function buildFinanceQuery() {
+  return buildScopedFinanceQuery("financePage", "financePageSize");
 }
 
 function clearPanelCache(keys) {
@@ -314,7 +318,7 @@ async function createPayable() {
 }
 
 async function loadPayables() {
-  const response = await fetch(`/admin/panel/${getTenantSlug()}/finance/payables?${buildFinanceQuery().toString()}`, {
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/finance/payables?${buildScopedFinanceQuery("payablesPage", "payablesPageSize").toString()}`, {
     credentials: "same-origin"
   });
   const payload = await showResult(response);
@@ -332,6 +336,14 @@ async function loadPayables() {
   if (payablesMeta && payload) {
     payablesMeta.textContent = `AP pagina ${payload.page} | itens ${payload.items?.length || 0} | total ${payload.total || 0}`;
   }
+}
+
+async function loadReceivablesOnly() {
+  await loadReceivables();
+}
+
+async function loadPayablesOnly() {
+  await loadPayables();
 }
 
 async function connectWhatsapp() {
@@ -962,11 +974,27 @@ async function exportMessagesCsv() {
   openPanelDownload("/summary/messages/export", query);
 }
 
+async function exportOutboundMessagesCsv() {
+  const query = new URLSearchParams();
+  query.set("message_direction", "outbound");
+  query.set("sort_by", selectedValue("messageSortBy", "id"));
+  query.set("sort_dir", selectedValue("messageSortDir", "desc"));
+  openPanelDownload("/summary/messages/export", query);
+}
+
+async function exportInboundMessagesCsv() {
+  const query = new URLSearchParams();
+  query.set("message_direction", "inbound");
+  query.set("sort_by", selectedValue("messageSortBy", "id"));
+  query.set("sort_dir", selectedValue("messageSortDir", "desc"));
+  openPanelDownload("/summary/messages/export", query);
+}
+
 async function exportFinanceCsv() {
   const receivableQuery = buildFinanceQuery();
   receivableQuery.set("entry_type", "receivable");
   openPanelDownload("/finance/export", receivableQuery);
-  const payableQuery = buildFinanceQuery();
+  const payableQuery = buildScopedFinanceQuery("payablesPage", "payablesPageSize");
   payableQuery.set("entry_type", "payable");
   openPanelDownload("/finance/export", payableQuery);
 }
@@ -978,7 +1006,7 @@ async function exportReceivablesCsv() {
 }
 
 async function exportPayablesCsv() {
-  const query = buildFinanceQuery();
+  const query = buildScopedFinanceQuery("payablesPage", "payablesPageSize");
   query.set("entry_type", "payable");
   openPanelDownload("/finance/export", query);
 }
@@ -1050,6 +1078,26 @@ async function prevFinancePage() {
 async function nextFinancePage() {
   shiftNumericInput("financePage", 1);
   await loadReceivables();
+}
+
+async function prevReceivablesPage() {
+  shiftNumericInput("financePage", -1);
+  await loadReceivablesOnly();
+}
+
+async function nextReceivablesPage() {
+  shiftNumericInput("financePage", 1);
+  await loadReceivablesOnly();
+}
+
+async function prevPayablesPage() {
+  shiftNumericInput("payablesPage", -1);
+  await loadPayablesOnly();
+}
+
+async function nextPayablesPage() {
+  shiftNumericInput("payablesPage", 1);
+  await loadPayablesOnly();
 }
 
 async function prevLeadsPage() {

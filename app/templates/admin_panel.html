@@ -71,6 +71,8 @@
         <button onclick="exportProposalsCsv()">Exportar propostas CSV</button>
         <button onclick="exportContractsCsv()">Exportar contratos CSV</button>
         <button onclick="exportMessagesCsv()">Exportar msgs CSV</button>
+        <button onclick="exportOutboundMessagesCsv()">Exportar msgs OUT CSV</button>
+        <button onclick="exportInboundMessagesCsv()">Exportar msgs IN CSV</button>
         <button onclick="exportFinanceCsv()">Exportar financeiro CSV</button>
         <button onclick="exportReceivablesCsv()">Exportar AR CSV</button>
         <button onclick="exportPayablesCsv()">Exportar AP CSV</button>
@@ -353,6 +355,16 @@
             <input id="financePageSize" value="10">
           </div>
         </div>
+        <div class="row">
+          <div>
+            <label for="payablesPage">Pagina AP</label>
+            <input id="payablesPage" value="1">
+          </div>
+          <div>
+            <label for="payablesPageSize">Itens AP</label>
+            <input id="payablesPageSize" value="10">
+          </div>
+        </div>
         <label for="financeSortBy">Ordenar financeiro</label>
         <select id="financeSortBy">
           <option value="due_date">due_date</option>
@@ -426,6 +438,7 @@
       <div class="dashboard-card">
         <h3>Cards</h3>
         <div id="topMetrics" class="listbox"></div>
+        <div id="activeFilters" class="listbox"></div>
       </div>
       <div class="dashboard-card">
         <h3>Pedidos</h3>
@@ -486,14 +499,18 @@
         <div id="financeMeta" class="helper"></div>
         <div id="receivablesMeta" class="helper"></div>
         <div class="row">
-          <button onclick="prevFinancePage()">Anterior</button>
-          <button onclick="nextFinancePage()">Proxima</button>
+          <button onclick="prevReceivablesPage()">Anterior</button>
+          <button onclick="nextReceivablesPage()">Proxima</button>
         </div>
         <div id="receivablesList" class="listbox"></div>
       </div>
       <div class="dashboard-card">
         <h3>Contas a Pagar</h3>
         <div id="payablesMeta" class="helper"></div>
+        <div class="row">
+          <button onclick="prevPayablesPage()">Anterior</button>
+          <button onclick="nextPayablesPage()">Proxima</button>
+        </div>
         <div id="payablesList" class="listbox"></div>
       </div>
       <div class="dashboard-card">

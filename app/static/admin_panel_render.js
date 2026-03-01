@@ -9,6 +9,15 @@ function renderSummary(summary) {
     `In: ${summary.inbound_messages_total || 0}`,
     `AP: R$ ${Number(summary.finance?.payable_total || 0).toFixed(2)}`
   ], (item) => item);
+  const activeFilters = [];
+  if (summary.query) activeFilters.push(`Busca: ${summary.query}`);
+  if (summary.people_email) activeFilters.push(`Email: ${summary.people_email}`);
+  if (summary.people_phone) activeFilters.push(`Telefone: ${summary.people_phone}`);
+  if (summary.order_status) activeFilters.push(`Pedido: ${summary.order_status}`);
+  if (summary.contract_status) activeFilters.push(`Contrato: ${summary.contract_status}`);
+  if (summary.message_status) activeFilters.push(`Msg status: ${summary.message_status}`);
+  if (summary.message_direction) activeFilters.push(`Msg dir: ${summary.message_direction}`);
+  renderList("activeFilters", activeFilters, (item) => item);
   renderList("salesOrdersList", summary.sales_orders || [], (item) =>
     `#${item.id} | ${item.status} | R$ ${Number(item.total_amount).toFixed(2)}<br>
     <button onclick="updateSalesOrderStatus(${item.id})">Atualizar status</button>

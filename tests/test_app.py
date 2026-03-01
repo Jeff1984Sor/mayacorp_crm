@@ -127,9 +127,14 @@ def test_healthcheck(tmp_path: Path) -> None:
     assert "exportProposalsCsv" in actions_js_response.text
     assert "exportContractsCsv" in actions_js_response.text
     assert "exportMessagesCsv" in actions_js_response.text
+    assert "exportOutboundMessagesCsv" in actions_js_response.text
+    assert "exportInboundMessagesCsv" in actions_js_response.text
     assert "exportFinanceCsv" in actions_js_response.text
     assert "exportReceivablesCsv" in actions_js_response.text
     assert "exportPayablesCsv" in actions_js_response.text
+    assert "buildScopedFinanceQuery" in actions_js_response.text
+    assert "prevPayablesPage" in actions_js_response.text
+    assert "loadPayablesOnly" in actions_js_response.text
     assert "people_email" in actions_js_response.text
     assert "document_sort_by" in actions_js_response.text
     assert "messageSortBy" in actions_js_response.text
@@ -771,6 +776,14 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert messages_export.status_code == 200
     assert "id,direction,status,body" in messages_export.text
 
+    outbound_messages_export = client.get(f"/admin/panel/{workspace_slug}/summary/messages/export?message_direction=outbound")
+    assert outbound_messages_export.status_code == 200
+    assert "id,direction,status,body" in outbound_messages_export.text
+
+    inbound_messages_export = client.get(f"/admin/panel/{workspace_slug}/summary/messages/export?message_direction=inbound")
+    assert inbound_messages_export.status_code == 200
+    assert "id,direction,status,body" in inbound_messages_export.text
+
     receivables_filtered = client.get(
         f"/admin/panel/{workspace_slug}/finance/receivables?status=paid&category=Mensalidades&due_from=2026-03-01&due_to=2026-03-31&sort_by=amount&sort_dir=desc"
     )
@@ -784,14 +797,14 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert receivables_payload["sort_by"] == "amount"
 
     payables_filtered = client.get(
-        f"/admin/panel/{workspace_slug}/finance/payables?status=pending&category=Operacional&sort_by=category&sort_dir=asc"
+        f"/admin/panel/{workspace_slug}/finance/payables?status=pending&category=Operacional&sort_by=category&sort_dir=asc&page=1&page_size=1"
     )
     assert payables_filtered.status_code == 200
     payables_payload = panel_data(payables_filtered)
     assert payables_payload["filters"]["category"] == "Operacional"
     assert payables_payload["items"]
     assert payables_payload["page"] == 1
-    assert payables_payload["page_size"] == 10
+    assert payables_payload["page_size"] == 1
     assert payables_payload["total"] >= 1
     assert payables_payload["sort_by"] == "category"
 
