@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -66,6 +67,7 @@ from app.schemas.crm import (
     ContractUpdateRequest,
     CostCenterCreateRequest,
     CostCenterResponse,
+    CommercialDashboardResponse,
     FinanceCategoryCreateRequest,
     FinanceCategoryResponse,
     FinanceDashboardResponse,
@@ -1429,7 +1431,7 @@ def upload_workspace_file(
 
 
 @router.get("/storage/signed", response_model=StorageFileResponse)
-def resolve_signed_storage(path: str, token: str) -> StorageResolvedResponse:
+def resolve_signed_storage(path: str, token: str):
     from datetime import UTC, datetime
     from pathlib import Path
     from urllib.parse import unquote
@@ -1450,13 +1452,13 @@ def resolve_signed_storage(path: str, token: str) -> StorageResolvedResponse:
     if not file.exists():
         raise HTTPException(status_code=404, detail="File not found.")
 
-    expires_at = datetime.fromtimestamp(expiry_ts, tz=UTC)
-    return StorageResolvedResponse(
-        file_path=decoded_path,
-        file_name=file.name,
-        content=file.read_text(encoding="utf-8"),
-        expires_at=expires_at.isoformat(),
-    )
+    media_type = "application/octet-stream"
+    suffix = file.suffix.lower()
+    if suffix in {".txt", ".csv", ".log"}:
+        media_type = "text/plain; charset=utf-8"
+    elif suffix == ".pdf":
+        media_type = "application/pdf"
+    return FileResponse(path=file, filename=file.name, media_type=media_type)
 
 
 @router.post("/tenant/{workspace_slug}/finance/categories", response_model=FinanceCategoryResponse, status_code=201)
@@ -1538,6 +1540,26 @@ def finance_dashboard(
         payable_pending=payable_pending,
         receivable_count=len(receivables),
         payable_count=len(payables),
+    )
+
+
+@router.get("/tenant/{workspace_slug}/dashboard/commercial", response_model=CommercialDashboardResponse)
+def commercial_dashboard(
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
+) -> CommercialDashboardResponse:
+    leads = session.query(Lead).all()
+    clients = session.query(Client).all()
+    orders = session.query(SalesOrder).all()
+    messages = session.query(Message).all()
+    return CommercialDashboardResponse(
+        lead_count=len(leads),
+        client_count=len(clients),
+        converted_lead_count=sum(1 for lead in leads if lead.conversion_date is not None),
+        sales_order_count=len(orders),
+        sales_total=sum(float(order.total_amount) for order in orders),
+        inbound_message_count=sum(1 for message in messages if message.direction == "inbound"),
+        outbound_message_count=sum(1 for message in messages if message.direction == "outbound"),
     )
 
 
@@ -1706,6 +1728,7 @@ def create_lead_radar_run(
     workspace_slug: str,
     payload: LeadRadarRunCreateRequest,
     session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
 ) -> LeadRadarRunResponse:
     summary = {
         "workspace": workspace_slug,
@@ -1721,7 +1744,11 @@ def create_lead_radar_run(
 
 
 @router.post("/tenant/{workspace_slug}/lead-radar/runs/{run_id}/process", response_model=LeadRadarRunResponse)
-def process_lead_radar_run(run_id: int, session: Session = Depends(tenant_session_dep)) -> LeadRadarRunResponse:
+def process_lead_radar_run(
+    run_id: int,
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
+) -> LeadRadarRunResponse:
     run = session.query(LeadRadarRun).filter(LeadRadarRun.id == run_id).one_or_none()
     if run is None:
         raise HTTPException(status_code=404, detail="Lead radar run not found.")
@@ -1760,6 +1787,7 @@ def lead_radar_callback(
     workspace_slug: str,
     payload: LeadRadarCallbackRequest,
     session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
 ) -> LeadRadarRunResponse:
     if payload.external_run_id:
         existing_run = (
@@ -1821,7 +1849,10 @@ def lead_radar_callback(
 
 
 @router.get("/tenant/{workspace_slug}/lead-radar/runs", response_model=list[LeadRadarRunResponse])
-def list_lead_radar_runs(session: Session = Depends(tenant_session_dep)) -> list[LeadRadarRunResponse]:
+def list_lead_radar_runs(
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
+) -> list[LeadRadarRunResponse]:
     runs = session.query(LeadRadarRun).order_by(LeadRadarRun.id.desc()).all()
     return [LeadRadarRunResponse(id=run.id, status=run.status, source=run.source, summary=run.summary) for run in runs]
 
@@ -1830,6 +1861,7 @@ def list_lead_radar_runs(session: Session = Depends(tenant_session_dep)) -> list
 def marketplace_webhook(
     payload: MarketplaceWebhookRequest,
     session: Session = Depends(tenant_session_dep),
+    _: User = Depends(tenant_manager_user_dep),
 ) -> SalesOrderResponse:
     from datetime import date
 

@@ -329,3 +329,13 @@ class FinanceDashboardResponse(BaseModel):
     payable_pending: float
     receivable_count: int
     payable_count: int
+
+
+class CommercialDashboardResponse(BaseModel):
+    lead_count: int
+    client_count: int
+    converted_lead_count: int
+    sales_order_count: int
+    sales_total: float
+    inbound_message_count: int
+    outbound_message_count: int
