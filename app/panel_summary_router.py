@@ -26,6 +26,7 @@ from app.panel_common import panel_response, panel_tenant_permission_dep
 from app.panel_summary_queries import (
     apply_document_filters,
     apply_message_filters,
+    apply_message_sort,
     apply_order_filters,
     apply_people_filters,
     bounded_page,
@@ -343,17 +344,16 @@ def admin_panel_messages_summary(
     messages_page_size: int = 5,
     message_status: str | None = None,
     message_direction: str | None = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> dict:
     messages_page = bounded_page(messages_page)
     messages_page_size = bounded_page(messages_page_size)
     messages_offset = (messages_page - 1) * messages_page_size
-    messages_query = apply_message_filters(
-        session.query(Message).order_by(Message.id.desc()),
-        message_status=message_status,
-        message_direction=message_direction,
-    )
+    messages_query = apply_message_filters(session.query(Message), message_status=message_status, message_direction=message_direction)
+    messages_query = apply_message_sort(messages_query, sort_by=sort_by, sort_dir=sort_dir)
     messages_total = messages_query.count()
     messages = messages_query.offset(messages_offset).limit(messages_page_size).all()
     return panel_response(
@@ -365,6 +365,8 @@ def admin_panel_messages_summary(
             "messages_total": messages_total,
             "message_status": message_status,
             "message_direction": message_direction,
+            "sort_by": sort_by,
+            "sort_dir": sort_dir,
         },
     )
 
@@ -487,6 +489,7 @@ def _csv_response(fieldnames: list[str], rows: list[dict], filename: str) -> Pla
 
 @panel_summary_router.get("/admin/panel/{workspace_slug}/summary/orders/export")
 def admin_panel_orders_export(
+    workspace_slug: str,
     order_status: str | None = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
@@ -495,11 +498,12 @@ def admin_panel_orders_export(
 ) -> PlainTextResponse:
     query = apply_order_filters(session.query(SalesOrder), order_status=order_status, sort_by=sort_by, sort_dir=sort_dir)
     rows = serialize_sales_orders(query.limit(200).all())
-    return _csv_response(["id", "status", "total_amount"], rows, "orders.csv")
+    return _csv_response(["id", "status", "total_amount"], rows, f"{workspace_slug}-orders.csv")
 
 
 @panel_summary_router.get("/admin/panel/{workspace_slug}/summary/people/export")
 def admin_panel_people_export(
+    workspace_slug: str,
     q: str | None = None,
     email: str | None = None,
     phone: str | None = None,
@@ -511,4 +515,63 @@ def admin_panel_people_export(
     leads = apply_people_filters(session.query(Lead), Lead, q=q, email=email, phone=phone, sort_by=sort_by, sort_dir=sort_dir).limit(100).all()
     clients = apply_people_filters(session.query(Client), Client, q=q, email=email, phone=phone, sort_by=sort_by, sort_dir=sort_dir).limit(100).all()
     rows = [{"kind": "lead", **item} for item in serialize_people(leads)] + [{"kind": "client", **item} for item in serialize_people(clients)]
-    return _csv_response(["kind", "id", "name", "email", "phone"], rows, "people.csv")
+    return _csv_response(["kind", "id", "name", "email", "phone"], rows, f"{workspace_slug}-people.csv")
+
+
+@panel_summary_router.get("/admin/panel/{workspace_slug}/summary/proposals/export")
+def admin_panel_proposals_export(
+    workspace_slug: str,
+    document_q: str | None = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> PlainTextResponse:
+    proposals_query, _ = apply_document_filters(
+        session.query(Proposal),
+        session.query(Contract),
+        document_q=document_q,
+        contract_status=None,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
+    rows = serialize_documents(proposals_query.limit(200).all())
+    return _csv_response(["id", "title", "sales_order_id", "pdf_path"], rows, f"{workspace_slug}-proposals.csv")
+
+
+@panel_summary_router.get("/admin/panel/{workspace_slug}/summary/contracts/export")
+def admin_panel_contracts_export(
+    workspace_slug: str,
+    document_q: str | None = None,
+    contract_status: str | None = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> PlainTextResponse:
+    _, contracts_query = apply_document_filters(
+        session.query(Proposal),
+        session.query(Contract),
+        document_q=document_q,
+        contract_status=contract_status,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
+    rows = serialize_documents(contracts_query.limit(200).all())
+    return _csv_response(["id", "title", "sales_order_id", "status", "signed_file_path"], rows, f"{workspace_slug}-contracts.csv")
+
+
+@panel_summary_router.get("/admin/panel/{workspace_slug}/summary/messages/export")
+def admin_panel_messages_export(
+    workspace_slug: str,
+    message_status: str | None = None,
+    message_direction: str | None = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("sales.write")),
+) -> PlainTextResponse:
+    messages_query = apply_message_filters(session.query(Message), message_status=message_status, message_direction=message_direction)
+    messages_query = apply_message_sort(messages_query, sort_by=sort_by, sort_dir=sort_dir)
+    rows = serialize_messages(messages_query.limit(200).all())
+    return _csv_response(["id", "direction", "status", "body"], rows, f"{workspace_slug}-messages.csv")

@@ -241,7 +241,13 @@ function buildFinanceQuery() {
   }
   query.set("page", document.getElementById("financePage").value || "1");
   query.set("page_size", document.getElementById("financePageSize").value || "10");
+  query.set("sort_by", selectedValue("financeSortBy", "due_date"));
+  query.set("sort_dir", selectedValue("financeSortDir", "asc"));
   return query;
+}
+
+function clearPanelCache(keys) {
+  keys.forEach((key) => setPanelCache(key, null));
 }
 
 async function createReceivable() {
@@ -258,6 +264,7 @@ async function createReceivable() {
     })
   });
   await showResult(response);
+  clearPanelCache(["summary", "people"]);
   await loadWorkspaceSummary();
 }
 
@@ -292,6 +299,7 @@ async function createPayable() {
     })
   });
   await showResult(response);
+  clearPanelCache(["summary", "people"]);
   await loadWorkspaceSummary();
 }
 
@@ -334,6 +342,7 @@ async function sendWhatsapp() {
     })
   });
   await showResult(response);
+  clearPanelCache(["summary", "finance"]);
   await loadWorkspaceSummary();
 }
 
@@ -345,6 +354,7 @@ async function updateWhatsappSessionStatus() {
     body: JSON.stringify({ status: selectedValue("whatsappSessionStatus", "connected") })
   });
   await showResult(response);
+  clearPanelCache(["summary", "finance"]);
   await loadWorkspaceSummary();
 }
 
@@ -356,6 +366,7 @@ async function updateReceivableStatus(id) {
     body: JSON.stringify({ status: selectedValue("receivableStatusUpdate", "paid") })
   });
   await showResult(response);
+  clearPanelCache(["summary", "messages"]);
   await loadWorkspaceSummary();
 }
 
@@ -365,6 +376,7 @@ async function deleteReceivable(id) {
     credentials: "same-origin"
   });
   await showResult(response);
+  clearPanelCache(["summary", "people"]);
   await loadWorkspaceSummary();
 }
 
@@ -376,6 +388,7 @@ async function updatePayableStatus(id) {
     body: JSON.stringify({ status: selectedValue("payableStatusUpdate", "paid") })
   });
   await showResult(response);
+  clearPanelCache(["summary", "people"]);
   await loadWorkspaceSummary();
 }
 
@@ -385,6 +398,7 @@ async function deletePayable(id) {
     credentials: "same-origin"
   });
   await showResult(response);
+  clearPanelCache(["summary", "orders"]);
   await loadWorkspaceSummary();
 }
 
@@ -396,6 +410,7 @@ async function updateMessageStatus(id) {
     body: JSON.stringify({ status: selectedValue("messageStatusUpdate", "read") })
   });
   await showResult(response);
+  clearPanelCache(["summary", "documents"]);
   await loadWorkspaceSummary();
 }
 
@@ -412,6 +427,7 @@ async function renameLead(id) {
     body: JSON.stringify({ name, email: null, phone: null })
   });
   await showResult(response);
+  clearPanelCache(["summary", "documents"]);
   await loadWorkspaceSummary();
 }
 
@@ -573,6 +589,8 @@ async function loadMessagesSummary() {
   });
   const messageStatus = selectedValue("messageStatusFilter");
   const messageDirection = selectedValue("messageDirectionFilter");
+  query.set("sort_by", selectedValue("messageSortBy", "id"));
+  query.set("sort_dir", selectedValue("messageSortDir", "desc"));
   if (messageStatus) {
     query.set("message_status", messageStatus);
   }
@@ -611,6 +629,121 @@ async function loadFinanceSummary() {
       <button onclick="updatePayableStatus(${item.id})">Atualizar status</button>
       <button onclick="deletePayable(${item.id})">Excluir</button>`
     );
+  }
+}
+
+async function loadLeadsOnly() {
+  const query = new URLSearchParams({
+    page: document.getElementById("leadsPage").value || "1",
+    page_size: document.getElementById("leadsPageSize").value || "5",
+    sort_by: selectedValue("peopleSortBy", "id"),
+    sort_dir: selectedValue("peopleSortDir", "desc")
+  });
+  const filterValue = document.getElementById("summaryQuery").value.trim();
+  const email = document.getElementById("peopleEmailFilter").value.trim();
+  const phone = document.getElementById("peoplePhoneFilter").value.trim();
+  if (filterValue) query.set("q", filterValue);
+  if (email) query.set("email", email);
+  if (phone) query.set("phone", phone);
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/leads?${query.toString()}`, { credentials: "same-origin" });
+  const payload = await showResult(response);
+  if (payload) {
+    setPanelCache("leads", payload);
+    renderList("leadsList", payload.items || [], (item) =>
+      `#${item.id} | ${item.name}<br>${item.email || "-"}<br>
+      <input id="leadNameEdit-${item.id}" placeholder="Novo nome">
+      <button onclick="renameLead(${item.id})">Editar</button>
+      <button onclick="deleteLead(${item.id})">Excluir</button>`
+    );
+    const leadsMeta = document.getElementById("leadsMeta");
+    if (leadsMeta) {
+      leadsMeta.textContent = `Leads: pagina ${payload.page}/${Math.max(1, Math.ceil((payload.total || 0) / Math.max(payload.page_size || 1, 1)))}, total ${payload.total || 0}`;
+    }
+  }
+}
+
+async function loadClientsOnly() {
+  const query = new URLSearchParams({
+    page: document.getElementById("clientsPage").value || "1",
+    page_size: document.getElementById("clientsPageSize").value || "5",
+    sort_by: selectedValue("peopleSortBy", "id"),
+    sort_dir: selectedValue("peopleSortDir", "desc")
+  });
+  const filterValue = document.getElementById("summaryQuery").value.trim();
+  const email = document.getElementById("peopleEmailFilter").value.trim();
+  const phone = document.getElementById("peoplePhoneFilter").value.trim();
+  if (filterValue) query.set("q", filterValue);
+  if (email) query.set("email", email);
+  if (phone) query.set("phone", phone);
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/clients?${query.toString()}`, { credentials: "same-origin" });
+  const payload = await showResult(response);
+  if (payload) {
+    setPanelCache("clients", payload);
+    renderList("clientsList", payload.items || [], (item) =>
+      `#${item.id} | ${item.name}<br>${item.email || "-"}<br>
+      <input id="clientNameEdit-${item.id}" placeholder="Novo nome">
+      <button onclick="renameClient(${item.id})">Editar</button>
+      <button onclick="deleteClient(${item.id})">Excluir</button>`
+    );
+    const clientsMeta = document.getElementById("clientsMeta");
+    if (clientsMeta) {
+      clientsMeta.textContent = `Clients: pagina ${payload.page}/${Math.max(1, Math.ceil((payload.total || 0) / Math.max(payload.page_size || 1, 1)))}, total ${payload.total || 0}`;
+    }
+  }
+}
+
+async function loadProposalsOnly() {
+  const query = new URLSearchParams({
+    page: document.getElementById("documentsPage").value || "1",
+    page_size: document.getElementById("documentsPageSize").value || "5",
+    sort_by: selectedValue("documentSortBy", "id"),
+    sort_dir: selectedValue("documentSortDir", "desc")
+  });
+  const documentFilter = document.getElementById("documentQuery").value.trim();
+  if (documentFilter) query.set("document_q", documentFilter);
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/proposals?${query.toString()}`, { credentials: "same-origin" });
+  const payload = await showResult(response);
+  if (payload) {
+    setPanelCache("proposals", payload);
+    renderList("proposalsList", payload.items || [], (item) =>
+      `#${item.id} | ${item.title}<br>${item.pdf_path || "sem pdf"}<br>
+      <input id="proposalTitleEdit-${item.id}" placeholder="Novo titulo">
+      <button onclick="renameProposal(${item.id})">Renomear</button>
+      <button onclick="deleteProposal(${item.id})">Excluir</button>`
+    );
+    const docsMeta = document.getElementById("documentsMeta");
+    if (docsMeta) {
+      docsMeta.textContent = `Propostas: pagina ${payload.page}/${Math.max(1, Math.ceil((payload.total || 0) / Math.max(payload.page_size || 1, 1)))}, total ${payload.total || 0}`;
+    }
+  }
+}
+
+async function loadContractsOnly() {
+  const query = new URLSearchParams({
+    page: document.getElementById("documentsPage").value || "1",
+    page_size: document.getElementById("documentsPageSize").value || "5",
+    sort_by: selectedValue("documentSortBy", "id"),
+    sort_dir: selectedValue("documentSortDir", "desc")
+  });
+  const documentFilter = document.getElementById("documentQuery").value.trim();
+  const contractStatus = selectedValue("contractStatusFilter");
+  if (documentFilter) query.set("document_q", documentFilter);
+  if (contractStatus) query.set("contract_status", contractStatus);
+  const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/contracts?${query.toString()}`, { credentials: "same-origin" });
+  const payload = await showResult(response);
+  if (payload) {
+    setPanelCache("contracts", payload);
+    renderList("contractsList", payload.items || [], (item) =>
+      `#${item.id} | ${item.title} | ${item.status}<br>
+      <input id="contractTitleEdit-${item.id}" placeholder="Novo titulo">
+      <button onclick="renameContract(${item.id})">Renomear</button>
+      <button onclick="updateContractStatus(${item.id})">Atualizar status</button>
+      <button onclick="deleteContract(${item.id})">Excluir</button>`
+    );
+    const docsMeta = document.getElementById("documentsMeta");
+    if (docsMeta) {
+      docsMeta.textContent = `Contratos: pagina ${payload.page}/${Math.max(1, Math.ceil((payload.total || 0) / Math.max(payload.page_size || 1, 1)))}, total ${payload.total || 0}`;
+    }
   }
 }
 
@@ -724,6 +857,38 @@ async function exportPeopleCsv() {
   query.set("sort_by", selectedValue("peopleSortBy", "id"));
   query.set("sort_dir", selectedValue("peopleSortDir", "desc"));
   openPanelDownload("/summary/people/export", query);
+}
+
+async function exportDocumentsCsv() {
+  const common = new URLSearchParams();
+  const documentFilter = document.getElementById("documentQuery").value.trim();
+  const contractStatus = selectedValue("contractStatusFilter");
+  if (documentFilter) common.set("document_q", documentFilter);
+  if (contractStatus) common.set("contract_status", contractStatus);
+  common.set("sort_by", selectedValue("documentSortBy", "id"));
+  common.set("sort_dir", selectedValue("documentSortDir", "desc"));
+  openPanelDownload("/summary/proposals/export", common);
+  openPanelDownload("/summary/contracts/export", common);
+}
+
+async function exportMessagesCsv() {
+  const query = new URLSearchParams();
+  const messageStatus = selectedValue("messageStatusFilter");
+  const messageDirection = selectedValue("messageDirectionFilter");
+  if (messageStatus) query.set("message_status", messageStatus);
+  if (messageDirection) query.set("message_direction", messageDirection);
+  query.set("sort_by", selectedValue("messageSortBy", "id"));
+  query.set("sort_dir", selectedValue("messageSortDir", "desc"));
+  openPanelDownload("/summary/messages/export", query);
+}
+
+async function exportFinanceCsv() {
+  const receivableQuery = buildFinanceQuery();
+  receivableQuery.set("entry_type", "receivable");
+  openPanelDownload("/finance/export", receivableQuery);
+  const payableQuery = buildFinanceQuery();
+  payableQuery.set("entry_type", "payable");
+  openPanelDownload("/finance/export", payableQuery);
 }
 
 function shiftNumericInput(id, delta, minimum = 1) {

@@ -57,10 +57,17 @@
         <button onclick="tenantHealth()">Health</button>
         <button onclick="loadWorkspaceSummary()">Resumo</button>
         <button onclick="loadDocumentsSummary()">Docs</button>
+        <button onclick="loadLeadsOnly()">Leads</button>
+        <button onclick="loadClientsOnly()">Clients</button>
+        <button onclick="loadProposalsOnly()">Propostas</button>
+        <button onclick="loadContractsOnly()">Contratos</button>
         <button onclick="loadMessagesSummary()">Msgs</button>
         <button onclick="loadFinanceSummary()">Financeiro</button>
         <button onclick="exportOrdersCsv()">Exportar pedidos CSV</button>
         <button onclick="exportPeopleCsv()">Exportar pessoas CSV</button>
+        <button onclick="exportDocumentsCsv()">Exportar docs CSV</button>
+        <button onclick="exportMessagesCsv()">Exportar msgs CSV</button>
+        <button onclick="exportFinanceCsv()">Exportar financeiro CSV</button>
         <label for="summaryQuery">Filtro</label>
         <input id="summaryQuery" placeholder="Nome ou titulo">
         <label for="peopleEmailFilter">Filtro email</label>
@@ -131,6 +138,17 @@
           <option value="">Todas</option>
           <option value="outbound">outbound</option>
           <option value="inbound">inbound</option>
+        </select>
+        <label for="messageSortBy">Ordenar msgs</label>
+        <select id="messageSortBy">
+          <option value="id">id</option>
+          <option value="status">status</option>
+          <option value="direction">direction</option>
+        </select>
+        <label for="messageSortDir">Direcao msgs</label>
+        <select id="messageSortDir">
+          <option value="desc">desc</option>
+          <option value="asc">asc</option>
         </select>
         <div class="row">
           <div>
@@ -309,6 +327,19 @@
             <input id="financePageSize" value="10">
           </div>
         </div>
+        <label for="financeSortBy">Ordenar financeiro</label>
+        <select id="financeSortBy">
+          <option value="due_date">due_date</option>
+          <option value="amount">amount</option>
+          <option value="status">status</option>
+          <option value="category">category</option>
+          <option value="id">id</option>
+        </select>
+        <label for="financeSortDir">Direcao financeiro</label>
+        <select id="financeSortDir">
+          <option value="asc">asc</option>
+          <option value="desc">desc</option>
+        </select>
         <label for="receivableStatusUpdate">Status receber</label>
         <select id="receivableStatusUpdate">
           <option value="paid">paid</option>

@@ -38,6 +38,15 @@ def apply_message_filters(messages_query: Query, *, message_status: str | None, 
     return messages_query
 
 
+def apply_message_sort(query: Query, *, sort_by: str = "id", sort_dir: str = "desc") -> Query:
+    sort_attr = Message.id
+    if sort_by == "status":
+        sort_attr = Message.status
+    elif sort_by == "direction":
+        sort_attr = Message.direction
+    return query.order_by(sort_attr.asc() if sort_dir == "asc" else sort_attr.desc())
+
+
 def apply_people_filters(
     query: Query,
     model: type[Lead] | type[Client],

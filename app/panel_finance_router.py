@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import csv
 from datetime import date
+import io
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Query, Session
 
 from app.api.deps import tenant_session_dep
@@ -40,6 +43,25 @@ def _apply_finance_filters(
     return query
 
 
+def _apply_finance_sort(
+    query: Query,
+    model: type[AccountsReceivable] | type[AccountsPayable],
+    *,
+    sort_by: str,
+    sort_dir: str,
+) -> Query:
+    sort_attr = model.due_date
+    if sort_by == "amount":
+        sort_attr = model.amount
+    elif sort_by == "status":
+        sort_attr = model.status
+    elif sort_by == "category":
+        sort_attr = model.category
+    elif sort_by == "id":
+        sort_attr = model.id
+    return query.order_by(sort_attr.asc() if sort_dir == "asc" else sort_attr.desc(), model.id.asc())
+
+
 def _serialize_finance_entries(items: list[AccountsReceivable] | list[AccountsPayable]) -> list[dict]:
     return [
         {
@@ -52,6 +74,16 @@ def _serialize_finance_entries(items: list[AccountsReceivable] | list[AccountsPa
         }
         for item in items
     ]
+
+
+def _csv_response(fieldnames: list[str], rows: list[dict], filename: str) -> PlainTextResponse:
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(rows)
+    response = PlainTextResponse(buffer.getvalue(), media_type="text/csv")
+    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
 
 
 @panel_finance_router.post("/admin/panel/{workspace_slug}/finance-category", status_code=201)
@@ -77,6 +109,8 @@ def admin_panel_list_receivables(
     category: str | None = None,
     due_from: str | None = None,
     due_to: str | None = None,
+    sort_by: str = "due_date",
+    sort_dir: str = "asc",
     page: int = 1,
     page_size: int = 10,
     session: Session = Depends(tenant_session_dep),
@@ -85,14 +119,8 @@ def admin_panel_list_receivables(
     page = max(page, 1)
     page_size = max(1, min(page_size, 50))
     offset = (page - 1) * page_size
-    query = _apply_finance_filters(
-        session.query(AccountsReceivable).order_by(AccountsReceivable.due_date.asc(), AccountsReceivable.id.asc()),
-        AccountsReceivable,
-        status=status,
-        category=category,
-        due_from=due_from,
-        due_to=due_to,
-    )
+    query = _apply_finance_filters(session.query(AccountsReceivable), AccountsReceivable, status=status, category=category, due_from=due_from, due_to=due_to)
+    query = _apply_finance_sort(query, AccountsReceivable, sort_by=sort_by, sort_dir=sort_dir)
     total = query.count()
     items = query.offset(offset).limit(page_size).all()
     return panel_response(
@@ -103,6 +131,8 @@ def admin_panel_list_receivables(
             "page": page,
             "page_size": page_size,
             "filters": {"status": status, "category": category, "due_from": due_from, "due_to": due_to},
+            "sort_by": sort_by,
+            "sort_dir": sort_dir,
         },
     )
 
@@ -113,6 +143,8 @@ def admin_panel_list_payables(
     category: str | None = None,
     due_from: str | None = None,
     due_to: str | None = None,
+    sort_by: str = "due_date",
+    sort_dir: str = "asc",
     page: int = 1,
     page_size: int = 10,
     session: Session = Depends(tenant_session_dep),
@@ -121,14 +153,8 @@ def admin_panel_list_payables(
     page = max(page, 1)
     page_size = max(1, min(page_size, 50))
     offset = (page - 1) * page_size
-    query = _apply_finance_filters(
-        session.query(AccountsPayable).order_by(AccountsPayable.due_date.asc(), AccountsPayable.id.asc()),
-        AccountsPayable,
-        status=status,
-        category=category,
-        due_from=due_from,
-        due_to=due_to,
-    )
+    query = _apply_finance_filters(session.query(AccountsPayable), AccountsPayable, status=status, category=category, due_from=due_from, due_to=due_to)
+    query = _apply_finance_sort(query, AccountsPayable, sort_by=sort_by, sort_dir=sort_dir)
     total = query.count()
     items = query.offset(offset).limit(page_size).all()
     return panel_response(
@@ -139,8 +165,29 @@ def admin_panel_list_payables(
             "page": page,
             "page_size": page_size,
             "filters": {"status": status, "category": category, "due_from": due_from, "due_to": due_to},
+            "sort_by": sort_by,
+            "sort_dir": sort_dir,
         },
     )
+
+
+@panel_finance_router.get("/admin/panel/{workspace_slug}/finance/export")
+def admin_panel_export_finance(
+    entry_type: str = "receivable",
+    status: str | None = None,
+    category: str | None = None,
+    due_from: str | None = None,
+    due_to: str | None = None,
+    sort_by: str = "due_date",
+    sort_dir: str = "asc",
+    session: Session = Depends(tenant_session_dep),
+    _: User = Depends(panel_tenant_permission_dep("finance.write")),
+) -> PlainTextResponse:
+    model = AccountsReceivable if entry_type != "payable" else AccountsPayable
+    query = _apply_finance_filters(session.query(model), model, status=status, category=category, due_from=due_from, due_to=due_to)
+    query = _apply_finance_sort(query, model, sort_by=sort_by, sort_dir=sort_dir)
+    rows = _serialize_finance_entries(query.limit(200).all())
+    return _csv_response(["id", "amount", "status", "category", "cost_center", "due_date"], rows, f"{entry_type}s.csv")
 
 
 @panel_finance_router.post("/admin/panel/{workspace_slug}/finance/receivable", status_code=201)

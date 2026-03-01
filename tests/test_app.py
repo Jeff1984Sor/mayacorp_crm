@@ -105,10 +105,20 @@ def test_healthcheck(tmp_path: Path) -> None:
     assert "loadDocumentsSummary" in actions_js_response.text
     assert "loadOrdersSummary" in actions_js_response.text
     assert "loadPeopleSummary" in actions_js_response.text
+    assert "loadLeadsOnly" in actions_js_response.text
+    assert "loadClientsOnly" in actions_js_response.text
+    assert "loadProposalsOnly" in actions_js_response.text
+    assert "loadContractsOnly" in actions_js_response.text
     assert "exportOrdersCsv" in actions_js_response.text
     assert "exportPeopleCsv" in actions_js_response.text
+    assert "exportDocumentsCsv" in actions_js_response.text
+    assert "exportMessagesCsv" in actions_js_response.text
+    assert "exportFinanceCsv" in actions_js_response.text
     assert "people_email" in actions_js_response.text
     assert "document_sort_by" in actions_js_response.text
+    assert "messageSortBy" in actions_js_response.text
+    assert "financeSortBy" in actions_js_response.text
+    assert "clearPanelCache" in actions_js_response.text
     assert "updateContractStatus" in actions_js_response.text
     assert "prevOrdersPage" in actions_js_response.text
     assert "nextMessagesPage" in actions_js_response.text
@@ -649,7 +659,7 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert panel_data(panel_message_update)["status"] == "read"
 
     messages_summary = client.get(
-        f"/admin/panel/{workspace_slug}/summary/messages?messages_page=1&messages_page_size=2&message_status=read&message_direction=outbound"
+        f"/admin/panel/{workspace_slug}/summary/messages?messages_page=1&messages_page_size=2&message_status=read&message_direction=outbound&sort_by=status&sort_dir=asc"
     )
     assert messages_summary.status_code == 200
     messages_payload = panel_data(messages_summary)
@@ -657,6 +667,7 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert messages_payload["messages_page"] == 1
     assert messages_payload["messages_page_size"] == 2
     assert messages_payload["message_status"] == "read"
+    assert messages_payload["sort_by"] == "status"
 
     orders_summary = client.get(
         f"/admin/panel/{workspace_slug}/summary/orders?page=1&page_size=2&order_status=closed&sort_by=total_amount&sort_dir=desc"
@@ -714,9 +725,22 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert people_export.status_code == 200
     assert "text/csv" in people_export.headers["content-type"]
     assert "kind,id,name,email,phone" in people_export.text
+    assert f'{workspace_slug}-people.csv' in people_export.headers["content-disposition"]
+
+    proposals_export = client.get(f"/admin/panel/{workspace_slug}/summary/proposals/export?document_q=Proposta")
+    assert proposals_export.status_code == 200
+    assert "id,title,sales_order_id,pdf_path" in proposals_export.text
+
+    contracts_export = client.get(f"/admin/panel/{workspace_slug}/summary/contracts/export?document_q=Contrato&contract_status=signed")
+    assert contracts_export.status_code == 200
+    assert "id,title,sales_order_id,status,signed_file_path" in contracts_export.text
+
+    messages_export = client.get(f"/admin/panel/{workspace_slug}/summary/messages/export?message_status=read&message_direction=outbound&sort_by=status")
+    assert messages_export.status_code == 200
+    assert "id,direction,status,body" in messages_export.text
 
     receivables_filtered = client.get(
-        f"/admin/panel/{workspace_slug}/finance/receivables?status=paid&category=Mensalidades&due_from=2026-03-01&due_to=2026-03-31"
+        f"/admin/panel/{workspace_slug}/finance/receivables?status=paid&category=Mensalidades&due_from=2026-03-01&due_to=2026-03-31&sort_by=amount&sort_dir=desc"
     )
     assert receivables_filtered.status_code == 200
     receivables_payload = panel_data(receivables_filtered)
@@ -725,9 +749,10 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert receivables_payload["page"] == 1
     assert receivables_payload["page_size"] == 10
     assert receivables_payload["total"] >= 1
+    assert receivables_payload["sort_by"] == "amount"
 
     payables_filtered = client.get(
-        f"/admin/panel/{workspace_slug}/finance/payables?status=pending&category=Operacional"
+        f"/admin/panel/{workspace_slug}/finance/payables?status=pending&category=Operacional&sort_by=category&sort_dir=asc"
     )
     assert payables_filtered.status_code == 200
     payables_payload = panel_data(payables_filtered)
@@ -736,6 +761,13 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     assert payables_payload["page"] == 1
     assert payables_payload["page_size"] == 10
     assert payables_payload["total"] >= 1
+    assert payables_payload["sort_by"] == "category"
+
+    finance_export = client.get(
+        f"/admin/panel/{workspace_slug}/finance/export?entry_type=receivable&status=paid&sort_by=amount&sort_dir=desc"
+    )
+    assert finance_export.status_code == 200
+    assert "id,amount,status,category,cost_center,due_date" in finance_export.text
 
     finance_summary = client.get(f"/admin/panel/{workspace_slug}/summary/finance")
     assert finance_summary.status_code == 200
