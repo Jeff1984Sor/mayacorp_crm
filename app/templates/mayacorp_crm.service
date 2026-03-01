@@ -1,0 +1,15 @@
+[Unit]
+Description=Mayacorp CRM API
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/mayacorp_crm
+EnvironmentFile=/opt/mayacorp_crm/.env
+ExecStart=/opt/mayacorp_crm/.venv/bin/gunicorn -k uvicorn.workers.UvicornWorker -w 4 -b 127.0.0.1:8011 app.main:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

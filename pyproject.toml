@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mayacorp-crm"
+version = "0.1.0"
+description = "Multi-tenant SaaS foundation for Mayacorp CRM"
+requires-python = ">=3.11"
+dependencies = [
+  "alembic>=1.14,<2.0",
+  "bcrypt>=4.1,<5.0",
+  "email-validator>=2.2,<3.0",
+  "fastapi>=0.115,<1.0",
+  "pydantic>=2.10,<3.0",
+  "pydantic-settings>=2.7,<3.0",
+  "python-jose[cryptography]>=3.3,<4.0",
+  "python-multipart>=0.0.18,<1.0",
+  "sqlalchemy>=2.0.36,<3.0",
+  "uvicorn[standard]>=0.34,<1.0",
+]
+
+[project.optional-dependencies]
+prod = [
+  "psycopg[binary]>=3.2,<4.0",
+  "gunicorn>=23.0,<24.0",
+]
+dev = [
+  "httpx>=0.28,<1.0",
+  "pytest>=8.3,<9.0",
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]

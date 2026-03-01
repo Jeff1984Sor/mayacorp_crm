@@ -1,0 +1,1 @@
+"""Mayacorp CRM application package."""
