@@ -94,11 +94,15 @@
         <label for="leadEmail">Email Lead</label>
         <input id="leadEmail" value="lead@acme.com">
         <button onclick="createLead()">Criar lead</button>
+        <label for="leadEditName">Editar lead (nome)</label>
+        <input id="leadEditName" placeholder="Novo nome do lead">
         <label for="clientName">Client</label>
         <input id="clientName" value="Client Painel">
         <label for="clientEmail">Email Client</label>
         <input id="clientEmail" value="client@acme.com">
         <button onclick="createClient()">Criar client</button>
+        <label for="clientEditName">Editar client (nome)</label>
+        <input id="clientEditName" placeholder="Novo nome do client">
       </div>
 
       <div class="card">
@@ -134,11 +138,15 @@
         <label for="proposalOrderId">ID do Pedido</label>
         <input id="proposalOrderId" placeholder="Opcional">
         <button onclick="createProposal()">Criar proposta</button>
+        <label for="proposalEditTitle">Editar proposta (titulo)</label>
+        <input id="proposalEditTitle" placeholder="Novo titulo da proposta">
         <label for="contractTitle">Contrato</label>
         <input id="contractTitle" value="Contrato Comercial">
         <label for="contractOrderId">ID do Pedido</label>
         <input id="contractOrderId" placeholder="Opcional">
         <button onclick="createContract()">Criar contrato</button>
+        <label for="contractEditTitle">Editar contrato (titulo)</label>
+        <input id="contractEditTitle" placeholder="Novo titulo do contrato">
       </div>
 
       <div class="card">
@@ -185,6 +193,16 @@
           <div>
             <label for="financeFilterTo">Ate</label>
             <input id="financeFilterTo" placeholder="2026-03-31">
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="financePage">Pagina financeira</label>
+            <input id="financePage" value="1">
+          </div>
+          <div>
+            <label for="financePageSize">Itens</label>
+            <input id="financePageSize" value="10">
           </div>
         </div>
         <label for="receivableStatusUpdate">Status receber</label>

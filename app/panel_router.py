@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import HTMLResponse
 from sqlalchemy import func
-from sqlalchemy.orm import Query, Session
+from sqlalchemy.orm import Session
 
 from app.api.deps import central_session_dep, tenant_context_dep, tenant_session_dep
 from app.api.routes import _write_document_file, _write_signed_contract_file
@@ -28,66 +28,30 @@ from app.models.tenant import (
     TenantWhatsappAccount,
     User,
 )
+from app.panel_finance_router import panel_finance_router
 from app.panel_common import (
     PanelCentralLoginRequest,
     PanelClientRequest,
     PanelContractRequest,
     PanelContractSignRequest,
-    PanelFinanceCategoryRequest,
-    PanelFinanceEntryRequest,
     PanelLeadRequest,
     PanelProposalRequest,
     PanelSalesOrderRequest,
     PanelStatusRequest,
     PanelTenantCreateRequest,
     PanelTenantLoginRequest,
-    PanelWhatsappSendRequest,
-    PanelWhatsappSessionRequest,
     panel_central_user_dep,
     panel_cookie_options,
     panel_response,
     panel_tenant_permission_dep,
     panel_tenant_user_dep,
 )
+from app.panel_whatsapp_router import panel_whatsapp_router
 from app.schemas.tenant import TenantCreateRequest
 from app.services.tenant_auth import issue_tenant_token_pair
 from app.services.tenants import create_tenant
 
 panel_router = APIRouter(tags=["health"])
-
-
-def _apply_finance_filters(
-    query: Query,
-    model: type[AccountsReceivable] | type[AccountsPayable],
-    *,
-    status: str | None,
-    category: str | None,
-    due_from: str | None,
-    due_to: str | None,
-) -> Query:
-    if status:
-        query = query.filter(model.status == status)
-    if category:
-        query = query.filter(model.category == category)
-    if due_from:
-        query = query.filter(model.due_date >= date.fromisoformat(due_from))
-    if due_to:
-        query = query.filter(model.due_date <= date.fromisoformat(due_to))
-    return query
-
-
-def _serialize_finance_entries(items: list[AccountsReceivable] | list[AccountsPayable]) -> list[dict]:
-    return [
-        {
-            "id": item.id,
-            "amount": float(item.amount),
-            "status": item.status,
-            "category": item.category,
-            "cost_center": item.cost_center,
-            "due_date": item.due_date.isoformat(),
-        }
-        for item in items
-    ]
 
 
 @panel_router.get("/admin/panel", response_class=HTMLResponse)
@@ -533,8 +497,14 @@ def admin_panel_workspace_summary(
             "contracts": [{"id": item.id, "title": item.title, "status": item.status, "signed_file_path": item.signed_file_path} for item in contracts],
             "leads": [{"id": item.id, "name": item.name, "email": item.email, "phone": item.phone} for item in leads],
             "clients": [{"id": item.id, "name": item.name, "email": item.email, "phone": item.phone} for item in clients],
-            "receivables": _serialize_finance_entries(receivables),
-            "payables": _serialize_finance_entries(payables),
+            "receivables": [
+                {"id": item.id, "amount": float(item.amount), "status": item.status, "category": item.category, "due_date": item.due_date.isoformat()}
+                for item in receivables
+            ],
+            "payables": [
+                {"id": item.id, "amount": float(item.amount), "status": item.status, "category": item.category, "due_date": item.due_date.isoformat()}
+                for item in payables
+            ],
             "messages": [{"id": item.id, "direction": item.direction, "status": item.status, "body": item.body} for item in messages],
             "finance": {
                 "category_count": len(categories),
@@ -563,238 +533,5 @@ def admin_panel_workspace_summary(
     )
 
 
-@panel_router.post("/admin/panel/{workspace_slug}/finance-category", status_code=201)
-def admin_panel_create_finance_category(
-    workspace_slug: str,
-    payload: PanelFinanceCategoryRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("finance.write")),
-) -> dict:
-    category = FinanceCategory(name=payload.name, entry_type=payload.entry_type)
-    session.add(category)
-    session.commit()
-    session.refresh(category)
-    return panel_response("Categoria criada.", {"id": category.id, "name": category.name, "entry_type": category.entry_type, "workspace_slug": workspace_slug})
-
-
-@panel_router.get("/admin/panel/{workspace_slug}/finance/receivables")
-def admin_panel_list_receivables(
-    status: str | None = None,
-    category: str | None = None,
-    due_from: str | None = None,
-    due_to: str | None = None,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("finance.write")),
-) -> dict:
-    query = _apply_finance_filters(
-        session.query(AccountsReceivable).order_by(AccountsReceivable.due_date.asc(), AccountsReceivable.id.asc()),
-        AccountsReceivable,
-        status=status,
-        category=category,
-        due_from=due_from,
-        due_to=due_to,
-    )
-    items = query.limit(50).all()
-    return panel_response(
-        "Contas a receber carregadas.",
-        {"items": _serialize_finance_entries(items), "filters": {"status": status, "category": category, "due_from": due_from, "due_to": due_to}},
-    )
-
-
-@panel_router.get("/admin/panel/{workspace_slug}/finance/payables")
-def admin_panel_list_payables(
-    status: str | None = None,
-    category: str | None = None,
-    due_from: str | None = None,
-    due_to: str | None = None,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("finance.write")),
-) -> dict:
-    query = _apply_finance_filters(
-        session.query(AccountsPayable).order_by(AccountsPayable.due_date.asc(), AccountsPayable.id.asc()),
-        AccountsPayable,
-        status=status,
-        category=category,
-        due_from=due_from,
-        due_to=due_to,
-    )
-    items = query.limit(50).all()
-    return panel_response(
-        "Contas a pagar carregadas.",
-        {"items": _serialize_finance_entries(items), "filters": {"status": status, "category": category, "due_from": due_from, "due_to": due_to}},
-    )
-
-
-@panel_router.post("/admin/panel/{workspace_slug}/whatsapp-session")
-def admin_panel_upsert_whatsapp_session(
-    workspace_slug: str,
-    payload: PanelWhatsappSessionRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("whatsapp.manage")),
-) -> dict:
-    account = session.query(TenantWhatsappAccount).order_by(TenantWhatsappAccount.id.asc()).first()
-    if account is None:
-        account = TenantWhatsappAccount(provider_session_id=payload.provider_session_id, status="connecting", last_qr_code="qr-placeholder")
-        session.add(account)
-    else:
-        account.provider_session_id = payload.provider_session_id
-        account.status = "connecting"
-        account.last_qr_code = "qr-placeholder"
-    session.commit()
-    session.refresh(account)
-    return panel_response(
-        "Sessao WhatsApp atualizada.",
-        {
-            "id": account.id,
-            "workspace_slug": workspace_slug,
-            "provider_session_id": account.provider_session_id,
-            "status": account.status,
-            "last_qr_code": account.last_qr_code,
-        },
-    )
-
-
-@panel_router.patch("/admin/panel/{workspace_slug}/whatsapp-session/status")
-def admin_panel_update_whatsapp_session_status(
-    payload: PanelStatusRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("whatsapp.manage")),
-) -> dict:
-    account = session.query(TenantWhatsappAccount).order_by(TenantWhatsappAccount.id.asc()).first()
-    if account is None:
-        raise HTTPException(status_code=404, detail="WhatsApp session not found.")
-    account.status = payload.status
-    session.commit()
-    return panel_response("Status da sessao WhatsApp atualizado.", {"id": account.id, "status": account.status})
-
-
-@panel_router.post("/admin/panel/{workspace_slug}/finance/receivable", status_code=201)
-def admin_panel_create_receivable(
-    payload: PanelFinanceEntryRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("finance.write")),
-) -> dict:
-    entry = AccountsReceivable(
-        due_date=date.fromisoformat(payload.due_date),
-        amount=payload.amount,
-        status=payload.status,
-        category=payload.category,
-        cost_center=payload.cost_center,
-    )
-    session.add(entry)
-    session.commit()
-    session.refresh(entry)
-    return panel_response("Conta a receber criada.", {"id": entry.id, "status": entry.status, "amount": float(entry.amount)})
-
-
-@panel_router.patch("/admin/panel/{workspace_slug}/finance/receivable/{entry_id}")
-def admin_panel_update_receivable(
-    entry_id: int,
-    payload: PanelStatusRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("finance.write")),
-) -> dict:
-    entry = session.query(AccountsReceivable).filter(AccountsReceivable.id == entry_id).one_or_none()
-    if entry is None:
-        raise HTTPException(status_code=404, detail="Accounts receivable not found.")
-    entry.status = payload.status
-    session.commit()
-    return panel_response("Conta a receber atualizada.", {"id": entry.id, "status": entry.status})
-
-
-@panel_router.delete("/admin/panel/{workspace_slug}/finance/receivable/{entry_id}")
-def admin_panel_delete_receivable(
-    entry_id: int,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("finance.write")),
-) -> dict:
-    entry = session.query(AccountsReceivable).filter(AccountsReceivable.id == entry_id).one_or_none()
-    if entry is None:
-        raise HTTPException(status_code=404, detail="Accounts receivable not found.")
-    session.delete(entry)
-    session.commit()
-    return panel_response("Conta a receber removida.", {"id": entry_id, "status": "deleted"})
-
-
-@panel_router.post("/admin/panel/{workspace_slug}/finance/payable", status_code=201)
-def admin_panel_create_payable(
-    payload: PanelFinanceEntryRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("finance.write")),
-) -> dict:
-    entry = AccountsPayable(
-        due_date=date.fromisoformat(payload.due_date),
-        amount=payload.amount,
-        status=payload.status,
-        category=payload.category,
-        cost_center=payload.cost_center,
-    )
-    session.add(entry)
-    session.commit()
-    session.refresh(entry)
-    return panel_response("Conta a pagar criada.", {"id": entry.id, "status": entry.status, "amount": float(entry.amount)})
-
-
-@panel_router.patch("/admin/panel/{workspace_slug}/finance/payable/{entry_id}")
-def admin_panel_update_payable(
-    entry_id: int,
-    payload: PanelStatusRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("finance.write")),
-) -> dict:
-    entry = session.query(AccountsPayable).filter(AccountsPayable.id == entry_id).one_or_none()
-    if entry is None:
-        raise HTTPException(status_code=404, detail="Accounts payable not found.")
-    entry.status = payload.status
-    session.commit()
-    return panel_response("Conta a pagar atualizada.", {"id": entry.id, "status": entry.status})
-
-
-@panel_router.delete("/admin/panel/{workspace_slug}/finance/payable/{entry_id}")
-def admin_panel_delete_payable(
-    entry_id: int,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("finance.write")),
-) -> dict:
-    entry = session.query(AccountsPayable).filter(AccountsPayable.id == entry_id).one_or_none()
-    if entry is None:
-        raise HTTPException(status_code=404, detail="Accounts payable not found.")
-    session.delete(entry)
-    session.commit()
-    return panel_response("Conta a pagar removida.", {"id": entry_id, "status": "deleted"})
-
-
-@panel_router.post("/admin/panel/{workspace_slug}/whatsapp/send", status_code=201)
-def admin_panel_send_whatsapp(
-    payload: PanelWhatsappSendRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("whatsapp.send")),
-) -> dict:
-    if payload.client_id is None and payload.lead_id is None:
-        raise HTTPException(status_code=422, detail="client_id or lead_id is required.")
-    message = Message(
-        client_id=payload.client_id,
-        lead_id=payload.lead_id,
-        direction="outbound",
-        body=payload.body,
-        status="sending",
-    )
-    session.add(message)
-    session.commit()
-    session.refresh(message)
-    return panel_response("Mensagem enviada para fila imediata.", {"message_id": message.id, "status": message.status})
-
-
-@panel_router.patch("/admin/panel/{workspace_slug}/message/{message_id}")
-def admin_panel_update_message_status(
-    message_id: int,
-    payload: PanelStatusRequest,
-    session: Session = Depends(tenant_session_dep),
-    _: User = Depends(panel_tenant_permission_dep("whatsapp.manage")),
-) -> dict:
-    message = session.query(Message).filter(Message.id == message_id).one_or_none()
-    if message is None:
-        raise HTTPException(status_code=404, detail="Message not found.")
-    message.status = payload.status
-    session.commit()
-    return panel_response("Status da mensagem atualizado.", {"id": message.id, "status": message.status})
+panel_router.include_router(panel_finance_router)
+panel_router.include_router(panel_whatsapp_router)

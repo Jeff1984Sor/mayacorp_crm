@@ -91,6 +91,8 @@ def test_healthcheck(tmp_path: Path) -> None:
     assert "createContract" in actions_js_response.text
     assert "credentials: \"same-origin\"" in actions_js_response.text
     assert "loadReceivables" in actions_js_response.text
+    assert "window.prompt(\"Novo nome do lead" not in actions_js_response.text
+    assert "window.prompt(\"Novo nome do client" not in actions_js_response.text
 
     css_response = client.get("/static/admin_panel.css")
     assert css_response.status_code == 200
@@ -576,6 +578,9 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     receivables_payload = panel_data(receivables_filtered)
     assert receivables_payload["filters"]["status"] == "paid"
     assert receivables_payload["items"]
+    assert receivables_payload["page"] == 1
+    assert receivables_payload["page_size"] == 10
+    assert receivables_payload["total"] >= 1
 
     payables_filtered = client.get(
         f"/admin/panel/{workspace_slug}/finance/payables?status=pending&category=Operacional"
@@ -584,6 +589,9 @@ def test_contract_ai_and_dashboards(tmp_path: Path) -> None:
     payables_payload = panel_data(payables_filtered)
     assert payables_payload["filters"]["category"] == "Operacional"
     assert payables_payload["items"]
+    assert payables_payload["page"] == 1
+    assert payables_payload["page_size"] == 10
+    assert payables_payload["total"] >= 1
 
     panel_summary = client.get(
         f"/admin/panel/{workspace_slug}/summary?page=1&page_size=3&document_q=Editad&message_status=read&message_direction=outbound"

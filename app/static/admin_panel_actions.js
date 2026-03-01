@@ -200,6 +200,8 @@ function buildFinanceQuery() {
   if (dueTo) {
     query.set("due_to", dueTo);
   }
+  query.set("page", document.getElementById("financePage").value || "1");
+  query.set("page_size", document.getElementById("financePageSize").value || "10");
   return query;
 }
 
@@ -351,8 +353,9 @@ async function updateMessageStatus(id) {
 }
 
 async function renameLead(id) {
-  const name = window.prompt("Novo nome do lead:");
+  const name = document.getElementById("leadEditName").value.trim();
   if (!name) {
+    showToast("Informe o novo nome do lead.", "error");
     return;
   }
   const response = await fetch(`/admin/panel/${getTenantSlug()}/lead/${id}`, {
@@ -372,8 +375,9 @@ async function deleteLead(id) {
 }
 
 async function renameClient(id) {
-  const name = window.prompt("Novo nome do client:");
+  const name = document.getElementById("clientEditName").value.trim();
   if (!name) {
+    showToast("Informe o novo nome do client.", "error");
     return;
   }
   const response = await fetch(`/admin/panel/${getTenantSlug()}/client/${id}`, {
@@ -410,8 +414,9 @@ async function deleteSalesOrder(id) {
 }
 
 async function renameProposal(id) {
-  const title = window.prompt("Novo titulo da proposta:");
+  const title = document.getElementById("proposalEditTitle").value.trim();
   if (!title) {
+    showToast("Informe o novo titulo da proposta.", "error");
     return;
   }
   const response = await fetch(`/admin/panel/${getTenantSlug()}/proposal/${id}`, {
@@ -431,8 +436,9 @@ async function deleteProposal(id) {
 }
 
 async function renameContract(id) {
-  const title = window.prompt("Novo titulo do contrato:");
+  const title = document.getElementById("contractEditTitle").value.trim();
   if (!title) {
+    showToast("Informe o novo titulo do contrato.", "error");
     return;
   }
   const response = await fetch(`/admin/panel/${getTenantSlug()}/contract/${id}`, {
