@@ -12,8 +12,10 @@ async function centralLogin() {
   if (payload) {
     setPanelVisibility(true);
     switchPanelSection("home");
-    await new Promise((resolve) => window.setTimeout(resolve, 80));
-    await centralDashboard();
+    if (output) {
+      output.textContent = JSON.stringify({ ok: true, message: "Sessao central iniciada." }, null, 2);
+    }
+    showToast("Login central realizado. Agora carregue o dashboard.", "success");
   }
 }
 
