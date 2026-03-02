@@ -11,7 +11,8 @@ async function centralLogin() {
   const payload = await showResult(response);
   if (payload) {
     setPanelVisibility(true);
-    activateSectionAndScroll("home", "topMetrics");
+    switchPanelSection("home");
+    await new Promise((resolve) => window.setTimeout(resolve, 80));
     await centralDashboard();
   }
 }

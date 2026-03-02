@@ -23,6 +23,19 @@ function showToast(message, type = "success") {
   }, 3000);
 }
 
+function handlePanelSessionFailure(detail) {
+  if (detail !== "Panel central session required.") {
+    return false;
+  }
+  setPanelVisibility(false);
+  switchPanelSection("home");
+  if (output) {
+    output.textContent = detail;
+  }
+  showToast("Sua sessao central expirou. Entre novamente no painel.", "error");
+  return true;
+}
+
 function renderList(targetId, items, renderItem) {
   const target = document.getElementById(targetId);
   if (!target) {
@@ -46,6 +59,9 @@ async function showResult(response) {
       if (response.ok) {
         showToast(parsed.message || "Operacao concluida.", "success");
       } else {
+        if (handlePanelSessionFailure(parsed.detail || "")) {
+          return null;
+        }
         showToast(parsed.detail || "Falha na operacao.", "error");
       }
       if (payload && payload.sales_orders && payload.proposals && payload.contracts) {
