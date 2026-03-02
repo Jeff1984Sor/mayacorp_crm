@@ -8,17 +8,25 @@ async function centralLogin() {
       password: document.getElementById("centralPassword").value
     })
   });
-  await showResult(response);
+  const payload = await showResult(response);
+  if (payload) {
+    setPanelVisibility(true);
+    switchPanelSection("tenant");
+  }
 }
 
 async function logoutPanel() {
   const response = await fetch("/admin/panel/logout", { method: "POST", credentials: "same-origin" });
   await showResult(response);
+  setPanelVisibility(false);
 }
 
 async function centralDashboard() {
   const response = await fetch("/admin/panel/central/dashboard", { credentials: "same-origin" });
-  await showResult(response);
+  const payload = await showResult(response);
+  if (payload) {
+    setPanelVisibility(true);
+  }
 }
 
 async function createTenant() {
@@ -48,7 +56,10 @@ async function tenantLogin() {
       password: document.getElementById("tenantPassword").value
     })
   });
-  await showResult(response);
+  const payload = await showResult(response);
+  if (payload) {
+    setPanelVisibility(true);
+  }
 }
 
 async function tenantHealth() {

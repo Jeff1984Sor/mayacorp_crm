@@ -83,3 +83,26 @@ function setPanelCache(key, value) {
 function getPanelCache(key) {
   return panelCache[key];
 }
+
+function setPanelVisibility(isAuthenticated) {
+  const authScreen = document.getElementById("authScreen");
+  const appShell = document.getElementById("appShell");
+  if (authScreen) {
+    authScreen.classList.toggle("hidden", isAuthenticated);
+  }
+  if (appShell) {
+    appShell.classList.toggle("hidden", !isAuthenticated);
+  }
+}
+
+function switchPanelSection(section, trigger = null) {
+  document.querySelectorAll(".panel-section").forEach((node) => {
+    node.classList.toggle("active", node.dataset.section === section);
+  });
+  document.querySelectorAll(".menu-btn").forEach((node) => {
+    node.classList.toggle("active", node.dataset.panelSection === section);
+  });
+  if (trigger && trigger.classList) {
+    trigger.classList.add("active");
+  }
+}

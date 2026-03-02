@@ -7,558 +7,327 @@
   <link rel="stylesheet" href="/static/admin_panel.css">
 </head>
 <body>
-  <div class="wrap">
-    <section class="hero">
-      <h1>Mayacorp Admin Panel</h1>
-      <p>Painel minimo para operar onboarding, CRM e documentos com sessao web.</p>
-    </section>
+  <div class="wrap shell">
+    <div id="toast" class="toast"></div>
 
-    <section class="grid">
-      <div class="card highlight">
-        <h2>1. Login Central</h2>
+    <section id="authScreen" class="auth-screen">
+      <div class="auth-card">
+        <div class="auth-badge">Mayacorp SaaS</div>
+        <h1>Painel Administrativo</h1>
+        <p>Entre com o login central para abrir o painel completo.</p>
         <label for="centralEmail">Email</label>
         <input id="centralEmail" value="admin@mayacorp.com">
         <label for="centralPassword">Senha</label>
         <input id="centralPassword" type="password" value="1234">
-        <button onclick="centralLogin()">Entrar</button>
-        <button onclick="centralDashboard()">Dashboard central</button>
-      </div>
-
-      <div class="card">
-        <h2>2. Criar Tenant</h2>
-        <label for="companyName">Empresa</label>
-        <input id="companyName" value="Acme Ltda">
-        <label for="workspaceSlug">Workspace</label>
-        <input id="workspaceSlug" value="acme">
-        <div class="row">
-          <div>
-            <label for="tenantAdminName">Admin</label>
-            <input id="tenantAdminName" value="Owner">
-          </div>
-          <div>
-            <label for="tenantAdminPassword">Senha</label>
-            <input id="tenantAdminPassword" type="password" value="1234">
-          </div>
-        </div>
-        <label for="tenantAdminEmail">Email Admin</label>
-        <input id="tenantAdminEmail" value="owner@acme.com">
-        <button onclick="createTenant()">Criar tenant</button>
-      </div>
-
-      <div class="card">
-        <h2>3. Login Tenant</h2>
-        <label for="tenantSlug">Workspace</label>
-        <input id="tenantSlug" value="acme">
-        <label for="tenantEmail">Email</label>
-        <input id="tenantEmail" value="owner@acme.com">
-        <label for="tenantPassword">Senha</label>
-        <input id="tenantPassword" type="password" value="1234">
-        <button onclick="tenantLogin()">Entrar</button>
-        <button onclick="tenantHealth()">Health</button>
-        <button onclick="loadWorkspaceSummary()">Resumo</button>
-        <button onclick="loadDocumentsSummary()">Docs</button>
-        <button onclick="loadLeadsOnly()">Leads</button>
-        <button onclick="loadClientsOnly()">Clients</button>
-        <button onclick="loadProposalsOnly()">Propostas</button>
-        <button onclick="loadContractsOnly()">Contratos</button>
-        <button onclick="loadMessagesSummary()">Msgs</button>
-        <button onclick="loadFinanceSummary()">Financeiro</button>
-        <div class="quick-actions">
-          <button onclick="quickFilterPendingOrders()">Pedidos pendentes</button>
-          <button onclick="quickFilterSignedContracts()">Contratos assinados</button>
-          <button onclick="quickFilterCancelledContracts()">Contratos cancelados</button>
-          <button onclick="quickFilterOutboundMessages()">Msgs outbound</button>
-          <button onclick="quickFilterInboundMessages()">Msgs inbound</button>
-          <button onclick="quickFilterFailedMessages()">Msgs com falha</button>
-          <button onclick="quickFilterPendingFinance()">Financeiro pendente</button>
-          <button onclick="quickFilterPaidFinance()">Financeiro pago</button>
-          <button onclick="loadReceivablesOnly()">Somente AR</button>
-          <button onclick="loadPayablesOnly()">Somente AP</button>
-          <button onclick="loadOutboundMessagesOnly()">Somente Msgs OUT</button>
-          <button onclick="loadInboundMessagesOnly()">Somente Msgs IN</button>
-          <button onclick="clearQuickFilters()">Limpar filtros rapidos</button>
-        </div>
-        <button onclick="exportOrdersCsv()">Exportar pedidos CSV</button>
-        <button onclick="exportPeopleCsv()">Exportar pessoas CSV</button>
-        <button onclick="exportLeadsCsv()">Exportar leads CSV</button>
-        <button onclick="exportClientsCsv()">Exportar clients CSV</button>
-        <button onclick="exportDocumentsCsv()">Exportar docs CSV</button>
-        <button onclick="exportProposalsCsv()">Exportar propostas CSV</button>
-        <button onclick="exportContractsCsv()">Exportar contratos CSV</button>
-        <button onclick="exportMessagesCsv()">Exportar msgs CSV</button>
-        <button onclick="exportOutboundMessagesCsv()">Exportar msgs OUT CSV</button>
-        <button onclick="exportInboundMessagesCsv()">Exportar msgs IN CSV</button>
-        <button onclick="exportFinanceCsv()">Exportar financeiro CSV</button>
-        <button onclick="exportReceivablesCsv()">Exportar AR CSV</button>
-        <button onclick="exportPayablesCsv()">Exportar AP CSV</button>
-        <label for="summaryQuery">Filtro</label>
-        <input id="summaryQuery" placeholder="Nome ou titulo">
-        <label for="peopleEmailFilter">Filtro email</label>
-        <input id="peopleEmailFilter" placeholder="email@dominio.com">
-        <label for="peoplePhoneFilter">Filtro telefone</label>
-        <input id="peoplePhoneFilter" placeholder="11999999999">
-        <label for="peopleSortBy">Ordenar pessoas</label>
-        <select id="peopleSortBy">
-          <option value="id">id</option>
-          <option value="name">name</option>
-          <option value="email">email</option>
-        </select>
-        <label for="peopleSortDir">Direcao pessoas</label>
-        <select id="peopleSortDir">
-          <option value="desc">desc</option>
-          <option value="asc">asc</option>
-        </select>
-        <label for="orderStatusFilter">Filtro status pedido</label>
-        <select id="orderStatusFilter">
-          <option value="">Todos</option>
-          <option value="pending">pending</option>
-          <option value="confirmed">confirmed</option>
-          <option value="closed">closed</option>
-          <option value="cancelled">cancelled</option>
-        </select>
-        <label for="orderSortBy">Ordenar pedidos</label>
-        <select id="orderSortBy">
-          <option value="id">id</option>
-          <option value="status">status</option>
-          <option value="total_amount">total_amount</option>
-        </select>
-        <label for="orderSortDir">Direcao pedidos</label>
-        <select id="orderSortDir">
-          <option value="desc">desc</option>
-          <option value="asc">asc</option>
-        </select>
-        <label for="documentQuery">Filtro documentos</label>
-        <input id="documentQuery" placeholder="Proposta ou contrato">
-        <label for="contractStatusFilter">Filtro status contrato</label>
-        <select id="contractStatusFilter">
-          <option value="">Todos</option>
-          <option value="draft">draft</option>
-          <option value="sent">sent</option>
-          <option value="signed">signed</option>
-          <option value="cancelled">cancelled</option>
-        </select>
-        <label for="documentSortBy">Ordenar docs</label>
-        <select id="documentSortBy">
-          <option value="id">id</option>
-          <option value="title">title</option>
-        </select>
-        <label for="documentSortDir">Direcao docs</label>
-        <select id="documentSortDir">
-          <option value="desc">desc</option>
-          <option value="asc">asc</option>
-        </select>
-        <label for="messageStatusFilter">Filtro status mensagem</label>
-        <select id="messageStatusFilter">
-          <option value="">Todos</option>
-          <option value="sending">sending</option>
-          <option value="sent">sent</option>
-          <option value="delivered">delivered</option>
-          <option value="read">read</option>
-          <option value="failed">failed</option>
-        </select>
-        <label for="messageDirectionFilter">Filtro direcao mensagem</label>
-        <select id="messageDirectionFilter">
-          <option value="">Todas</option>
-          <option value="outbound">outbound</option>
-          <option value="inbound">inbound</option>
-        </select>
-        <label for="messageSortBy">Ordenar msgs</label>
-        <select id="messageSortBy">
-          <option value="id">id</option>
-          <option value="status">status</option>
-          <option value="direction">direction</option>
-        </select>
-        <label for="messageSortDir">Direcao msgs</label>
-        <select id="messageSortDir">
-          <option value="desc">desc</option>
-          <option value="asc">asc</option>
-        </select>
-        <div class="row">
-          <div>
-            <label for="summaryPage">Pagina</label>
-            <input id="summaryPage" value="1">
-          </div>
-          <div>
-            <label for="summaryPageSize">Itens</label>
-            <input id="summaryPageSize" value="5">
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="documentsPage">Pagina docs</label>
-            <input id="documentsPage" value="1">
-          </div>
-          <div>
-            <label for="documentsPageSize">Itens docs</label>
-            <input id="documentsPageSize" value="5">
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="proposalsPage">Pagina propostas</label>
-            <input id="proposalsPage" value="1">
-          </div>
-          <div>
-            <label for="proposalsPageSize">Itens propostas</label>
-            <input id="proposalsPageSize" value="5">
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="contractsPage">Pagina contratos</label>
-            <input id="contractsPage" value="1">
-          </div>
-          <div>
-            <label for="contractsPageSize">Itens contratos</label>
-            <input id="contractsPageSize" value="5">
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="messagesPage">Pagina msgs</label>
-            <input id="messagesPage" value="1">
-          </div>
-          <div>
-            <label for="messagesPageSize">Itens msgs</label>
-            <input id="messagesPageSize" value="5">
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="leadsPage">Pagina leads</label>
-            <input id="leadsPage" value="1">
-          </div>
-          <div>
-            <label for="leadsPageSize">Itens leads</label>
-            <input id="leadsPageSize" value="5">
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="clientsPage">Pagina clients</label>
-            <input id="clientsPage" value="1">
-          </div>
-          <div>
-            <label for="clientsPageSize">Itens clients</label>
-            <input id="clientsPageSize" value="5">
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>4. Leads e Clients</h2>
-        <label for="leadName">Lead</label>
-        <input id="leadName" value="Lead Painel">
-        <label for="leadEmail">Email Lead</label>
-        <input id="leadEmail" value="lead@acme.com">
-        <button onclick="createLead()">Criar lead</button>
-        <label for="leadEditName">Editar lead (nome)</label>
-        <input id="leadEditName" placeholder="Novo nome do lead">
-        <label for="clientName">Client</label>
-        <input id="clientName" value="Client Painel">
-        <label for="clientEmail">Email Client</label>
-        <input id="clientEmail" value="client@acme.com">
-        <button onclick="createClient()">Criar client</button>
-        <label for="clientEditName">Editar client (nome)</label>
-        <input id="clientEditName" placeholder="Novo nome do client">
-      </div>
-
-      <div class="card">
-        <h2>5. Criar Pedido</h2>
-        <label for="salesDescription">Descricao</label>
-        <input id="salesDescription" value="Servico Mensal">
-        <div class="row">
-          <div>
-            <label for="salesQuantity">Quantidade</label>
-            <input id="salesQuantity" value="1">
-          </div>
-          <div>
-            <label for="salesPrice">Valor</label>
-            <input id="salesPrice" value="250">
-          </div>
-        </div>
-        <label for="salesDueDate">Primeiro vencimento</label>
-        <input id="salesDueDate" value="2026-03-01">
-        <button onclick="createSalesOrder()">Criar pedido</button>
-        <label for="salesEditOrderId">Editar pedido ID</label>
-        <input id="salesEditOrderId" placeholder="ID do pedido">
-        <label for="salesEditDescription">Nova descricao</label>
-        <input id="salesEditDescription" value="Servico Mensal Ajustado">
-        <div class="row">
-          <div>
-            <label for="salesEditQuantity">Nova quantidade</label>
-            <input id="salesEditQuantity" value="1">
-          </div>
-          <div>
-            <label for="salesEditPrice">Novo valor</label>
-            <input id="salesEditPrice" value="250">
-          </div>
-        </div>
-        <label for="salesEditDueDate">Novo vencimento</label>
-        <input id="salesEditDueDate" value="2026-03-10">
-        <button onclick="updateSalesOrderDetails()">Atualizar pedido completo</button>
-        <label for="salesOrderStatusUpdate">Status update</label>
-        <select id="salesOrderStatusUpdate">
-          <option value="confirmed">confirmed</option>
-          <option value="pending">pending</option>
-          <option value="closed">closed</option>
-          <option value="cancelled">cancelled</option>
-        </select>
-      </div>
-
-      <div class="card">
-        <h2>6. Documentos</h2>
-        <label for="proposalTitle">Proposta</label>
-        <input id="proposalTitle" value="Proposta Comercial">
-        <label for="proposalOrderId">ID do Pedido</label>
-        <input id="proposalOrderId" placeholder="Opcional">
-        <button onclick="createProposal()">Criar proposta</button>
-        <label for="proposalEditTitle">Editar proposta (titulo)</label>
-        <input id="proposalEditTitle" placeholder="Novo titulo da proposta">
-        <label for="contractTitle">Contrato</label>
-        <input id="contractTitle" value="Contrato Comercial">
-        <label for="contractOrderId">ID do Pedido</label>
-        <input id="contractOrderId" placeholder="Opcional">
-        <button onclick="createContract()">Criar contrato</button>
-        <label for="contractEditTitle">Editar contrato (titulo)</label>
-        <input id="contractEditTitle" placeholder="Novo titulo do contrato">
-        <label for="contractStatusUpdate">Status contrato</label>
-        <select id="contractStatusUpdate">
-          <option value="draft">draft</option>
-          <option value="sent">sent</option>
-          <option value="signed">signed</option>
-          <option value="cancelled">cancelled</option>
-        </select>
-      </div>
-
-      <div class="card">
-        <h2>7. Assinar Contrato</h2>
-        <label for="signContractId">ID do Contrato</label>
-        <input id="signContractId" placeholder="1">
-        <label for="signFileName">Arquivo</label>
-        <input id="signFileName" value="assinado.txt">
-        <label for="signContent">Conteudo</label>
-        <textarea id="signContent">contrato assinado via painel</textarea>
-        <button onclick="signContract()">Enviar assinatura</button>
-      </div>
-
-      <div class="card">
-        <h2>8. Financeiro</h2>
-        <label for="financeCategoryName">Categoria</label>
-        <input id="financeCategoryName" value="Mensalidades">
-        <label for="financeEntryType">Tipo</label>
-        <input id="financeEntryType" value="receivable">
-        <button onclick="createFinanceCategory()">Criar categoria</button>
-        <label for="receivableAmount">Receber</label>
-        <input id="receivableAmount" value="100">
-        <label for="financeDueDate">Vencimento</label>
-        <input id="financeDueDate" value="2026-03-05">
-        <button onclick="createReceivable()">Criar contas a receber</button>
-        <label for="payableAmount">Pagar</label>
-        <input id="payableAmount" value="50">
-        <button onclick="createPayable()">Criar contas a pagar</button>
-        <label for="financeFilterStatus">Filtro status</label>
-        <select id="financeFilterStatus">
-          <option value="">Todos</option>
-          <option value="pending">pending</option>
-          <option value="paid">paid</option>
-          <option value="overdue">overdue</option>
-          <option value="cancelled">cancelled</option>
-        </select>
-        <label for="financeFilterCategory">Filtro categoria</label>
-        <input id="financeFilterCategory" placeholder="Mensalidades">
-        <div class="row">
-          <div>
-            <label for="financeFilterFrom">De</label>
-            <input id="financeFilterFrom" placeholder="2026-03-01">
-          </div>
-          <div>
-            <label for="financeFilterTo">Ate</label>
-            <input id="financeFilterTo" placeholder="2026-03-31">
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="financePage">Pagina financeira</label>
-            <input id="financePage" value="1">
-          </div>
-          <div>
-            <label for="financePageSize">Itens</label>
-            <input id="financePageSize" value="10">
-          </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="payablesPage">Pagina AP</label>
-            <input id="payablesPage" value="1">
-          </div>
-          <div>
-            <label for="payablesPageSize">Itens AP</label>
-            <input id="payablesPageSize" value="10">
-          </div>
-        </div>
-        <label for="financeSortBy">Ordenar financeiro</label>
-        <select id="financeSortBy">
-          <option value="due_date">due_date</option>
-          <option value="amount">amount</option>
-          <option value="status">status</option>
-          <option value="category">category</option>
-          <option value="id">id</option>
-        </select>
-        <label for="financeSortDir">Direcao financeiro</label>
-        <select id="financeSortDir">
-          <option value="asc">asc</option>
-          <option value="desc">desc</option>
-        </select>
-        <label for="receivableStatusUpdate">Status receber</label>
-        <select id="receivableStatusUpdate">
-          <option value="paid">paid</option>
-          <option value="pending">pending</option>
-          <option value="overdue">overdue</option>
-          <option value="cancelled">cancelled</option>
-        </select>
-        <label for="payableStatusUpdate">Status pagar</label>
-        <select id="payableStatusUpdate">
-          <option value="paid">paid</option>
-          <option value="pending">pending</option>
-          <option value="overdue">overdue</option>
-          <option value="cancelled">cancelled</option>
-        </select>
-        <button onclick="loadReceivables()">Listar receber</button>
-        <button onclick="loadPayables()">Listar pagar</button>
-        <button onclick="runFinanceReconcile()">Conciliar financeiro</button>
-      </div>
-
-      <div class="card">
-        <h2>9. WhatsApp</h2>
-        <label for="whatsappSessionId">Provider Session ID</label>
-        <input id="whatsappSessionId" value="panel-session">
-        <button onclick="connectWhatsapp()">Conectar sessao</button>
-        <label for="whatsappSessionStatus">Status sessao</label>
-        <select id="whatsappSessionStatus">
-          <option value="connected">connected</option>
-          <option value="connecting">connecting</option>
-          <option value="disconnected">disconnected</option>
-          <option value="failed">failed</option>
-        </select>
-        <button onclick="updateWhatsappSessionStatus()">Atualizar status da sessao</button>
-        <label for="whatsappBody">Mensagem</label>
-        <textarea id="whatsappBody">Mensagem enviada pelo painel</textarea>
-        <label for="whatsappClientId">Client ID</label>
-        <input id="whatsappClientId" placeholder="Opcional">
-        <label for="whatsappLeadId">Lead ID</label>
-        <input id="whatsappLeadId" placeholder="Opcional">
-        <button onclick="sendWhatsapp()">Enviar mensagem</button>
-        <label for="messageStatusUpdate">Status mensagem</label>
-        <select id="messageStatusUpdate">
-          <option value="read">read</option>
-          <option value="sent">sent</option>
-          <option value="delivered">delivered</option>
-          <option value="failed">failed</option>
-        </select>
-      </div>
-
-      <div class="card">
-        <h2>10. Sessao</h2>
-        <p class="helper">O painel usa cookies HttpOnly para sessao central e tenant.</p>
-        <button onclick="logoutPanel()">Encerrar sessao</button>
+        <button onclick="centralLogin()">Entrar no painel</button>
       </div>
     </section>
 
-    <div id="toast" class="toast"></div>
+    <section id="appShell" class="app-shell hidden">
+      <header class="app-header">
+        <div>
+          <div class="auth-badge">Mayacorp Admin</div>
+          <h1 class="app-title">Controle Central</h1>
+          <p class="app-subtitle">Login central, tenants e operacao dos modulos.</p>
+        </div>
+        <div class="app-header-actions">
+          <button onclick="centralDashboard()">Dashboard central</button>
+          <button class="secondary-btn" onclick="logoutPanel()">Sair</button>
+        </div>
+      </header>
 
-    <section class="dashboard">
-      <div class="dashboard-card">
-        <h3>Cards</h3>
-        <div id="topMetrics" class="listbox"></div>
-        <div id="activeFilters" class="listbox"></div>
-      </div>
-      <div class="dashboard-card">
-        <h3>Pedidos</h3>
-        <div id="ordersMeta" class="helper"></div>
-        <div class="row">
-          <button onclick="prevOrdersPage()">Anterior</button>
-          <button onclick="nextOrdersPage()">Proxima</button>
-        </div>
-        <div id="salesOrdersList" class="listbox"></div>
-      </div>
-      <div class="dashboard-card">
-        <h3>Propostas</h3>
-        <div id="documentsMeta" class="helper"></div>
-        <div class="row">
-          <button onclick="prevDocumentsPage()">Anterior</button>
-          <button onclick="nextDocumentsPage()">Proxima</button>
-        </div>
-        <div id="proposalsMeta" class="helper"></div>
-        <div class="row">
-          <button onclick="prevProposalsPage()">Anterior</button>
-          <button onclick="nextProposalsPage()">Proxima</button>
-        </div>
-        <div id="proposalsList" class="listbox"></div>
-      </div>
-      <div class="dashboard-card">
-        <h3>Contratos</h3>
-        <div id="contractsMeta" class="helper"></div>
-        <div class="row">
-          <button onclick="prevContractsPage()">Anterior</button>
-          <button onclick="nextContractsPage()">Proxima</button>
-        </div>
-        <div id="contractsList" class="listbox"></div>
-      </div>
-      <div class="dashboard-card">
-        <h3>Leads</h3>
-        <div id="leadsMeta" class="helper"></div>
-        <div class="row">
-          <button onclick="prevLeadsPage()">Anterior</button>
-          <button onclick="nextLeadsPage()">Proxima</button>
-        </div>
-        <div id="leadsList" class="listbox"></div>
-      </div>
-      <div class="dashboard-card">
-        <h3>Clients</h3>
-        <div id="clientsMeta" class="helper"></div>
-        <div class="row">
-          <button onclick="prevClientsPage()">Anterior</button>
-          <button onclick="nextClientsPage()">Proxima</button>
-        </div>
-        <div id="clientsList" class="listbox"></div>
-      </div>
-      <div class="dashboard-card">
-        <h3>Financeiro e WhatsApp</h3>
-        <div id="workspaceMeta" class="listbox"></div>
-        <div id="whatsappQrCard" class="listbox"></div>
-      </div>
-      <div class="dashboard-card">
-        <h3>Contas a Receber</h3>
-        <div id="financeMeta" class="helper"></div>
-        <div id="receivablesMeta" class="helper"></div>
-        <div class="row">
-          <button onclick="prevReceivablesPage()">Anterior</button>
-          <button onclick="nextReceivablesPage()">Proxima</button>
-        </div>
-        <div id="receivablesList" class="listbox"></div>
-      </div>
-      <div class="dashboard-card">
-        <h3>Contas a Pagar</h3>
-        <div id="payablesMeta" class="helper"></div>
-        <div class="row">
-          <button onclick="prevPayablesPage()">Anterior</button>
-          <button onclick="nextPayablesPage()">Proxima</button>
-        </div>
-        <div id="payablesList" class="listbox"></div>
-      </div>
-      <div class="dashboard-card">
-        <h3>Mensagens</h3>
-        <div id="messagesMeta" class="helper"></div>
-        <div class="row">
-          <button onclick="prevMessagesPage()">Anterior</button>
-          <button onclick="nextMessagesPage()">Proxima</button>
-        </div>
-        <div id="messagesList" class="listbox"></div>
+      <div class="app-layout">
+        <aside class="side-nav">
+          <button class="menu-btn active" data-panel-section="tenant" onclick="switchPanelSection('tenant', this)">Tenant</button>
+          <button class="menu-btn" data-panel-section="crm" onclick="switchPanelSection('crm', this)">CRM</button>
+          <button class="menu-btn" data-panel-section="sales" onclick="switchPanelSection('sales', this)">Vendas</button>
+          <button class="menu-btn" data-panel-section="docs" onclick="switchPanelSection('docs', this)">Documentos</button>
+          <button class="menu-btn" data-panel-section="finance" onclick="switchPanelSection('finance', this)">Financeiro</button>
+          <button class="menu-btn" data-panel-section="whatsapp" onclick="switchPanelSection('whatsapp', this)">WhatsApp</button>
+          <button class="menu-btn" data-panel-section="actions" onclick="switchPanelSection('actions', this)">Acoes</button>
+        </aside>
+
+        <main class="content-stack">
+          <section class="panel-section active" data-section="tenant">
+            <div class="grid">
+              <div class="card">
+                <h2>Criar Tenant</h2>
+                <label for="companyName">Empresa</label>
+                <input id="companyName" value="Acme Ltda">
+                <label for="workspaceSlug">Workspace</label>
+                <input id="workspaceSlug" value="acme">
+                <div class="row">
+                  <div><label for="tenantAdminName">Admin</label><input id="tenantAdminName" value="Owner"></div>
+                  <div><label for="tenantAdminPassword">Senha</label><input id="tenantAdminPassword" type="password" value="1234"></div>
+                </div>
+                <label for="tenantAdminEmail">Email Admin</label>
+                <input id="tenantAdminEmail" value="owner@acme.com">
+                <button onclick="createTenant()">Criar tenant</button>
+              </div>
+              <div class="card">
+                <h2>Login Tenant</h2>
+                <label for="tenantSlug">Workspace</label>
+                <input id="tenantSlug" value="acme">
+                <label for="tenantEmail">Email</label>
+                <input id="tenantEmail" value="owner@acme.com">
+                <label for="tenantPassword">Senha</label>
+                <input id="tenantPassword" type="password" value="1234">
+                <button onclick="tenantLogin()">Entrar no workspace</button>
+                <button onclick="tenantHealth()">Health</button>
+                <button onclick="loadWorkspaceSummary()">Resumo</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-section" data-section="crm">
+            <div class="grid">
+              <div class="card">
+                <h2>Leads e Clients</h2>
+                <label for="leadName">Lead</label><input id="leadName" value="Lead Painel">
+                <label for="leadEmail">Email Lead</label><input id="leadEmail" value="lead@acme.com">
+                <button onclick="createLead()">Criar lead</button>
+                <label for="clientName">Client</label><input id="clientName" value="Client Painel">
+                <label for="clientEmail">Email Client</label><input id="clientEmail" value="client@acme.com">
+                <button onclick="createClient()">Criar client</button>
+              </div>
+              <div class="card">
+                <h2>Filtros de Pessoas</h2>
+                <label for="summaryQuery">Filtro</label><input id="summaryQuery" placeholder="Nome ou titulo">
+                <label for="peopleEmailFilter">Filtro email</label><input id="peopleEmailFilter" placeholder="email@dominio.com">
+                <label for="peoplePhoneFilter">Filtro telefone</label><input id="peoplePhoneFilter" placeholder="11999999999">
+                <label for="peopleSortBy">Ordenar pessoas</label>
+                <select id="peopleSortBy"><option value="id">id</option><option value="name">name</option><option value="email">email</option></select>
+                <label for="peopleSortDir">Direcao pessoas</label>
+                <select id="peopleSortDir"><option value="desc">desc</option><option value="asc">asc</option></select>
+                <div class="row">
+                  <div><label for="leadsPage">Pagina leads</label><input id="leadsPage" value="1"></div>
+                  <div><label for="leadsPageSize">Itens leads</label><input id="leadsPageSize" value="5"></div>
+                </div>
+                <div class="row">
+                  <div><label for="clientsPage">Pagina clients</label><input id="clientsPage" value="1"></div>
+                  <div><label for="clientsPageSize">Itens clients</label><input id="clientsPageSize" value="5"></div>
+                </div>
+                <button onclick="loadLeadsOnly()">Carregar leads</button>
+                <button onclick="loadClientsOnly()">Carregar clients</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-section" data-section="sales">
+            <div class="grid">
+              <div class="card">
+                <h2>Pedidos</h2>
+                <label for="salesDescription">Descricao</label><input id="salesDescription" value="Servico Mensal">
+                <div class="row">
+                  <div><label for="salesQuantity">Quantidade</label><input id="salesQuantity" value="1"></div>
+                  <div><label for="salesPrice">Valor</label><input id="salesPrice" value="250"></div>
+                </div>
+                <label for="salesDueDate">Primeiro vencimento</label><input id="salesDueDate" value="2026-03-01">
+                <button onclick="createSalesOrder()">Criar pedido</button>
+                <label for="salesEditOrderId">Pedido ID</label><input id="salesEditOrderId" placeholder="ID do pedido">
+                <label for="salesEditDescription">Nova descricao</label><input id="salesEditDescription" value="Servico Mensal Ajustado">
+                <div class="row">
+                  <div><label for="salesEditQuantity">Nova quantidade</label><input id="salesEditQuantity" value="1"></div>
+                  <div><label for="salesEditPrice">Novo valor</label><input id="salesEditPrice" value="250"></div>
+                </div>
+                <label for="salesEditDueDate">Novo vencimento</label><input id="salesEditDueDate" value="2026-03-10">
+                <button onclick="updateSalesOrderDetails()">Atualizar pedido completo</button>
+                <label for="salesOrderStatusUpdate">Status</label>
+                <select id="salesOrderStatusUpdate"><option value="confirmed">confirmed</option><option value="pending">pending</option><option value="closed">closed</option><option value="cancelled">cancelled</option></select>
+                <label for="orderStatusFilter">Filtro status pedido</label>
+                <select id="orderStatusFilter"><option value="">Todos</option><option value="pending">pending</option><option value="confirmed">confirmed</option><option value="closed">closed</option><option value="cancelled">cancelled</option></select>
+                <label for="orderSortBy">Ordenar pedidos</label>
+                <select id="orderSortBy"><option value="id">id</option><option value="status">status</option><option value="total_amount">total_amount</option></select>
+                <label for="orderSortDir">Direcao pedidos</label>
+                <select id="orderSortDir"><option value="desc">desc</option><option value="asc">asc</option></select>
+                <div class="row">
+                  <div><label for="summaryPage">Pagina</label><input id="summaryPage" value="1"></div>
+                  <div><label for="summaryPageSize">Itens</label><input id="summaryPageSize" value="5"></div>
+                </div>
+                <button onclick="loadOrdersSummary()">Carregar pedidos</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-section" data-section="docs">
+            <div class="grid">
+              <div class="card">
+                <h2>Propostas e Contratos</h2>
+                <label for="proposalTitle">Proposta</label><input id="proposalTitle" value="Proposta Comercial">
+                <label for="proposalOrderId">ID do Pedido</label><input id="proposalOrderId" placeholder="Opcional">
+                <button onclick="createProposal()">Criar proposta</button>
+                <label for="contractTitle">Contrato</label><input id="contractTitle" value="Contrato Comercial">
+                <label for="contractOrderId">ID do Pedido</label><input id="contractOrderId" placeholder="Opcional">
+                <button onclick="createContract()">Criar contrato</button>
+                <label for="contractStatusUpdate">Status contrato</label>
+                <select id="contractStatusUpdate"><option value="draft">draft</option><option value="sent">sent</option><option value="signed">signed</option><option value="cancelled">cancelled</option></select>
+                <label for="signContractId">Assinar contrato ID</label><input id="signContractId" placeholder="1">
+                <label for="signFileName">Arquivo</label><input id="signFileName" value="assinado.txt">
+                <label for="signContent">Conteudo</label><textarea id="signContent">contrato assinado via painel</textarea>
+                <button onclick="signContract()">Enviar assinatura</button>
+              </div>
+              <div class="card">
+                <h2>Filtros de Documentos</h2>
+                <label for="documentQuery">Filtro documentos</label><input id="documentQuery" placeholder="Proposta ou contrato">
+                <label for="contractStatusFilter">Filtro status contrato</label>
+                <select id="contractStatusFilter"><option value="">Todos</option><option value="draft">draft</option><option value="sent">sent</option><option value="signed">signed</option><option value="cancelled">cancelled</option></select>
+                <label for="documentSortBy">Ordenar docs</label>
+                <select id="documentSortBy"><option value="id">id</option><option value="title">title</option></select>
+                <label for="documentSortDir">Direcao docs</label>
+                <select id="documentSortDir"><option value="desc">desc</option><option value="asc">asc</option></select>
+                <div class="row">
+                  <div><label for="documentsPage">Pagina docs</label><input id="documentsPage" value="1"></div>
+                  <div><label for="documentsPageSize">Itens docs</label><input id="documentsPageSize" value="5"></div>
+                </div>
+                <div class="row">
+                  <div><label for="proposalsPage">Pagina propostas</label><input id="proposalsPage" value="1"></div>
+                  <div><label for="proposalsPageSize">Itens propostas</label><input id="proposalsPageSize" value="5"></div>
+                </div>
+                <div class="row">
+                  <div><label for="contractsPage">Pagina contratos</label><input id="contractsPage" value="1"></div>
+                  <div><label for="contractsPageSize">Itens contratos</label><input id="contractsPageSize" value="5"></div>
+                </div>
+                <button onclick="loadDocumentsSummary()">Carregar documentos</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-section" data-section="finance">
+            <div class="grid">
+              <div class="card">
+                <h2>Financeiro</h2>
+                <label for="financeCategoryName">Categoria</label><input id="financeCategoryName" value="Mensalidades">
+                <label for="financeEntryType">Tipo</label><input id="financeEntryType" value="receivable">
+                <button onclick="createFinanceCategory()">Criar categoria</button>
+                <label for="receivableAmount">Receber</label><input id="receivableAmount" value="100">
+                <label for="financeDueDate">Vencimento</label><input id="financeDueDate" value="2026-03-05">
+                <button onclick="createReceivable()">Criar contas a receber</button>
+                <label for="payableAmount">Pagar</label><input id="payableAmount" value="50">
+                <button onclick="createPayable()">Criar contas a pagar</button>
+                <button onclick="runFinanceReconcile()">Conciliar financeiro</button>
+              </div>
+              <div class="card">
+                <h2>Filtros Financeiros</h2>
+                <label for="financeFilterStatus">Filtro status</label>
+                <select id="financeFilterStatus"><option value="">Todos</option><option value="pending">pending</option><option value="paid">paid</option><option value="overdue">overdue</option><option value="cancelled">cancelled</option></select>
+                <label for="financeFilterCategory">Filtro categoria</label><input id="financeFilterCategory" placeholder="Mensalidades">
+                <div class="row">
+                  <div><label for="financeFilterFrom">De</label><input id="financeFilterFrom" placeholder="2026-03-01"></div>
+                  <div><label for="financeFilterTo">Ate</label><input id="financeFilterTo" placeholder="2026-03-31"></div>
+                </div>
+                <div class="row">
+                  <div><label for="financePage">Pagina financeira</label><input id="financePage" value="1"></div>
+                  <div><label for="financePageSize">Itens</label><input id="financePageSize" value="10"></div>
+                </div>
+                <div class="row">
+                  <div><label for="payablesPage">Pagina AP</label><input id="payablesPage" value="1"></div>
+                  <div><label for="payablesPageSize">Itens AP</label><input id="payablesPageSize" value="10"></div>
+                </div>
+                <label for="financeSortBy">Ordenar financeiro</label>
+                <select id="financeSortBy"><option value="due_date">due_date</option><option value="amount">amount</option><option value="status">status</option><option value="category">category</option><option value="id">id</option></select>
+                <label for="financeSortDir">Direcao financeiro</label>
+                <select id="financeSortDir"><option value="asc">asc</option><option value="desc">desc</option></select>
+                <label for="receivableStatusUpdate">Status receber</label>
+                <select id="receivableStatusUpdate"><option value="paid">paid</option><option value="pending">pending</option><option value="overdue">overdue</option><option value="cancelled">cancelled</option></select>
+                <label for="payableStatusUpdate">Status pagar</label>
+                <select id="payableStatusUpdate"><option value="paid">paid</option><option value="pending">pending</option><option value="overdue">overdue</option><option value="cancelled">cancelled</option></select>
+                <button onclick="loadReceivables()">Listar receber</button>
+                <button onclick="loadPayables()">Listar pagar</button>
+                <button onclick="loadFinanceSummary()">Resumo financeiro</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-section" data-section="whatsapp">
+            <div class="grid">
+              <div class="card">
+                <h2>WhatsApp</h2>
+                <label for="whatsappSessionId">Provider Session ID</label><input id="whatsappSessionId" value="panel-session">
+                <button onclick="connectWhatsapp()">Conectar sessao</button>
+                <label for="whatsappSessionStatus">Status sessao</label>
+                <select id="whatsappSessionStatus"><option value="connected">connected</option><option value="connecting">connecting</option><option value="disconnected">disconnected</option><option value="failed">failed</option></select>
+                <button onclick="updateWhatsappSessionStatus()">Atualizar status da sessao</button>
+                <label for="whatsappBody">Mensagem</label><textarea id="whatsappBody">Mensagem enviada pelo painel</textarea>
+                <label for="whatsappClientId">Client ID</label><input id="whatsappClientId" placeholder="Opcional">
+                <label for="whatsappLeadId">Lead ID</label><input id="whatsappLeadId" placeholder="Opcional">
+                <button onclick="sendWhatsapp()">Enviar mensagem</button>
+                <label for="messageStatusUpdate">Status mensagem</label>
+                <select id="messageStatusUpdate"><option value="read">read</option><option value="sent">sent</option><option value="delivered">delivered</option><option value="failed">failed</option></select>
+                <label for="messageStatusFilter">Filtro status mensagem</label>
+                <select id="messageStatusFilter"><option value="">Todos</option><option value="sending">sending</option><option value="sent">sent</option><option value="delivered">delivered</option><option value="read">read</option><option value="failed">failed</option></select>
+                <label for="messageDirectionFilter">Filtro direcao</label>
+                <select id="messageDirectionFilter"><option value="">Todas</option><option value="outbound">outbound</option><option value="inbound">inbound</option></select>
+                <label for="messageSortBy">Ordenar msgs</label>
+                <select id="messageSortBy"><option value="id">id</option><option value="status">status</option><option value="direction">direction</option></select>
+                <label for="messageSortDir">Direcao msgs</label>
+                <select id="messageSortDir"><option value="desc">desc</option><option value="asc">asc</option></select>
+                <div class="row">
+                  <div><label for="messagesPage">Pagina msgs</label><input id="messagesPage" value="1"></div>
+                  <div><label for="messagesPageSize">Itens msgs</label><input id="messagesPageSize" value="5"></div>
+                </div>
+                <button onclick="loadMessagesSummary()">Carregar mensagens</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-section" data-section="actions">
+            <div class="grid">
+              <div class="card">
+                <h2>Acoes Rapidas</h2>
+                <div class="quick-actions">
+                  <button onclick="quickFilterPendingOrders()">Pedidos pendentes</button>
+                  <button onclick="quickFilterSignedContracts()">Contratos assinados</button>
+                  <button onclick="quickFilterCancelledContracts()">Contratos cancelados</button>
+                  <button onclick="quickFilterOutboundMessages()">Msgs outbound</button>
+                  <button onclick="quickFilterInboundMessages()">Msgs inbound</button>
+                  <button onclick="quickFilterFailedMessages()">Msgs com falha</button>
+                  <button onclick="quickFilterPendingFinance()">Financeiro pendente</button>
+                  <button onclick="quickFilterPaidFinance()">Financeiro pago</button>
+                  <button onclick="loadReceivablesOnly()">Somente AR</button>
+                  <button onclick="loadPayablesOnly()">Somente AP</button>
+                  <button onclick="loadOutboundMessagesOnly()">Somente Msgs OUT</button>
+                  <button onclick="loadInboundMessagesOnly()">Somente Msgs IN</button>
+                  <button onclick="clearQuickFilters()">Limpar filtros</button>
+                </div>
+              </div>
+              <div class="card">
+                <h2>Exports</h2>
+                <div class="quick-actions">
+                  <button onclick="exportOrdersCsv()">Pedidos CSV</button>
+                  <button onclick="exportPeopleCsv()">Pessoas CSV</button>
+                  <button onclick="exportLeadsCsv()">Leads CSV</button>
+                  <button onclick="exportClientsCsv()">Clients CSV</button>
+                  <button onclick="exportDocumentsCsv()">Docs CSV</button>
+                  <button onclick="exportProposalsCsv()">Propostas CSV</button>
+                  <button onclick="exportContractsCsv()">Contratos CSV</button>
+                  <button onclick="exportMessagesCsv()">Msgs CSV</button>
+                  <button onclick="exportOutboundMessagesCsv()">Msgs OUT CSV</button>
+                  <button onclick="exportInboundMessagesCsv()">Msgs IN CSV</button>
+                  <button onclick="exportFinanceCsv()">Financeiro CSV</button>
+                  <button onclick="exportReceivablesCsv()">AR CSV</button>
+                  <button onclick="exportPayablesCsv()">AP CSV</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="dashboard">
+            <div class="dashboard-card"><h3>Cards</h3><div id="topMetrics" class="listbox"></div><div id="activeFilters" class="listbox"></div></div>
+            <div class="dashboard-card"><h3>Pedidos</h3><div id="ordersMeta" class="helper"></div><div class="row"><button onclick="prevOrdersPage()">Anterior</button><button onclick="nextOrdersPage()">Proxima</button></div><div id="salesOrdersList" class="listbox"></div></div>
+            <div class="dashboard-card"><h3>Propostas</h3><div id="documentsMeta" class="helper"></div><div class="row"><button onclick="prevDocumentsPage()">Anterior</button><button onclick="nextDocumentsPage()">Proxima</button></div><div id="proposalsMeta" class="helper"></div><div class="row"><button onclick="prevProposalsPage()">Anterior</button><button onclick="nextProposalsPage()">Proxima</button></div><div id="proposalsList" class="listbox"></div></div>
+            <div class="dashboard-card"><h3>Contratos</h3><div id="contractsMeta" class="helper"></div><div class="row"><button onclick="prevContractsPage()">Anterior</button><button onclick="nextContractsPage()">Proxima</button></div><div id="contractsList" class="listbox"></div></div>
+            <div class="dashboard-card"><h3>Leads</h3><div id="leadsMeta" class="helper"></div><div class="row"><button onclick="prevLeadsPage()">Anterior</button><button onclick="nextLeadsPage()">Proxima</button></div><div id="leadsList" class="listbox"></div></div>
+            <div class="dashboard-card"><h3>Clients</h3><div id="clientsMeta" class="helper"></div><div class="row"><button onclick="prevClientsPage()">Anterior</button><button onclick="nextClientsPage()">Proxima</button></div><div id="clientsList" class="listbox"></div></div>
+            <div class="dashboard-card"><h3>Financeiro e WhatsApp</h3><div id="workspaceMeta" class="listbox"></div><div id="whatsappQrCard" class="listbox"></div></div>
+            <div class="dashboard-card"><h3>Contas a Receber</h3><div id="financeMeta" class="helper"></div><div id="receivablesMeta" class="helper"></div><div class="row"><button onclick="prevReceivablesPage()">Anterior</button><button onclick="nextReceivablesPage()">Proxima</button></div><div id="receivablesList" class="listbox"></div></div>
+            <div class="dashboard-card"><h3>Contas a Pagar</h3><div id="payablesMeta" class="helper"></div><div class="row"><button onclick="prevPayablesPage()">Anterior</button><button onclick="nextPayablesPage()">Proxima</button></div><div id="payablesList" class="listbox"></div></div>
+            <div class="dashboard-card"><h3>Mensagens</h3><div id="messagesMeta" class="helper"></div><div class="row"><button onclick="prevMessagesPage()">Anterior</button><button onclick="nextMessagesPage()">Proxima</button></div><div id="messagesList" class="listbox"></div></div>
+          </section>
+
+          <pre class="output" id="output">Pronto para operar.</pre>
+        </main>
       </div>
     </section>
-
-    <pre class="output" id="output">Pronto para operar.</pre>
   </div>
 
   <script src="/static/admin_panel_constants.js"></script>

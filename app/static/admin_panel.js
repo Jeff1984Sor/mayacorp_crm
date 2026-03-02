@@ -2,3 +2,8 @@
 // /static/admin_panel_shared.js
 // /static/admin_panel_render.js
 // /static/admin_panel_actions.js
+
+window.addEventListener("DOMContentLoaded", () => {
+  setPanelVisibility(false);
+  switchPanelSection("tenant");
+});

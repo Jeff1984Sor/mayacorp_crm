@@ -24,6 +24,117 @@ body {
   margin: 0 auto;
   padding: 28px 20px 56px;
 }
+.hidden {
+  display: none !important;
+}
+.shell {
+  max-width: 1380px;
+}
+.auth-screen {
+  min-height: calc(100vh - 56px);
+  display: grid;
+  place-items: center;
+}
+.auth-card {
+  width: min(100%, 460px);
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(240,253,250,0.98));
+  border: 1px solid #99f6e4;
+  border-radius: 28px;
+  padding: 32px;
+  box-shadow: 0 30px 70px rgba(15, 23, 42, 0.12);
+}
+.auth-card h1 {
+  margin: 10px 0 8px;
+  font-size: 34px;
+}
+.auth-card p {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+.auth-badge {
+  display: inline-block;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.auth-note {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.app-shell {
+  display: grid;
+  gap: 18px;
+}
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 24px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #0f172a, #0f766e 62%, #14b8a6);
+  color: #ecfeff;
+  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.16);
+}
+.app-title {
+  margin: 8px 0 6px;
+  font-size: 34px;
+}
+.app-subtitle {
+  margin: 0;
+  opacity: 0.9;
+}
+.app-header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.app-header-actions button {
+  width: auto;
+  margin-top: 0;
+}
+.secondary-btn {
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+}
+.app-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 18px;
+}
+.side-nav {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+.menu-btn {
+  margin-top: 0;
+  text-align: left;
+  background: rgba(255,255,255,0.88);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+.menu-btn.active {
+  background: linear-gradient(135deg, #134e4a, #0f766e);
+  color: white;
+  border-color: transparent;
+}
+.content-stack {
+  display: grid;
+  gap: 16px;
+}
+.panel-section {
+  display: none;
+}
+.panel-section.active {
+  display: block;
+}
 .hero {
   padding: 26px;
   border-radius: 24px;
@@ -211,5 +322,18 @@ button:hover { background: var(--brand-dark); }
   }
   .quick-actions {
     grid-template-columns: 1fr;
+  }
+  .app-layout {
+    grid-template-columns: 1fr;
+  }
+  .app-header {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+  .app-header-actions {
+    width: 100%;
+  }
+  .app-header-actions button {
+    width: 100%;
   }
 }
