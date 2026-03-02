@@ -6,4 +6,18 @@
 window.addEventListener("DOMContentLoaded", () => {
   setPanelVisibility(false);
   switchPanelSection("tenant");
+  window.fetch("/admin/panel/central/dashboard", { credentials: "same-origin" })
+    .then(async (response) => {
+      if (!response.ok) {
+        return;
+      }
+      const text = await response.text();
+      try {
+        const parsed = JSON.parse(text);
+        setPanelVisibility(true);
+        output.textContent = JSON.stringify(parsed, null, 2);
+        showToast(parsed.message || "Sessao central restaurada.", "success");
+      } catch (error) {}
+    })
+    .catch(() => {});
 });

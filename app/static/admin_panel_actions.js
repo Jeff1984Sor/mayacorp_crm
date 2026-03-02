@@ -12,6 +12,7 @@ async function centralLogin() {
   if (payload) {
     setPanelVisibility(true);
     switchPanelSection("tenant");
+    await centralDashboard();
   }
 }
 
@@ -26,6 +27,8 @@ async function centralDashboard() {
   const payload = await showResult(response);
   if (payload) {
     setPanelVisibility(true);
+    switchPanelSection("tenant");
+    await loadWorkspaceSummary();
   }
 }
 
