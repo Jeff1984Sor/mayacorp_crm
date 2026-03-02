@@ -433,7 +433,8 @@ async function loadReceivables() {
         <button class="table-action" onclick="settleReceivable(${item.id})">Dar baixa</button>
         <button class="table-action" onclick="openStatusEditor('receivable', ${item.id}, '${item.status}')">Atualizar status</button>
         <button class="table-action" onclick="deleteReceivable(${item.id})">Excluir</button>
-      `
+      `,
+      { entity: "recebivel", title: `Receber #${item.id}`, subtitle: `${item.category || "-"} | ${item.due_date} | R$ ${Number(item.amount).toFixed(2)}`, status: item.status, meta: [item.category || "Sem categoria", item.due_date || "Sem vencimento"] }
     )
   );
   const financeMeta = document.getElementById("financeMeta");
@@ -478,7 +479,8 @@ async function loadPayables() {
         <button class="table-action" onclick="settlePayable(${item.id})">Conciliar</button>
         <button class="table-action" onclick="openStatusEditor('payable', ${item.id}, '${item.status}')">Atualizar status</button>
         <button class="table-action" onclick="deletePayable(${item.id})">Excluir</button>
-      `
+      `,
+      { entity: "pagavel", title: `Pagar #${item.id}`, subtitle: `${item.category || "-"} | ${item.due_date} | R$ ${Number(item.amount).toFixed(2)}`, status: item.status, meta: [item.category || "Sem categoria", item.due_date || "Sem vencimento"] }
     )
   );
   const financeMeta = document.getElementById("financeMeta");
@@ -511,7 +513,8 @@ async function loadReceivablesOnly() {
           <button class="table-action" onclick="settleReceivable(${item.id})">Dar baixa</button>
           <button class="table-action" onclick="openStatusEditor('receivable', ${item.id}, '${item.status}')">Atualizar status</button>
           <button class="table-action" onclick="deleteReceivable(${item.id})">Excluir</button>
-        `
+        `,
+        { entity: "recebivel", title: `Receber #${item.id}`, subtitle: `${item.category || "-"} | ${item.due_date || "-"} | R$ ${Number(item.amount).toFixed(2)}`, status: item.status, meta: [item.category || "Sem categoria", item.due_date || "Sem vencimento"] }
       )
     );
     const receivablesMeta = document.getElementById("receivablesMeta");
@@ -541,7 +544,8 @@ async function loadPayablesOnly() {
           <button class="table-action" onclick="settlePayable(${item.id})">Conciliar</button>
           <button class="table-action" onclick="openStatusEditor('payable', ${item.id}, '${item.status}')">Atualizar status</button>
           <button class="table-action" onclick="deletePayable(${item.id})">Excluir</button>
-        `
+        `,
+        { entity: "pagavel", title: `Pagar #${item.id}`, subtitle: `${item.category || "-"} | ${item.due_date || "-"} | R$ ${Number(item.amount).toFixed(2)}`, status: item.status, meta: [item.category || "Sem categoria", item.due_date || "Sem vencimento"] }
       )
     );
     const payablesMeta = document.getElementById("payablesMeta");
@@ -571,7 +575,8 @@ async function loadOutboundMessagesOnly() {
         `Mensagem #${item.id}`,
         `${item.direction} | ${item.body}`,
         item.status,
-        `<button class="table-action" onclick="openStatusEditor('message', ${item.id}, '${item.status}')">Atualizar status</button>`
+        `<button class="table-action" onclick="openStatusEditor('message', ${item.id}, '${item.status}')">Atualizar status</button>`,
+        { entity: "mensagem", title: `Mensagem #${item.id}`, subtitle: `${item.direction} | ${item.body}`, status: item.status, meta: [item.direction, item.body] }
       )
     );
     const messagesMeta = document.getElementById("messagesMeta");
@@ -601,7 +606,8 @@ async function loadInboundMessagesOnly() {
         `Mensagem #${item.id}`,
         `${item.direction} | ${item.body}`,
         item.status,
-        `<button class="table-action" onclick="openStatusEditor('message', ${item.id}, '${item.status}')">Atualizar status</button>`
+        `<button class="table-action" onclick="openStatusEditor('message', ${item.id}, '${item.status}')">Atualizar status</button>`,
+        { entity: "mensagem", title: `Mensagem #${item.id}`, subtitle: `${item.direction} | ${item.body}`, status: item.status, meta: [item.direction, item.body] }
       )
     );
     const messagesMeta = document.getElementById("messagesMeta");
@@ -1108,7 +1114,8 @@ async function loadLeadsOnly() {
         `
           <button class="table-action" onclick="openLeadEditor(${item.id}, '${String(item.name).replace(/'/g, "\\'")}')">Editar</button>
           <button class="table-action" onclick="deleteLead(${item.id})">Excluir</button>
-        `
+        `,
+        { entity: "lead", title: item.name, subtitle: item.email || "-", status: "lead", meta: [`Lead #${item.id}`, item.email || "Sem email"] }
       )
     );
     const leadsMeta = document.getElementById("leadsMeta");
@@ -1143,7 +1150,8 @@ async function loadClientsOnly() {
         `
           <button class="table-action" onclick="openClientEditor(${item.id}, '${String(item.name).replace(/'/g, "\\'")}')">Editar</button>
           <button class="table-action" onclick="deleteClient(${item.id})">Excluir</button>
-        `
+        `,
+        { entity: "client", title: item.name, subtitle: item.email || "-", status: "client", meta: [`Client #${item.id}`, item.email || "Sem email"] }
       )
     );
     const clientsMeta = document.getElementById("clientsMeta");
@@ -1174,7 +1182,8 @@ async function loadProposalsOnly() {
         `
           <button class="table-action" onclick="openProposalEditor(${item.id}, '${String(item.title).replace(/'/g, "\\'")}')">Renomear</button>
           <button class="table-action" onclick="deleteProposal(${item.id})">Excluir</button>
-        `
+        `,
+        { entity: "proposta", title: item.title, subtitle: item.pdf_path || "sem pdf", status: "proposta", meta: [`Proposta #${item.id}`, item.pdf_path || "Sem PDF gerado"] }
       )
     );
     const docsMeta = document.getElementById("documentsMeta");
@@ -1212,7 +1221,8 @@ async function loadContractsOnly() {
           <button class="table-action" onclick="openContractEditor(${item.id}, '${String(item.title).replace(/'/g, "\\'")}')">Renomear</button>
           <button class="table-action" onclick="openStatusEditor('contract', ${item.id}, '${item.status}')">Atualizar status</button>
           <button class="table-action" onclick="deleteContract(${item.id})">Excluir</button>
-        `
+        `,
+        { entity: "contrato", title: item.title, subtitle: `Contrato #${item.id}`, status: item.status, meta: [`Contrato #${item.id}`, `Status ${item.status}`] }
       )
     );
     const docsMeta = document.getElementById("documentsMeta");
@@ -1288,7 +1298,8 @@ async function loadPeopleSummary() {
         `
           <button class="table-action" onclick="openLeadEditor(${item.id}, '${String(item.name).replace(/'/g, "\\'")}')">Editar</button>
           <button class="table-action" onclick="deleteLead(${item.id})">Excluir</button>
-        `
+        `,
+        { entity: "lead", title: item.name, subtitle: item.email || "-", status: "lead", meta: [`Lead #${item.id}`, item.email || "Sem email"] }
       )
     );
     renderList("clientsList", clientsBlock.items || [], (item) =>
@@ -1299,7 +1310,8 @@ async function loadPeopleSummary() {
         `
           <button class="table-action" onclick="openClientEditor(${item.id}, '${String(item.name).replace(/'/g, "\\'")}')">Editar</button>
           <button class="table-action" onclick="deleteClient(${item.id})">Excluir</button>
-        `
+        `,
+        { entity: "client", title: item.name, subtitle: item.email || "-", status: "client", meta: [`Client #${item.id}`, item.email || "Sem email"] }
       )
     );
     const leadsMeta = document.getElementById("leadsMeta");

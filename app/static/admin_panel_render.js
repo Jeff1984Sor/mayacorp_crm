@@ -2,9 +2,50 @@ function renderDataRow(targetId, items, mapper) {
   renderList(targetId, items, (item) => mapper(item));
 }
 
-function buildDataRow(title, subtitle, status, actionsHtml = "") {
+function escapeInlineValue(value) {
+  return String(value ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")
+    .replace(/\n/g, " ");
+}
+
+function renderDetailInspector(detail) {
+  const target = document.getElementById("detailInspector");
+  if (!target) {
+    return;
+  }
+  if (!detail) {
+    target.className = "inspector-empty";
+    target.textContent = "Clique em um item das listas para abrir o detalhe aqui.";
+    return;
+  }
+  const meta = (detail.meta || [])
+    .filter(Boolean)
+    .map((item) => `<div class="inspector-meta-item">${item}</div>`)
+    .join("");
+  target.className = "inspector-card";
+  target.innerHTML = `
+    <div class="inspector-topline">
+      <span class="inspector-entity">${detail.entity || "item"}</span>
+      ${detail.status ? `<span class="status-chip">${detail.status}</span>` : ""}
+    </div>
+    <h4 class="inspector-title">${detail.title || "-"}</h4>
+    <p class="inspector-subtitle">${detail.subtitle || "-"}</p>
+    <div class="inspector-meta">${meta || '<div class="inspector-meta-item">Sem informacoes extras.</div>'}</div>
+  `;
+}
+
+function openDetailInspector(entity, title, subtitle, status, metaText = "") {
+  const meta = metaText ? metaText.split("||") : [];
+  renderDetailInspector({ entity, title, subtitle, status, meta });
+}
+
+function buildDataRow(title, subtitle, status, actionsHtml = "", detail = null) {
+  const openDetail = detail
+    ? ` onclick="openDetailInspector('${escapeInlineValue(detail.entity)}', '${escapeInlineValue(detail.title)}', '${escapeInlineValue(detail.subtitle)}', '${escapeInlineValue(detail.status || "")}', '${escapeInlineValue((detail.meta || []).join("||"))}')" role="button" tabindex="0"`
+    : "";
   return `
-    <div class="data-row">
+    <div class="data-row"${openDetail}>
       <div class="data-row-main">
         <div>
           <div class="data-row-title">${title}</div>
@@ -12,7 +53,7 @@ function buildDataRow(title, subtitle, status, actionsHtml = "") {
         </div>
         ${status ? `<div class="status-chip">${status}</div>` : ""}
       </div>
-      ${actionsHtml ? `<div class="data-row-actions">${actionsHtml}</div>` : ""}
+      ${actionsHtml ? `<div class="data-row-actions" onclick="event.stopPropagation()">${actionsHtml}</div>` : ""}
     </div>
   `;
 }
@@ -80,7 +121,14 @@ function renderSummary(summary) {
       `
         <button class="table-action" onclick="openStatusEditor('sales_order', ${item.id}, '${item.status}')">Atualizar status</button>
         <button class="table-action" onclick="deleteSalesOrder(${item.id})">Excluir</button>
-      `
+      `,
+      {
+        entity: "pedido",
+        title: `Pedido #${item.id}`,
+        subtitle: `Total R$ ${Number(item.total_amount).toFixed(2)}`,
+        status: item.status,
+        meta: [`Pedido #${item.id}`, `Total R$ ${Number(item.total_amount).toFixed(2)}`]
+      }
     )
   );
 
@@ -92,7 +140,14 @@ function renderSummary(summary) {
       `
         <button class="table-action" onclick="openProposalEditor(${item.id}, '${String(item.title).replace(/'/g, "\\'")}')">Renomear</button>
         <button class="table-action" onclick="deleteProposal(${item.id})">Excluir</button>
-      `
+      `,
+      {
+        entity: "proposta",
+        title: item.title,
+        subtitle: item.pdf_path || "Sem PDF gerado",
+        status: "proposta",
+        meta: [`Proposta #${item.id}`, item.pdf_path || "Sem PDF gerado"]
+      }
     )
   );
 
@@ -105,7 +160,14 @@ function renderSummary(summary) {
         <button class="table-action" onclick="openContractEditor(${item.id}, '${String(item.title).replace(/'/g, "\\'")}')">Renomear</button>
         <button class="table-action" onclick="openStatusEditor('contract', ${item.id}, '${item.status}')">Atualizar status</button>
         <button class="table-action" onclick="deleteContract(${item.id})">Excluir</button>
-      `
+      `,
+      {
+        entity: "contrato",
+        title: item.title,
+        subtitle: `Contrato #${item.id}`,
+        status: item.status,
+        meta: [`Contrato #${item.id}`, `Status ${item.status}`]
+      }
     )
   );
 
@@ -117,7 +179,14 @@ function renderSummary(summary) {
       `
         <button class="table-action" onclick="openLeadEditor(${item.id}, '${String(item.name).replace(/'/g, "\\'")}')">Editar</button>
         <button class="table-action" onclick="deleteLead(${item.id})">Excluir</button>
-      `
+      `,
+      {
+        entity: "lead",
+        title: item.name,
+        subtitle: item.email || "-",
+        status: "lead",
+        meta: [`Lead #${item.id}`, item.email || "Sem email"]
+      }
     )
   );
 
@@ -129,7 +198,14 @@ function renderSummary(summary) {
       `
         <button class="table-action" onclick="openClientEditor(${item.id}, '${String(item.name).replace(/'/g, "\\'")}')">Editar</button>
         <button class="table-action" onclick="deleteClient(${item.id})">Excluir</button>
-      `
+      `,
+      {
+        entity: "client",
+        title: item.name,
+        subtitle: item.email || "-",
+        status: "client",
+        meta: [`Client #${item.id}`, item.email || "Sem email"]
+      }
     )
   );
 
@@ -157,7 +233,14 @@ function renderSummary(summary) {
         <button class="table-action" onclick="settleReceivable(${item.id})">Dar baixa</button>
         <button class="table-action" onclick="openStatusEditor('receivable', ${item.id}, '${item.status}')">Atualizar status</button>
         <button class="table-action" onclick="deleteReceivable(${item.id})">Excluir</button>
-      `
+      `,
+      {
+        entity: "recebivel",
+        title: `Receber #${item.id}`,
+        subtitle: `${item.category || "-"} | ${item.due_date || "-"} | R$ ${Number(item.amount).toFixed(2)}`,
+        status: item.status,
+        meta: [item.category || "Sem categoria", item.due_date || "Sem vencimento"]
+      }
     )
   );
 
@@ -170,7 +253,14 @@ function renderSummary(summary) {
         <button class="table-action" onclick="settlePayable(${item.id})">Conciliar</button>
         <button class="table-action" onclick="openStatusEditor('payable', ${item.id}, '${item.status}')">Atualizar status</button>
         <button class="table-action" onclick="deletePayable(${item.id})">Excluir</button>
-      `
+      `,
+      {
+        entity: "pagavel",
+        title: `Pagar #${item.id}`,
+        subtitle: `${item.category || "-"} | ${item.due_date || "-"} | R$ ${Number(item.amount).toFixed(2)}`,
+        status: item.status,
+        meta: [item.category || "Sem categoria", item.due_date || "Sem vencimento"]
+      }
     )
   );
 
@@ -179,7 +269,14 @@ function renderSummary(summary) {
       `Mensagem #${item.id}`,
       `${item.direction} | ${item.body}`,
       item.status,
-      `<button class="table-action" onclick="openStatusEditor('message', ${item.id}, '${item.status}')">Atualizar status</button>`
+      `<button class="table-action" onclick="openStatusEditor('message', ${item.id}, '${item.status}')">Atualizar status</button>`,
+      {
+        entity: "mensagem",
+        title: `Mensagem #${item.id}`,
+        subtitle: `${item.direction} | ${item.body}`,
+        status: item.status,
+        meta: [item.direction, item.body]
+      }
     )
   );
 

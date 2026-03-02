@@ -489,6 +489,9 @@ button:hover { background: var(--brand-dark); }
 .executive-shell {
   padding: 20px;
 }
+.inspector-shell {
+  padding: 20px;
+}
 .dashboard-headerline {
   display: flex;
   justify-content: space-between;
@@ -508,6 +511,58 @@ button:hover { background: var(--brand-dark); }
 .dashboard-card h3 {
   margin: 0;
   font-size: 16px;
+}
+.inspector-empty,
+.inspector-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  padding: 18px;
+}
+.inspector-empty {
+  color: var(--muted);
+  font-size: 14px;
+}
+.inspector-card {
+  display: grid;
+  gap: 12px;
+}
+.inspector-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+.inspector-entity {
+  display: inline-flex;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.inspector-title {
+  margin: 0;
+  font-size: 24px;
+}
+.inspector-subtitle {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.inspector-meta {
+  display: grid;
+  gap: 8px;
+}
+.inspector-meta-item {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  font-size: 13px;
 }
 .table-card h4,
 .status-card h4 {
