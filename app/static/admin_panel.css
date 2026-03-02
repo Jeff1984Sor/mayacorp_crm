@@ -353,6 +353,42 @@ body {
 .ghost-btn:hover {
   background: rgba(255,255,255,0.95);
 }
+.module-reveal {
+  margin-top: 14px;
+  border: 1px solid #dbe7ef;
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.92);
+  overflow: hidden;
+}
+.module-reveal summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 14px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+}
+.module-reveal summary::-webkit-details-marker {
+  display: none;
+}
+.module-reveal summary::after {
+  content: "+";
+  float: right;
+  color: var(--brand-dark);
+  font-size: 16px;
+  line-height: 1;
+}
+.module-reveal[open] summary::after {
+  content: "-";
+}
+.module-reveal > :not(summary) {
+  padding-inline: 16px;
+}
+.module-reveal > button:last-child,
+.module-reveal > .inline-actions:last-child {
+  margin-bottom: 16px;
+}
 h2 {
   margin: 0 0 12px;
   font-size: 17px;
@@ -459,6 +495,15 @@ button:hover { background: var(--brand-dark); }
   gap: 16px;
   align-items: end;
   margin-bottom: 14px;
+}
+.executive-rail {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.executive-rail .overview-btn {
+  min-height: 58px;
 }
 .dashboard-card h3 {
   margin: 0;
@@ -698,6 +743,7 @@ button:hover { background: var(--brand-dark); }
   .quick-actions,
   .inline-actions,
   .overview-grid,
+  .executive-rail,
   .pager-inline {
     grid-template-columns: 1fr;
   }
