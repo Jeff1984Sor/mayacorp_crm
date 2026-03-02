@@ -17,6 +17,8 @@ window.addEventListener("DOMContentLoaded", () => {
         setPanelVisibility(true);
         output.textContent = JSON.stringify(parsed, null, 2);
         showToast(parsed.message || "Sessao central restaurada.", "success");
+        switchPanelSection("tenant");
+        loadWorkspaceSummary().catch(() => {});
       } catch (error) {}
     })
     .catch(() => {});

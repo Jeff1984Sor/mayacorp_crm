@@ -40,7 +40,7 @@
         <div>
           <div class="auth-badge">Mayacorp Admin</div>
           <h1 class="app-title">Controle Central</h1>
-          <p class="app-subtitle">Login central, tenants e operacao dos modulos.</p>
+          <p class="app-subtitle">Um cockpit visual para onboarding, operacao comercial e modulos de servico.</p>
         </div>
         <div class="app-header-actions">
           <button onclick="centralDashboard()">Dashboard central</button>
@@ -51,20 +51,45 @@
       <div class="app-layout">
         <aside class="side-nav">
           <button class="nav-toggle" onclick="toggleSideNav()">Recolher menu</button>
-          <button class="menu-btn active" data-panel-section="tenant" onclick="switchPanelSection('tenant', this)">Tenant</button>
-          <button class="menu-btn" data-panel-section="crm" onclick="switchPanelSection('crm', this)">CRM</button>
-          <button class="menu-btn" data-panel-section="sales" onclick="switchPanelSection('sales', this)">Vendas</button>
-          <button class="menu-btn" data-panel-section="docs" onclick="switchPanelSection('docs', this)">Documentos</button>
-          <button class="menu-btn" data-panel-section="finance" onclick="switchPanelSection('finance', this)">Financeiro</button>
-          <button class="menu-btn" data-panel-section="whatsapp" onclick="switchPanelSection('whatsapp', this)">WhatsApp</button>
-          <button class="menu-btn" data-panel-section="actions" onclick="switchPanelSection('actions', this)">Acoes</button>
+          <div class="nav-group">
+            <div class="nav-group-label">Setup</div>
+            <button class="menu-btn active" data-panel-section="tenant" onclick="switchPanelSection('tenant', this)">Tenant</button>
+          </div>
+          <div class="nav-group">
+            <div class="nav-group-label">Comercial</div>
+            <button class="menu-btn" data-panel-section="crm" onclick="switchPanelSection('crm', this)">CRM</button>
+            <button class="menu-btn" data-panel-section="sales" onclick="switchPanelSection('sales', this)">Vendas</button>
+            <button class="menu-btn" data-panel-section="docs" onclick="switchPanelSection('docs', this)">Documentos</button>
+          </div>
+          <div class="nav-group">
+            <div class="nav-group-label">Financeiro</div>
+            <button class="menu-btn" data-panel-section="finance" onclick="switchPanelSection('finance', this)">Financeiro</button>
+          </div>
+          <div class="nav-group">
+            <div class="nav-group-label">Operacao</div>
+            <button class="menu-btn" data-panel-section="whatsapp" onclick="switchPanelSection('whatsapp', this)">WhatsApp</button>
+            <button class="menu-btn" data-panel-section="actions" onclick="switchPanelSection('actions', this)">Acoes</button>
+          </div>
         </aside>
 
         <main class="content-stack">
           <section class="panel-section active" data-section="tenant">
-            <div class="grid">
-              <div class="card">
-                <h2>Criar Tenant</h2>
+            <div class="section-heading">
+              <div>
+                <div class="section-kicker">Setup</div>
+                <h2>Onboarding e acesso ao workspace</h2>
+                <p>Crie o tenant e troque rapidamente entre a visao central e a operacao do cliente.</p>
+              </div>
+              <button class="ghost-btn" onclick="loadWorkspaceSummary()">Abrir resumo do workspace</button>
+            </div>
+            <div class="module-grid module-grid-tenant">
+              <div class="card module-card module-card-accent">
+                <div class="card-topline">
+                  <span class="pill">Onboarding</span>
+                  <span class="helper">Fluxo central</span>
+                </div>
+                <h3 class="card-title">Criar Tenant</h3>
+                <p class="card-copy">Cadastre empresa, workspace e admin inicial sem expor o restante do painel.</p>
                 <label for="companyName">Empresa</label>
                 <input id="companyName" value="Acme Ltda">
                 <label for="workspaceSlug">Workspace</label>
@@ -77,8 +102,13 @@
                 <input id="tenantAdminEmail" value="owner@acme.com">
                 <button onclick="createTenant()">Criar tenant</button>
               </div>
-              <div class="card">
-                <h2>Login Tenant</h2>
+              <div class="card module-card">
+                <div class="card-topline">
+                  <span class="pill pill-muted">Workspace</span>
+                  <span class="helper">Sessao operacional</span>
+                </div>
+                <h3 class="card-title">Login Tenant</h3>
+                <p class="card-copy">Abra a sessao do workspace e puxe o health ou o resumo executivo na mesma tela.</p>
                 <label for="tenantSlug">Workspace</label>
                 <input id="tenantSlug" value="acme">
                 <label for="tenantEmail">Email</label>
@@ -86,16 +116,44 @@
                 <label for="tenantPassword">Senha</label>
                 <input id="tenantPassword" type="password" value="1234">
                 <button onclick="tenantLogin()">Entrar no workspace</button>
-                <button onclick="tenantHealth()">Health</button>
-                <button onclick="loadWorkspaceSummary()">Resumo</button>
+                <div class="inline-actions">
+                  <button class="secondary-btn" onclick="tenantHealth()">Health</button>
+                  <button class="secondary-btn" onclick="loadWorkspaceSummary()">Resumo</button>
+                </div>
+              </div>
+              <div class="card module-card overview-card">
+                <div class="card-topline">
+                  <span class="pill pill-dark">Navegacao</span>
+                  <span class="helper">Atalhos do cockpit</span>
+                </div>
+                <h3 class="card-title">Saltos rapidos</h3>
+                <div class="overview-grid">
+                  <button class="overview-btn" onclick="activateSectionAndScroll('crm', 'leadsList')">CRM</button>
+                  <button class="overview-btn" onclick="activateSectionAndScroll('sales', 'salesOrdersList')">Vendas</button>
+                  <button class="overview-btn" onclick="activateSectionAndScroll('docs', 'proposalsList')">Documentos</button>
+                  <button class="overview-btn" onclick="activateSectionAndScroll('finance', 'receivablesList')">Financeiro</button>
+                  <button class="overview-btn" onclick="activateSectionAndScroll('whatsapp', 'messagesList')">WhatsApp</button>
+                  <button class="overview-btn" onclick="activateSectionAndScroll('actions', 'output')">Acoes</button>
+                </div>
               </div>
             </div>
           </section>
 
           <section class="panel-section" data-section="crm">
-            <div class="grid">
-              <div class="card">
-                <h2>Leads e Clients</h2>
+            <div class="section-heading">
+              <div>
+                <div class="section-kicker">Comercial</div>
+                <h2>CRM de captura e relacionamento</h2>
+                <p>Cadastre novos contatos e use filtros para navegar por leads e clients como uma mesa comercial.</p>
+              </div>
+            </div>
+            <div class="module-grid">
+              <div class="card module-card">
+                <div class="card-topline">
+                  <span class="pill">Entrada</span>
+                  <span class="helper">Criacao rapida</span>
+                </div>
+                <h3 class="card-title">Leads e Clients</h3>
                 <label for="leadName">Lead</label><input id="leadName" value="Lead Painel">
                 <label for="leadEmail">Email Lead</label><input id="leadEmail" value="lead@acme.com">
                 <button onclick="createLead()">Criar lead</button>
@@ -103,8 +161,12 @@
                 <label for="clientEmail">Email Client</label><input id="clientEmail" value="client@acme.com">
                 <button onclick="createClient()">Criar client</button>
               </div>
-              <div class="card">
-                <h2>Filtros de Pessoas</h2>
+              <div class="card module-card">
+                <div class="card-topline">
+                  <span class="pill pill-muted">Lista</span>
+                  <span class="helper">Segmentacao</span>
+                </div>
+                <h3 class="card-title">Filtros de Pessoas</h3>
                 <label for="summaryQuery">Filtro</label><input id="summaryQuery" placeholder="Nome ou titulo">
                 <label for="peopleEmailFilter">Filtro email</label><input id="peopleEmailFilter" placeholder="email@dominio.com">
                 <label for="peoplePhoneFilter">Filtro telefone</label><input id="peoplePhoneFilter" placeholder="11999999999">
@@ -127,9 +189,20 @@
           </section>
 
           <section class="panel-section" data-section="sales">
-            <div class="grid">
-              <div class="card">
-                <h2>Pedidos</h2>
+            <div class="section-heading">
+              <div>
+                <div class="section-kicker">Comercial</div>
+                <h2>Vendas com ajuste direto no pedido</h2>
+                <p>Crie novas vendas e depois corrija valor, vencimento ou volume a partir do mesmo modulo.</p>
+              </div>
+            </div>
+            <div class="module-grid">
+              <div class="card module-card">
+                <div class="card-topline">
+                  <span class="pill">Pedidos</span>
+                  <span class="helper">Pipeline comercial</span>
+                </div>
+                <h3 class="card-title">Pedidos</h3>
                 <label for="salesDescription">Descricao</label><input id="salesDescription" value="Servico Mensal">
                 <div class="row">
                   <div><label for="salesQuantity">Quantidade</label><input id="salesQuantity" value="1"></div>
@@ -163,9 +236,20 @@
           </section>
 
           <section class="panel-section" data-section="docs">
-            <div class="grid">
-              <div class="card">
-                <h2>Propostas e Contratos</h2>
+            <div class="section-heading">
+              <div>
+                <div class="section-kicker">Comercial</div>
+                <h2>Documentos comerciais</h2>
+                <p>Trabalhe propostas e contratos em um fluxo unico, com assinatura e status controlados.</p>
+              </div>
+            </div>
+            <div class="module-grid">
+              <div class="card module-card">
+                <div class="card-topline">
+                  <span class="pill">Docs</span>
+                  <span class="helper">Geracao</span>
+                </div>
+                <h3 class="card-title">Propostas e Contratos</h3>
                 <label for="proposalTitle">Proposta</label><input id="proposalTitle" value="Proposta Comercial">
                 <label for="proposalOrderId">ID do Pedido</label><input id="proposalOrderId" placeholder="Opcional">
                 <button onclick="createProposal()">Criar proposta</button>
@@ -179,8 +263,12 @@
                 <label for="signContent">Conteudo</label><textarea id="signContent">contrato assinado via painel</textarea>
                 <button onclick="signContract()">Enviar assinatura</button>
               </div>
-              <div class="card">
-                <h2>Filtros de Documentos</h2>
+              <div class="card module-card">
+                <div class="card-topline">
+                  <span class="pill pill-muted">Lista</span>
+                  <span class="helper">Consulta</span>
+                </div>
+                <h3 class="card-title">Filtros de Documentos</h3>
                 <label for="documentQuery">Filtro documentos</label><input id="documentQuery" placeholder="Proposta ou contrato">
                 <label for="contractStatusFilter">Filtro status contrato</label>
                 <select id="contractStatusFilter"><option value="">Todos</option><option value="draft">draft</option><option value="sent">sent</option><option value="signed">signed</option><option value="cancelled">cancelled</option></select>
@@ -206,9 +294,20 @@
           </section>
 
           <section class="panel-section" data-section="finance">
-            <div class="grid">
-              <div class="card">
-                <h2>Financeiro</h2>
+            <div class="section-heading">
+              <div>
+                <div class="section-kicker">Financeiro</div>
+                <h2>Receita, custo e conciliacao</h2>
+                <p>Use um layout focado em contas, filtros financeiros e operacao de baixa sem expor o resto do cockpit.</p>
+              </div>
+            </div>
+            <div class="module-grid">
+              <div class="card module-card module-card-accent">
+                <div class="card-topline">
+                  <span class="pill">Caixa</span>
+                  <span class="helper">Lancamentos</span>
+                </div>
+                <h3 class="card-title">Financeiro</h3>
                 <label for="financeCategoryName">Categoria</label><input id="financeCategoryName" value="Mensalidades">
                 <label for="financeEntryType">Tipo</label><input id="financeEntryType" value="receivable">
                 <button onclick="createFinanceCategory()">Criar categoria</button>
@@ -219,8 +318,12 @@
                 <button onclick="createPayable()">Criar contas a pagar</button>
                 <button onclick="runFinanceReconcile()">Conciliar financeiro</button>
               </div>
-              <div class="card">
-                <h2>Filtros Financeiros</h2>
+              <div class="card module-card">
+                <div class="card-topline">
+                  <span class="pill pill-muted">Consulta</span>
+                  <span class="helper">Filtros</span>
+                </div>
+                <h3 class="card-title">Filtros Financeiros</h3>
                 <label for="financeFilterStatus">Filtro status</label>
                 <select id="financeFilterStatus"><option value="">Todos</option><option value="pending">pending</option><option value="paid">paid</option><option value="overdue">overdue</option><option value="cancelled">cancelled</option></select>
                 <label for="financeFilterCategory">Filtro categoria</label><input id="financeFilterCategory" placeholder="Mensalidades">
@@ -252,9 +355,20 @@
           </section>
 
           <section class="panel-section" data-section="whatsapp">
-            <div class="grid">
-              <div class="card">
-                <h2>WhatsApp</h2>
+            <div class="section-heading">
+              <div>
+                <div class="section-kicker">Operacao</div>
+                <h2>Canal de atendimento</h2>
+                <p>Conecte a sessao, monitore status e dispare mensagens sem sair do cockpit operacional.</p>
+              </div>
+            </div>
+            <div class="module-grid">
+              <div class="card module-card">
+                <div class="card-topline">
+                  <span class="pill">Canal</span>
+                  <span class="helper">WhatsApp</span>
+                </div>
+                <h3 class="card-title">WhatsApp</h3>
                 <label for="whatsappSessionId">Provider Session ID</label><input id="whatsappSessionId" value="panel-session">
                 <button onclick="connectWhatsapp()">Conectar sessao</button>
                 <label for="whatsappSessionStatus">Status sessao</label>
@@ -284,9 +398,20 @@
           </section>
 
           <section class="panel-section" data-section="actions">
-            <div class="grid">
-              <div class="card">
-                <h2>Acoes Rapidas</h2>
+            <div class="section-heading">
+              <div>
+                <div class="section-kicker">Operacao</div>
+                <h2>Atalhos e exports</h2>
+                <p>Concentre automacoes rapidas e exportacao operacional em um painel de utilitarios.</p>
+              </div>
+            </div>
+            <div class="module-grid">
+              <div class="card module-card">
+                <div class="card-topline">
+                  <span class="pill">Atalhos</span>
+                  <span class="helper">Execucao rapida</span>
+                </div>
+                <h3 class="card-title">Acoes Rapidas</h3>
                 <div class="quick-actions">
                   <button onclick="quickFilterPendingOrders()">Pedidos pendentes</button>
                   <button onclick="quickFilterSignedContracts()">Contratos assinados</button>
@@ -303,8 +428,12 @@
                   <button onclick="clearQuickFilters()">Limpar filtros</button>
                 </div>
               </div>
-              <div class="card">
-                <h2>Exports</h2>
+              <div class="card module-card">
+                <div class="card-topline">
+                  <span class="pill pill-muted">Saida</span>
+                  <span class="helper">Arquivos</span>
+                </div>
+                <h3 class="card-title">Exports</h3>
                 <div class="quick-actions">
                   <button onclick="exportOrdersCsv()">Pedidos CSV</button>
                   <button onclick="exportPeopleCsv()">Pessoas CSV</button>
@@ -324,17 +453,91 @@
             </div>
           </section>
 
-          <section class="dashboard">
-            <div class="dashboard-card dashboard-card-wide"><h3>Resumo Executivo</h3><div id="topMetrics" class="metric-grid"></div><div id="activeFilters" class="listbox compact-list"></div></div>
-            <div class="dashboard-card"><h3>Pedidos</h3><div id="ordersMeta" class="helper"></div><div class="row"><button onclick="prevOrdersPage()">Anterior</button><button onclick="nextOrdersPage()">Proxima</button></div><div id="salesOrdersList" class="listbox"></div></div>
-            <div class="dashboard-card"><h3>Propostas</h3><div id="documentsMeta" class="helper"></div><div class="row"><button onclick="prevDocumentsPage()">Anterior</button><button onclick="nextDocumentsPage()">Proxima</button></div><div id="proposalsMeta" class="helper"></div><div class="row"><button onclick="prevProposalsPage()">Anterior</button><button onclick="nextProposalsPage()">Proxima</button></div><div id="proposalsList" class="listbox"></div></div>
-            <div class="dashboard-card"><h3>Contratos</h3><div id="contractsMeta" class="helper"></div><div class="row"><button onclick="prevContractsPage()">Anterior</button><button onclick="nextContractsPage()">Proxima</button></div><div id="contractsList" class="listbox"></div></div>
-            <div class="dashboard-card"><h3>Leads</h3><div id="leadsMeta" class="helper"></div><div class="row"><button onclick="prevLeadsPage()">Anterior</button><button onclick="nextLeadsPage()">Proxima</button></div><div id="leadsList" class="listbox"></div></div>
-            <div class="dashboard-card"><h3>Clients</h3><div id="clientsMeta" class="helper"></div><div class="row"><button onclick="prevClientsPage()">Anterior</button><button onclick="nextClientsPage()">Proxima</button></div><div id="clientsList" class="listbox"></div></div>
-            <div class="dashboard-card"><h3>Financeiro e WhatsApp</h3><div id="workspaceMeta" class="listbox"></div><div id="whatsappQrCard" class="listbox"></div></div>
-            <div class="dashboard-card"><h3>Contas a Receber</h3><div id="financeMeta" class="helper"></div><div id="receivablesMeta" class="helper"></div><div class="row"><button onclick="prevReceivablesPage()">Anterior</button><button onclick="nextReceivablesPage()">Proxima</button></div><div id="receivablesList" class="listbox"></div></div>
-            <div class="dashboard-card"><h3>Contas a Pagar</h3><div id="payablesMeta" class="helper"></div><div class="row"><button onclick="prevPayablesPage()">Anterior</button><button onclick="nextPayablesPage()">Proxima</button></div><div id="payablesList" class="listbox"></div></div>
-            <div class="dashboard-card"><h3>Mensagens</h3><div id="messagesMeta" class="helper"></div><div class="row"><button onclick="prevMessagesPage()">Anterior</button><button onclick="nextMessagesPage()">Proxima</button></div><div id="messagesList" class="listbox"></div></div>
+          <section class="dashboard-shell">
+            <div class="dashboard-card dashboard-card-wide executive-shell">
+              <div class="dashboard-headerline">
+                <div>
+                  <div class="section-kicker">Cockpit</div>
+                  <h3>Resumo Executivo</h3>
+                </div>
+                <button class="ghost-btn" onclick="loadWorkspaceSummary()">Atualizar cockpit</button>
+              </div>
+              <div id="topMetrics" class="metric-grid"></div>
+              <div id="activeFilters" class="listbox compact-list filter-pills"></div>
+            </div>
+
+            <div class="dashboard-area">
+              <div class="area-title">
+                <div class="section-kicker">Comercial</div>
+                <h3>Pipeline e relacionamento</h3>
+              </div>
+              <div class="dashboard-grid dashboard-grid-commercial">
+                <div class="dashboard-card table-card">
+                  <div class="table-card-header"><h4>Pedidos</h4><div id="ordersMeta" class="helper"></div></div>
+                  <div class="pager-inline"><button onclick="prevOrdersPage()">Anterior</button><button onclick="nextOrdersPage()">Proxima</button></div>
+                  <div id="salesOrdersList" class="listbox table-list"></div>
+                </div>
+                <div class="dashboard-card table-card">
+                  <div class="table-card-header"><h4>Propostas</h4><div id="documentsMeta" class="helper"></div></div>
+                  <div id="proposalsMeta" class="helper"></div>
+                  <div class="pager-inline"><button onclick="prevProposalsPage()">Anterior</button><button onclick="nextProposalsPage()">Proxima</button></div>
+                  <div id="proposalsList" class="listbox table-list"></div>
+                </div>
+                <div class="dashboard-card table-card">
+                  <div class="table-card-header"><h4>Contratos</h4><div id="contractsMeta" class="helper"></div></div>
+                  <div class="pager-inline"><button onclick="prevContractsPage()">Anterior</button><button onclick="nextContractsPage()">Proxima</button></div>
+                  <div id="contractsList" class="listbox table-list"></div>
+                </div>
+                <div class="dashboard-card table-card">
+                  <div class="table-card-header"><h4>Leads</h4><div id="leadsMeta" class="helper"></div></div>
+                  <div class="pager-inline"><button onclick="prevLeadsPage()">Anterior</button><button onclick="nextLeadsPage()">Proxima</button></div>
+                  <div id="leadsList" class="listbox table-list"></div>
+                </div>
+                <div class="dashboard-card table-card">
+                  <div class="table-card-header"><h4>Clients</h4><div id="clientsMeta" class="helper"></div></div>
+                  <div class="pager-inline"><button onclick="prevClientsPage()">Anterior</button><button onclick="nextClientsPage()">Proxima</button></div>
+                  <div id="clientsList" class="listbox table-list"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dashboard-area">
+              <div class="area-title">
+                <div class="section-kicker">Financeiro</div>
+                <h3>Receita, despesa e saldo</h3>
+              </div>
+              <div class="dashboard-grid dashboard-grid-finance">
+                <div class="dashboard-card status-card">
+                  <div class="table-card-header"><h4>Financeiro e WhatsApp</h4><div id="financeMeta" class="helper"></div></div>
+                  <div id="workspaceMeta" class="listbox compact-list"></div>
+                  <div id="whatsappQrCard" class="listbox compact-list"></div>
+                </div>
+                <div class="dashboard-card table-card">
+                  <div class="table-card-header"><h4>Contas a Receber</h4><div id="receivablesMeta" class="helper"></div></div>
+                  <div class="pager-inline"><button onclick="prevReceivablesPage()">Anterior</button><button onclick="nextReceivablesPage()">Proxima</button></div>
+                  <div id="receivablesList" class="listbox table-list"></div>
+                </div>
+                <div class="dashboard-card table-card">
+                  <div class="table-card-header"><h4>Contas a Pagar</h4><div id="payablesMeta" class="helper"></div></div>
+                  <div class="pager-inline"><button onclick="prevPayablesPage()">Anterior</button><button onclick="nextPayablesPage()">Proxima</button></div>
+                  <div id="payablesList" class="listbox table-list"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dashboard-area">
+              <div class="area-title">
+                <div class="section-kicker">Operacao</div>
+                <h3>Mensageria e atividade do canal</h3>
+              </div>
+              <div class="dashboard-grid dashboard-grid-ops">
+                <div class="dashboard-card table-card">
+                  <div class="table-card-header"><h4>Mensagens</h4><div id="messagesMeta" class="helper"></div></div>
+                  <div class="pager-inline"><button onclick="prevMessagesPage()">Anterior</button><button onclick="nextMessagesPage()">Proxima</button></div>
+                  <div id="messagesList" class="listbox table-list"></div>
+                </div>
+              </div>
+            </div>
           </section>
 
           <pre class="output" id="output">Pronto para operar.</pre>

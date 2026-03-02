@@ -11,7 +11,7 @@ async function centralLogin() {
   const payload = await showResult(response);
   if (payload) {
     setPanelVisibility(true);
-    switchPanelSection("tenant");
+    activateSectionAndScroll("tenant", "topMetrics");
     await centralDashboard();
   }
 }
@@ -27,7 +27,7 @@ async function centralDashboard() {
   const payload = await showResult(response);
   if (payload) {
     setPanelVisibility(true);
-    switchPanelSection("tenant");
+    activateSectionAndScroll("tenant", "topMetrics");
     await loadWorkspaceSummary();
   }
 }
@@ -62,6 +62,8 @@ async function tenantLogin() {
   const payload = await showResult(response);
   if (payload) {
     setPanelVisibility(true);
+    activateSectionAndScroll("tenant", "topMetrics");
+    await loadWorkspaceSummary();
   }
 }
 

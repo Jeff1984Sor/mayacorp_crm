@@ -118,3 +118,15 @@ function toggleSideNav() {
     toggle.textContent = shell.classList.contains("nav-collapsed") ? "Expandir menu" : "Recolher menu";
   }
 }
+
+function activateSectionAndScroll(section, targetId = "") {
+  const trigger = document.querySelector(`.menu-btn[data-panel-section="${section}"]`);
+  switchPanelSection(section, trigger);
+  if (!targetId) {
+    return;
+  }
+  const target = document.getElementById(targetId);
+  if (target && typeof target.scrollIntoView === "function") {
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
