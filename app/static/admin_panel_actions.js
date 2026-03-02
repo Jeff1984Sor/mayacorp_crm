@@ -24,6 +24,8 @@ async function logoutPanel() {
   const response = await fetch("/admin/panel/logout", buildCentralRequestOptions({ method: "POST" }));
   await showResult(response);
   panelAuth.centralToken = null;
+  panelAuth.tenantToken = null;
+  panelAuth.tenantSlug = null;
   setPanelVisibility(false);
 }
 
@@ -31,6 +33,8 @@ async function centralDashboard() {
   const response = await fetch("/admin/panel/central/dashboard", buildCentralRequestOptions());
   const payload = await showResult(response);
   if (payload) {
+    panelAuth.tenantToken = payload.token || null;
+    panelAuth.tenantSlug = payload.workspace_slug || slug;
     setPanelVisibility(true);
     activateSectionAndScroll("home", "topMetrics");
     await loadWorkspaceSummary();

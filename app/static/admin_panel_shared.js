@@ -3,7 +3,8 @@ const toast = document.getElementById("toast");
 const panelCache = window.__PANEL_CACHE__ || (window.__PANEL_CACHE__ = {});
 const panelEditor = window.__PANEL_EDITOR__ || (window.__PANEL_EDITOR__ = {});
 const panelInspector = window.__PANEL_INSPECTOR__ || (window.__PANEL_INSPECTOR__ = { tab: "summary", detail: null });
-const panelAuth = window.__PANEL_AUTH__ || (window.__PANEL_AUTH__ = { centralToken: null });
+const panelAuth = window.__PANEL_AUTH__ || (window.__PANEL_AUTH__ = { centralToken: null, tenantToken: null, tenantSlug: null });
+const nativeFetch = window.fetch.bind(window);
 
 function unwrapPayload(parsed) {
   if (parsed && Object.prototype.hasOwnProperty.call(parsed, "ok") && Object.prototype.hasOwnProperty.call(parsed, "data")) {
@@ -110,6 +111,24 @@ function buildCentralRequestOptions(extra = {}) {
   }
   return { ...extra, headers, credentials: "same-origin" };
 }
+
+window.fetch = (input, init = {}) => {
+  const url = typeof input === "string" ? input : String(input?.url || "");
+  const headers = new Headers(init.headers || {});
+  if (url.startsWith("/admin/panel") && panelAuth.centralToken && !headers.has("X-Panel-Central-Token")) {
+    headers.set("X-Panel-Central-Token", panelAuth.centralToken);
+  }
+  if (
+    url.startsWith("/admin/panel/") &&
+    panelAuth.tenantToken &&
+    panelAuth.tenantSlug &&
+    !headers.has("X-Panel-Tenant-Token")
+  ) {
+    headers.set("X-Panel-Tenant-Token", panelAuth.tenantToken);
+    headers.set("X-Panel-Tenant-Slug", panelAuth.tenantSlug);
+  }
+  return nativeFetch(input, { ...init, headers, credentials: init.credentials || "same-origin" });
+};
 
 function setPanelVisibility(isAuthenticated) {
   const authScreen = document.getElementById("authScreen");

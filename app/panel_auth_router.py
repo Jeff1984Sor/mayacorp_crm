@@ -124,7 +124,10 @@ def admin_panel_tenant_login(
     )
     response.set_cookie("panel_tenant_token", token, **panel_cookie_options())
     response.set_cookie("panel_tenant_slug", workspace_slug, **panel_cookie_options())
-    return panel_response("Sessao do tenant iniciada.", {"email": user.email, "role": user.role, "workspace_slug": workspace_slug})
+    return panel_response(
+        "Sessao do tenant iniciada.",
+        {"email": user.email, "role": user.role, "workspace_slug": workspace_slug, "token": token},
+    )
 
 
 @panel_auth_router.get("/admin/panel/{workspace_slug}/health")

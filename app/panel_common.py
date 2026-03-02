@@ -152,15 +152,19 @@ def panel_central_user_dep(
 def panel_tenant_user_dep(
     panel_tenant_token: str | None = Cookie(default=None),
     panel_tenant_slug: str | None = Cookie(default=None),
+    x_panel_tenant_token: str | None = Header(default=None),
+    x_panel_tenant_slug: str | None = Header(default=None),
     tenant: Tenant = Depends(tenant_context_dep),
     session: Session = Depends(tenant_session_dep),
 ) -> User:
-    if not panel_tenant_token:
+    token = panel_tenant_token or x_panel_tenant_token
+    tenant_slug = panel_tenant_slug or x_panel_tenant_slug
+    if not token:
         raise HTTPException(status_code=401, detail="Panel tenant session required.")
-    if panel_tenant_slug != tenant.slug:
+    if tenant_slug != tenant.slug:
         raise HTTPException(status_code=403, detail="Panel tenant workspace mismatch.")
     try:
-        payload = decode_token(panel_tenant_token)
+        payload = decode_token(token)
     except ValueError:
         raise HTTPException(status_code=401, detail="Invalid panel tenant session.")
     if payload.get("scope") != "tenant" or payload.get("type") != "access":
