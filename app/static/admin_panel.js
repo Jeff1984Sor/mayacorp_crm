@@ -5,7 +5,7 @@
 
 window.addEventListener("DOMContentLoaded", () => {
   setPanelVisibility(false);
-  switchPanelSection("tenant");
+  switchPanelSection("home");
   window.fetch("/admin/panel/central/dashboard", { credentials: "same-origin" })
     .then(async (response) => {
       if (!response.ok) {
@@ -17,7 +17,7 @@ window.addEventListener("DOMContentLoaded", () => {
         setPanelVisibility(true);
         output.textContent = JSON.stringify(parsed, null, 2);
         showToast(parsed.message || "Sessao central restaurada.", "success");
-        switchPanelSection("tenant");
+        switchPanelSection("home");
         loadWorkspaceSummary().catch(() => {});
       } catch (error) {}
     })

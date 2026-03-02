@@ -52,8 +52,12 @@
         <aside class="side-nav">
           <button class="nav-toggle" onclick="toggleSideNav()">Recolher menu</button>
           <div class="nav-group">
+            <div class="nav-group-label">Home</div>
+            <button class="menu-btn active" data-panel-section="home" onclick="switchPanelSection('home', this)">Dashboard</button>
+          </div>
+          <div class="nav-group">
             <div class="nav-group-label">Setup</div>
-            <button class="menu-btn active" data-panel-section="tenant" onclick="switchPanelSection('tenant', this)">Tenant</button>
+            <button class="menu-btn" data-panel-section="tenant" onclick="switchPanelSection('tenant', this)">Tenant</button>
           </div>
           <div class="nav-group">
             <div class="nav-group-label">Comercial</div>
@@ -73,7 +77,113 @@
         </aside>
 
         <main class="content-stack">
-          <section class="panel-section active" data-section="tenant">
+          <section class="panel-section active" data-section="home">
+            <div class="dashboard-shell">
+              <div class="dashboard-card dashboard-card-wide executive-shell">
+                <div class="dashboard-headerline">
+                  <div>
+                    <div class="section-kicker">Cockpit</div>
+                    <h3>Resumo Executivo</h3>
+                  </div>
+                  <button class="ghost-btn" onclick="loadWorkspaceSummary()">Atualizar cockpit</button>
+                </div>
+                <div id="topMetrics" class="metric-grid"></div>
+                <div id="activeFilters" class="listbox compact-list filter-pills"></div>
+                <div class="executive-rail">
+                  <button class="overview-btn" onclick="activateSectionAndScroll('crm', 'leadsList')">Abrir Comercial</button>
+                  <button class="overview-btn" onclick="activateSectionAndScroll('finance', 'receivablesList')">Abrir Financeiro</button>
+                  <button class="overview-btn" onclick="activateSectionAndScroll('whatsapp', 'messagesList')">Abrir Operacao</button>
+                </div>
+              </div>
+
+              <div class="dashboard-card dashboard-card-wide inspector-shell">
+                <div class="dashboard-headerline">
+                  <div>
+                    <div class="section-kicker">Painel de Contexto</div>
+                    <h3>Detalhe do item selecionado</h3>
+                  </div>
+                </div>
+                <div id="detailInspector" class="inspector-empty">
+                  Clique em um item das listas para abrir o detalhe aqui.
+                </div>
+              </div>
+
+              <div class="dashboard-area">
+                <div class="area-title">
+                  <div class="section-kicker">Comercial</div>
+                  <h3>Pipeline e relacionamento</h3>
+                </div>
+                <div class="dashboard-grid dashboard-grid-commercial">
+                  <div class="dashboard-card table-card">
+                    <div class="table-card-header"><h4>Pedidos</h4><div id="ordersMeta" class="helper"></div></div>
+                    <div class="pager-inline"><button onclick="prevOrdersPage()">Anterior</button><button onclick="nextOrdersPage()">Proxima</button></div>
+                    <div id="salesOrdersList" class="listbox table-list"></div>
+                  </div>
+                  <div class="dashboard-card table-card">
+                    <div class="table-card-header"><h4>Propostas</h4><div id="documentsMeta" class="helper"></div></div>
+                    <div id="proposalsMeta" class="helper"></div>
+                    <div class="pager-inline"><button onclick="prevProposalsPage()">Anterior</button><button onclick="nextProposalsPage()">Proxima</button></div>
+                    <div id="proposalsList" class="listbox table-list"></div>
+                  </div>
+                  <div class="dashboard-card table-card">
+                    <div class="table-card-header"><h4>Contratos</h4><div id="contractsMeta" class="helper"></div></div>
+                    <div class="pager-inline"><button onclick="prevContractsPage()">Anterior</button><button onclick="nextContractsPage()">Proxima</button></div>
+                    <div id="contractsList" class="listbox table-list"></div>
+                  </div>
+                  <div class="dashboard-card table-card">
+                    <div class="table-card-header"><h4>Leads</h4><div id="leadsMeta" class="helper"></div></div>
+                    <div class="pager-inline"><button onclick="prevLeadsPage()">Anterior</button><button onclick="nextLeadsPage()">Proxima</button></div>
+                    <div id="leadsList" class="listbox table-list"></div>
+                  </div>
+                  <div class="dashboard-card table-card">
+                    <div class="table-card-header"><h4>Clients</h4><div id="clientsMeta" class="helper"></div></div>
+                    <div class="pager-inline"><button onclick="prevClientsPage()">Anterior</button><button onclick="nextClientsPage()">Proxima</button></div>
+                    <div id="clientsList" class="listbox table-list"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dashboard-area">
+                <div class="area-title">
+                  <div class="section-kicker">Financeiro</div>
+                  <h3>Receita, despesa e saldo</h3>
+                </div>
+                <div class="dashboard-grid dashboard-grid-finance">
+                  <div class="dashboard-card status-card">
+                    <div class="table-card-header"><h4>Financeiro e WhatsApp</h4><div id="financeMeta" class="helper"></div></div>
+                    <div id="workspaceMeta" class="listbox compact-list"></div>
+                    <div id="whatsappQrCard" class="listbox compact-list"></div>
+                  </div>
+                  <div class="dashboard-card table-card">
+                    <div class="table-card-header"><h4>Contas a Receber</h4><div id="receivablesMeta" class="helper"></div></div>
+                    <div class="pager-inline"><button onclick="prevReceivablesPage()">Anterior</button><button onclick="nextReceivablesPage()">Proxima</button></div>
+                    <div id="receivablesList" class="listbox table-list"></div>
+                  </div>
+                  <div class="dashboard-card table-card">
+                    <div class="table-card-header"><h4>Contas a Pagar</h4><div id="payablesMeta" class="helper"></div></div>
+                    <div class="pager-inline"><button onclick="prevPayablesPage()">Anterior</button><button onclick="nextPayablesPage()">Proxima</button></div>
+                    <div id="payablesList" class="listbox table-list"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dashboard-area">
+                <div class="area-title">
+                  <div class="section-kicker">Operacao</div>
+                  <h3>Mensageria e atividade do canal</h3>
+                </div>
+                <div class="dashboard-grid dashboard-grid-ops">
+                  <div class="dashboard-card table-card">
+                    <div class="table-card-header"><h4>Mensagens</h4><div id="messagesMeta" class="helper"></div></div>
+                    <div class="pager-inline"><button onclick="prevMessagesPage()">Anterior</button><button onclick="nextMessagesPage()">Proxima</button></div>
+                    <div id="messagesList" class="listbox table-list"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel-section" data-section="tenant">
             <div class="section-heading">
               <div>
                 <div class="section-kicker">Setup</div>
@@ -471,114 +581,16 @@
                   <button onclick="exportPayablesCsv()">AP CSV</button>
                 </div>
               </div>
-            </div>
-          </section>
-
-          <section class="dashboard-shell">
-            <div class="dashboard-card dashboard-card-wide executive-shell">
-              <div class="dashboard-headerline">
-                <div>
-                  <div class="section-kicker">Cockpit</div>
-                  <h3>Resumo Executivo</h3>
+              <div class="card module-card">
+                <div class="card-topline">
+                  <span class="pill pill-dark">Debug</span>
+                  <span class="helper">Resposta bruta</span>
                 </div>
-                <button class="ghost-btn" onclick="loadWorkspaceSummary()">Atualizar cockpit</button>
-              </div>
-              <div id="topMetrics" class="metric-grid"></div>
-              <div id="activeFilters" class="listbox compact-list filter-pills"></div>
-              <div class="executive-rail">
-                <button class="overview-btn" onclick="activateSectionAndScroll('crm', 'leadsList')">Abrir Comercial</button>
-                <button class="overview-btn" onclick="activateSectionAndScroll('finance', 'receivablesList')">Abrir Financeiro</button>
-                <button class="overview-btn" onclick="activateSectionAndScroll('whatsapp', 'messagesList')">Abrir Operacao</button>
-              </div>
-            </div>
-
-            <div class="dashboard-card dashboard-card-wide inspector-shell">
-              <div class="dashboard-headerline">
-                <div>
-                  <div class="section-kicker">Painel de Contexto</div>
-                  <h3>Detalhe do item selecionado</h3>
-                </div>
-              </div>
-              <div id="detailInspector" class="inspector-empty">
-                Clique em um item das listas para abrir o detalhe aqui.
-              </div>
-            </div>
-
-            <div class="dashboard-area">
-              <div class="area-title">
-                <div class="section-kicker">Comercial</div>
-                <h3>Pipeline e relacionamento</h3>
-              </div>
-              <div class="dashboard-grid dashboard-grid-commercial">
-                <div class="dashboard-card table-card">
-                  <div class="table-card-header"><h4>Pedidos</h4><div id="ordersMeta" class="helper"></div></div>
-                  <div class="pager-inline"><button onclick="prevOrdersPage()">Anterior</button><button onclick="nextOrdersPage()">Proxima</button></div>
-                  <div id="salesOrdersList" class="listbox table-list"></div>
-                </div>
-                <div class="dashboard-card table-card">
-                  <div class="table-card-header"><h4>Propostas</h4><div id="documentsMeta" class="helper"></div></div>
-                  <div id="proposalsMeta" class="helper"></div>
-                  <div class="pager-inline"><button onclick="prevProposalsPage()">Anterior</button><button onclick="nextProposalsPage()">Proxima</button></div>
-                  <div id="proposalsList" class="listbox table-list"></div>
-                </div>
-                <div class="dashboard-card table-card">
-                  <div class="table-card-header"><h4>Contratos</h4><div id="contractsMeta" class="helper"></div></div>
-                  <div class="pager-inline"><button onclick="prevContractsPage()">Anterior</button><button onclick="nextContractsPage()">Proxima</button></div>
-                  <div id="contractsList" class="listbox table-list"></div>
-                </div>
-                <div class="dashboard-card table-card">
-                  <div class="table-card-header"><h4>Leads</h4><div id="leadsMeta" class="helper"></div></div>
-                  <div class="pager-inline"><button onclick="prevLeadsPage()">Anterior</button><button onclick="nextLeadsPage()">Proxima</button></div>
-                  <div id="leadsList" class="listbox table-list"></div>
-                </div>
-                <div class="dashboard-card table-card">
-                  <div class="table-card-header"><h4>Clients</h4><div id="clientsMeta" class="helper"></div></div>
-                  <div class="pager-inline"><button onclick="prevClientsPage()">Anterior</button><button onclick="nextClientsPage()">Proxima</button></div>
-                  <div id="clientsList" class="listbox table-list"></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="dashboard-area">
-              <div class="area-title">
-                <div class="section-kicker">Financeiro</div>
-                <h3>Receita, despesa e saldo</h3>
-              </div>
-              <div class="dashboard-grid dashboard-grid-finance">
-                <div class="dashboard-card status-card">
-                  <div class="table-card-header"><h4>Financeiro e WhatsApp</h4><div id="financeMeta" class="helper"></div></div>
-                  <div id="workspaceMeta" class="listbox compact-list"></div>
-                  <div id="whatsappQrCard" class="listbox compact-list"></div>
-                </div>
-                <div class="dashboard-card table-card">
-                  <div class="table-card-header"><h4>Contas a Receber</h4><div id="receivablesMeta" class="helper"></div></div>
-                  <div class="pager-inline"><button onclick="prevReceivablesPage()">Anterior</button><button onclick="nextReceivablesPage()">Proxima</button></div>
-                  <div id="receivablesList" class="listbox table-list"></div>
-                </div>
-                <div class="dashboard-card table-card">
-                  <div class="table-card-header"><h4>Contas a Pagar</h4><div id="payablesMeta" class="helper"></div></div>
-                  <div class="pager-inline"><button onclick="prevPayablesPage()">Anterior</button><button onclick="nextPayablesPage()">Proxima</button></div>
-                  <div id="payablesList" class="listbox table-list"></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="dashboard-area">
-              <div class="area-title">
-                <div class="section-kicker">Operacao</div>
-                <h3>Mensageria e atividade do canal</h3>
-              </div>
-              <div class="dashboard-grid dashboard-grid-ops">
-                <div class="dashboard-card table-card">
-                  <div class="table-card-header"><h4>Mensagens</h4><div id="messagesMeta" class="helper"></div></div>
-                  <div class="pager-inline"><button onclick="prevMessagesPage()">Anterior</button><button onclick="nextMessagesPage()">Proxima</button></div>
-                  <div id="messagesList" class="listbox table-list"></div>
-                </div>
+                <h3 class="card-title">Log tecnico</h3>
+                <pre class="output" id="output">Pronto para operar.</pre>
               </div>
             </div>
           </section>
-
-          <pre class="output" id="output">Pronto para operar.</pre>
         </main>
       </div>
     </section>
