@@ -2,6 +2,7 @@ const output = document.getElementById("output");
 const toast = document.getElementById("toast");
 const panelCache = window.__PANEL_CACHE__ || (window.__PANEL_CACHE__ = {});
 const panelEditor = window.__PANEL_EDITOR__ || (window.__PANEL_EDITOR__ = {});
+const panelInspector = window.__PANEL_INSPECTOR__ || (window.__PANEL_INSPECTOR__ = { tab: "summary", detail: null });
 
 function unwrapPayload(parsed) {
   if (parsed && Object.prototype.hasOwnProperty.call(parsed, "ok") && Object.prototype.hasOwnProperty.call(parsed, "data")) {

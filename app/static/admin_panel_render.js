@@ -15,29 +15,62 @@ function renderDetailInspector(detail) {
     return;
   }
   if (!detail) {
+    panelInspector.detail = null;
     target.className = "inspector-empty";
     target.textContent = "Clique em um item das listas para abrir o detalhe aqui.";
     return;
   }
-  const meta = (detail.meta || [])
-    .filter(Boolean)
-    .map((item) => `<div class="inspector-meta-item">${item}</div>`)
-    .join("");
+  panelInspector.detail = detail;
+  const activeTab = panelInspector.tab || "summary";
+  const tabs = [
+    ["summary", "Resumo"],
+    ["context", "Contexto"],
+    ["actions", "Acoes"]
+  ];
+  const tabsHtml = tabs.map(([key, label]) => `
+    <button type="button" class="inspector-tab${activeTab === key ? " active" : ""}" onclick="setInspectorTab('${key}')">${label}</button>
+  `).join("");
+  const metaItems = (detail.meta || []).filter(Boolean);
+  let bodyHtml = "";
+  if (activeTab === "summary") {
+    bodyHtml = `
+      <h4 class="inspector-title">${detail.title || "-"}</h4>
+      <p class="inspector-subtitle">${detail.subtitle || "-"}</p>
+    `;
+  } else if (activeTab === "context") {
+    bodyHtml = `
+      <div class="inspector-meta">
+        ${(metaItems.length ? metaItems : ["Sem informacoes extras."]).map((item) => `<div class="inspector-meta-item">${item}</div>`).join("")}
+      </div>
+    `;
+  } else {
+    bodyHtml = `
+      <div class="inspector-meta">
+        <div class="inspector-meta-item">Use os botoes da linha para editar, trocar status ou excluir.</div>
+        <div class="inspector-meta-item">O drawer lateral continua responsavel por salvar alteracoes.</div>
+      </div>
+    `;
+  }
   target.className = "inspector-card";
   target.innerHTML = `
     <div class="inspector-topline">
       <span class="inspector-entity">${detail.entity || "item"}</span>
       ${detail.status ? `<span class="status-chip">${detail.status}</span>` : ""}
     </div>
-    <h4 class="inspector-title">${detail.title || "-"}</h4>
-    <p class="inspector-subtitle">${detail.subtitle || "-"}</p>
-    <div class="inspector-meta">${meta || '<div class="inspector-meta-item">Sem informacoes extras.</div>'}</div>
+    <div class="inspector-tabs">${tabsHtml}</div>
+    ${bodyHtml}
   `;
 }
 
 function openDetailInspector(entity, title, subtitle, status, metaText = "") {
   const meta = metaText ? metaText.split("||") : [];
+  panelInspector.tab = "summary";
   renderDetailInspector({ entity, title, subtitle, status, meta });
+}
+
+function setInspectorTab(tab) {
+  panelInspector.tab = tab;
+  renderDetailInspector(panelInspector.detail);
 }
 
 function buildDataRow(title, subtitle, status, actionsHtml = "", detail = null) {

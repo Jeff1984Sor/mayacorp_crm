@@ -527,6 +527,22 @@ button:hover { background: var(--brand-dark); }
   display: grid;
   gap: 12px;
 }
+.inspector-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.inspector-tab {
+  width: auto;
+  margin-top: 0;
+  padding: 8px 12px;
+  background: #e2e8f0;
+  color: #334155;
+}
+.inspector-tab.active {
+  background: linear-gradient(135deg, #134e4a, #0f766e);
+  color: #ffffff;
+}
 .inspector-topline {
   display: flex;
   justify-content: space-between;
