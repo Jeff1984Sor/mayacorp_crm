@@ -1,19 +1,27 @@
 function renderSummary(summary) {
-  renderList("topMetrics", [
-    `Pedidos: ${summary.sales_orders_total || 0}`,
-    `Pendentes: ${summary.pending_orders_total || 0}`,
-    `Leads: ${summary.leads_total || 0}`,
-    `Clients: ${summary.clients_total || 0}`,
-    `Docs: ${summary.documents_total || 0}`,
-    `Prop send: ${summary.proposals_sendable_total || 0}`,
-    `Ctr assin: ${summary.contracts_signed_total || 0}`,
-    `Ctr pend: ${summary.contracts_pending_signature_total || 0}`,
-    `Msgs: ${summary.messages_total || 0}`,
-    `Out: ${summary.outbound_messages_total || 0}`,
-    `In: ${summary.inbound_messages_total || 0}`,
-    `Falhas: ${summary.failed_messages_total || 0}`,
-    `AP: R$ ${Number(summary.finance?.payable_total || 0).toFixed(2)}`
-  ], (item) => item);
+  const topMetrics = document.getElementById("topMetrics");
+  if (topMetrics) {
+    const metricCards = [
+      ["Pedidos", summary.sales_orders_total || 0],
+      ["Pendentes", summary.pending_orders_total || 0],
+      ["Leads", summary.leads_total || 0],
+      ["Clients", summary.clients_total || 0],
+      ["Docs", summary.documents_total || 0],
+      ["Prop Send", summary.proposals_sendable_total || 0],
+      ["Ctr Assin", summary.contracts_signed_total || 0],
+      ["Ctr Pend", summary.contracts_pending_signature_total || 0],
+      ["Msgs", summary.messages_total || 0],
+      ["Falhas", summary.failed_messages_total || 0],
+      ["AR", `R$ ${Number(summary.finance?.receivable_total || 0).toFixed(2)}`],
+      ["AP", `R$ ${Number(summary.finance?.payable_total || 0).toFixed(2)}`]
+    ];
+    topMetrics.innerHTML = metricCards.map(([label, value]) => `
+      <div class="metric-card">
+        <span>${label}</span>
+        <strong>${value}</strong>
+      </div>
+    `).join("");
+  }
   const activeFilters = [];
   if (summary.query) activeFilters.push(`Busca: ${summary.query}`);
   if (summary.people_email) activeFilters.push(`Email: ${summary.people_email}`);

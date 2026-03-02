@@ -106,3 +106,15 @@ function switchPanelSection(section, trigger = null) {
     trigger.classList.add("active");
   }
 }
+
+function toggleSideNav() {
+  const shell = document.getElementById("appShell");
+  if (!shell) {
+    return;
+  }
+  shell.classList.toggle("nav-collapsed");
+  const toggle = document.querySelector(".nav-toggle");
+  if (toggle) {
+    toggle.textContent = shell.classList.contains("nav-collapsed") ? "Expandir menu" : "Recolher menu";
+  }
+}

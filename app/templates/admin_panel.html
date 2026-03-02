@@ -11,15 +11,27 @@
     <div id="toast" class="toast"></div>
 
     <section id="authScreen" class="auth-screen">
-      <div class="auth-card">
-        <div class="auth-badge">Mayacorp SaaS</div>
-        <h1>Painel Administrativo</h1>
-        <p>Entre com o login central para abrir o painel completo.</p>
-        <label for="centralEmail">Email</label>
-        <input id="centralEmail" value="admin@mayacorp.com">
-        <label for="centralPassword">Senha</label>
-        <input id="centralPassword" type="password" value="1234">
-        <button onclick="centralLogin()">Entrar no painel</button>
+      <div class="auth-layout">
+        <div class="auth-spotlight">
+          <div class="auth-badge">Mayacorp SaaS</div>
+          <h1>Admin com visual de produto</h1>
+          <p>Uma entrada central mais limpa para gerenciar tenants, operacao e modulos do sistema.</p>
+          <div class="hero-metric-grid">
+            <div class="hero-metric"><span>CRM</span><strong>Leads e Clients</strong></div>
+            <div class="hero-metric"><span>ERP</span><strong>Vendas e Financeiro</strong></div>
+            <div class="hero-metric"><span>Ops</span><strong>WhatsApp e Acoes</strong></div>
+          </div>
+        </div>
+        <div class="auth-card">
+          <div class="auth-badge">Acesso Central</div>
+          <h1>Painel Administrativo</h1>
+          <p>Entre com o login central para abrir o painel completo.</p>
+          <label for="centralEmail">Email</label>
+          <input id="centralEmail" value="admin@mayacorp.com">
+          <label for="centralPassword">Senha</label>
+          <input id="centralPassword" type="password" value="1234">
+          <button onclick="centralLogin()">Entrar no painel</button>
+        </div>
       </div>
     </section>
 
@@ -38,6 +50,7 @@
 
       <div class="app-layout">
         <aside class="side-nav">
+          <button class="nav-toggle" onclick="toggleSideNav()">Recolher menu</button>
           <button class="menu-btn active" data-panel-section="tenant" onclick="switchPanelSection('tenant', this)">Tenant</button>
           <button class="menu-btn" data-panel-section="crm" onclick="switchPanelSection('crm', this)">CRM</button>
           <button class="menu-btn" data-panel-section="sales" onclick="switchPanelSection('sales', this)">Vendas</button>
@@ -312,7 +325,7 @@
           </section>
 
           <section class="dashboard">
-            <div class="dashboard-card"><h3>Cards</h3><div id="topMetrics" class="listbox"></div><div id="activeFilters" class="listbox"></div></div>
+            <div class="dashboard-card dashboard-card-wide"><h3>Resumo Executivo</h3><div id="topMetrics" class="metric-grid"></div><div id="activeFilters" class="listbox compact-list"></div></div>
             <div class="dashboard-card"><h3>Pedidos</h3><div id="ordersMeta" class="helper"></div><div class="row"><button onclick="prevOrdersPage()">Anterior</button><button onclick="nextOrdersPage()">Proxima</button></div><div id="salesOrdersList" class="listbox"></div></div>
             <div class="dashboard-card"><h3>Propostas</h3><div id="documentsMeta" class="helper"></div><div class="row"><button onclick="prevDocumentsPage()">Anterior</button><button onclick="nextDocumentsPage()">Proxima</button></div><div id="proposalsMeta" class="helper"></div><div class="row"><button onclick="prevProposalsPage()">Anterior</button><button onclick="nextProposalsPage()">Proxima</button></div><div id="proposalsList" class="listbox"></div></div>
             <div class="dashboard-card"><h3>Contratos</h3><div id="contractsMeta" class="helper"></div><div class="row"><button onclick="prevContractsPage()">Anterior</button><button onclick="nextContractsPage()">Proxima</button></div><div id="contractsList" class="listbox"></div></div>
