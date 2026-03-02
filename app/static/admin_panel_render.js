@@ -78,7 +78,7 @@ function renderSummary(summary) {
       `Total R$ ${Number(item.total_amount).toFixed(2)}`,
       item.status,
       `
-        <button class="table-action" onclick="updateSalesOrderStatus(${item.id})">Atualizar status</button>
+        <button class="table-action" onclick="openStatusEditor('sales_order', ${item.id}, '${item.status}')">Atualizar status</button>
         <button class="table-action" onclick="deleteSalesOrder(${item.id})">Excluir</button>
       `
     )
@@ -90,8 +90,7 @@ function renderSummary(summary) {
       item.pdf_path || "Sem PDF gerado",
       "proposta",
       `
-        <input class="table-input" id="proposalTitleEdit-${item.id}" placeholder="Novo titulo">
-        <button class="table-action" onclick="renameProposal(${item.id})">Renomear</button>
+        <button class="table-action" onclick="openProposalEditor(${item.id}, '${String(item.title).replace(/'/g, "\\'")}')">Renomear</button>
         <button class="table-action" onclick="deleteProposal(${item.id})">Excluir</button>
       `
     )
@@ -103,9 +102,8 @@ function renderSummary(summary) {
       `Contrato #${item.id}`,
       item.status,
       `
-        <input class="table-input" id="contractTitleEdit-${item.id}" placeholder="Novo titulo">
-        <button class="table-action" onclick="renameContract(${item.id})">Renomear</button>
-        <button class="table-action" onclick="updateContractStatus(${item.id})">Atualizar status</button>
+        <button class="table-action" onclick="openContractEditor(${item.id}, '${String(item.title).replace(/'/g, "\\'")}')">Renomear</button>
+        <button class="table-action" onclick="openStatusEditor('contract', ${item.id}, '${item.status}')">Atualizar status</button>
         <button class="table-action" onclick="deleteContract(${item.id})">Excluir</button>
       `
     )
@@ -117,8 +115,7 @@ function renderSummary(summary) {
       item.email || "-",
       "lead",
       `
-        <input class="table-input" id="leadNameEdit-${item.id}" placeholder="Novo nome">
-        <button class="table-action" onclick="renameLead(${item.id})">Editar</button>
+        <button class="table-action" onclick="openLeadEditor(${item.id}, '${String(item.name).replace(/'/g, "\\'")}')">Editar</button>
         <button class="table-action" onclick="deleteLead(${item.id})">Excluir</button>
       `
     )
@@ -130,8 +127,7 @@ function renderSummary(summary) {
       item.email || "-",
       "client",
       `
-        <input class="table-input" id="clientNameEdit-${item.id}" placeholder="Novo nome">
-        <button class="table-action" onclick="renameClient(${item.id})">Editar</button>
+        <button class="table-action" onclick="openClientEditor(${item.id}, '${String(item.name).replace(/'/g, "\\'")}')">Editar</button>
         <button class="table-action" onclick="deleteClient(${item.id})">Excluir</button>
       `
     )
@@ -159,7 +155,7 @@ function renderSummary(summary) {
       item.status,
       `
         <button class="table-action" onclick="settleReceivable(${item.id})">Dar baixa</button>
-        <button class="table-action" onclick="updateReceivableStatus(${item.id})">Atualizar status</button>
+        <button class="table-action" onclick="openStatusEditor('receivable', ${item.id}, '${item.status}')">Atualizar status</button>
         <button class="table-action" onclick="deleteReceivable(${item.id})">Excluir</button>
       `
     )
@@ -172,7 +168,7 @@ function renderSummary(summary) {
       item.status,
       `
         <button class="table-action" onclick="settlePayable(${item.id})">Conciliar</button>
-        <button class="table-action" onclick="updatePayableStatus(${item.id})">Atualizar status</button>
+        <button class="table-action" onclick="openStatusEditor('payable', ${item.id}, '${item.status}')">Atualizar status</button>
         <button class="table-action" onclick="deletePayable(${item.id})">Excluir</button>
       `
     )
@@ -183,7 +179,7 @@ function renderSummary(summary) {
       `Mensagem #${item.id}`,
       `${item.direction} | ${item.body}`,
       item.status,
-      `<button class="table-action" onclick="updateMessageStatus(${item.id})">Atualizar status</button>`
+      `<button class="table-action" onclick="openStatusEditor('message', ${item.id}, '${item.status}')">Atualizar status</button>`
     )
   );
 

@@ -1,6 +1,7 @@
 const output = document.getElementById("output");
 const toast = document.getElementById("toast");
 const panelCache = window.__PANEL_CACHE__ || (window.__PANEL_CACHE__ = {});
+const panelEditor = window.__PANEL_EDITOR__ || (window.__PANEL_EDITOR__ = {});
 
 function unwrapPayload(parsed) {
   if (parsed && Object.prototype.hasOwnProperty.call(parsed, "ok") && Object.prototype.hasOwnProperty.call(parsed, "data")) {
@@ -129,4 +130,55 @@ function activateSectionAndScroll(section, targetId = "") {
   if (target && typeof target.scrollIntoView === "function") {
     target.scrollIntoView({ behavior: "smooth", block: "start" });
   }
+}
+
+function openEditorDrawer(config) {
+  const drawer = document.getElementById("editorDrawer");
+  if (!drawer) {
+    return;
+  }
+  panelEditor.entity = config.entity;
+  panelEditor.itemId = config.id;
+  panelEditor.onSubmit = config.onSubmit;
+  panelEditor.onSuccess = config.onSuccess;
+  document.getElementById("editorDrawerTitle").textContent = config.title || "Editar item";
+  document.getElementById("editorDrawerEntity").value = config.entity || "";
+  document.getElementById("editorDrawerItemId").value = String(config.id || "");
+  const nameField = document.getElementById("editorNameField");
+  const nameInput = document.getElementById("editorDrawerName");
+  if (config.mode === "status") {
+    nameField.classList.add("hidden");
+  } else {
+    nameField.classList.remove("hidden");
+    nameInput.value = config.value || "";
+    nameInput.placeholder = config.placeholder || "Digite o novo valor";
+  }
+  const statusField = document.getElementById("editorStatusField");
+  const statusSelect = document.getElementById("editorDrawerStatus");
+  statusSelect.innerHTML = "";
+  if (config.mode === "status") {
+    statusField.classList.remove("hidden");
+    (config.options || []).forEach((optionValue) => {
+      const option = document.createElement("option");
+      option.value = optionValue;
+      option.textContent = optionValue;
+      if (optionValue === config.value) {
+        option.selected = true;
+      }
+      statusSelect.appendChild(option);
+    });
+  } else {
+    statusField.classList.add("hidden");
+  }
+  const hint = document.getElementById("editorDrawerHint");
+  hint.textContent = config.hint || "Ajuste o valor e confirme para aplicar a alteracao.";
+  drawer.classList.remove("hidden");
+}
+
+function closeEditorDrawer() {
+  const drawer = document.getElementById("editorDrawer");
+  if (!drawer) {
+    return;
+  }
+  drawer.classList.add("hidden");
 }

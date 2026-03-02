@@ -570,6 +570,39 @@
         </main>
       </div>
     </section>
+
+    <aside id="editorDrawer" class="editor-drawer hidden">
+      <div class="editor-backdrop" onclick="closeEditorDrawer()"></div>
+      <div class="editor-panel">
+        <div class="editor-head">
+          <div>
+            <div class="section-kicker">Edicao Rapida</div>
+            <h3 id="editorDrawerTitle">Editar item</h3>
+          </div>
+          <button class="secondary-btn" type="button" onclick="closeEditorDrawer()">Fechar</button>
+        </div>
+        <div class="editor-body">
+          <input id="editorDrawerEntity" type="hidden">
+          <input id="editorDrawerItemId" type="hidden">
+
+          <div id="editorNameField">
+            <label for="editorDrawerName">Nome / Titulo</label>
+            <input id="editorDrawerName" placeholder="Digite o novo valor">
+          </div>
+
+          <div id="editorStatusField">
+            <label for="editorDrawerStatus">Status</label>
+            <select id="editorDrawerStatus"></select>
+          </div>
+
+          <p id="editorDrawerHint" class="helper">Ajuste o valor e confirme para aplicar a alteracao.</p>
+        </div>
+        <div class="editor-foot">
+          <button class="secondary-btn" type="button" onclick="closeEditorDrawer()">Cancelar</button>
+          <button type="button" onclick="submitEditorDrawer()">Salvar alteracao</button>
+        </div>
+      </div>
+    </aside>
   </div>
 
   <script src="/static/admin_panel_constants.js"></script>

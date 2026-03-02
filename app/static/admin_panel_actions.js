@@ -425,11 +425,16 @@ async function loadReceivables() {
   });
   const payload = await showResult(response);
   renderList("receivablesList", (payload && payload.items) || [], (item) =>
-    `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
-    ${item.category || "-"} | ${item.due_date}<br>
-    <button onclick="settleReceivable(${item.id})">Dar baixa</button>
-    <button onclick="updateReceivableStatus(${item.id})">Atualizar status</button>
-    <button onclick="deleteReceivable(${item.id})">Excluir</button>`
+    buildDataRow(
+      `Receber #${item.id}`,
+      `${item.category || "-"} | ${item.due_date} | R$ ${Number(item.amount).toFixed(2)}`,
+      item.status,
+      `
+        <button class="table-action" onclick="settleReceivable(${item.id})">Dar baixa</button>
+        <button class="table-action" onclick="openStatusEditor('receivable', ${item.id}, '${item.status}')">Atualizar status</button>
+        <button class="table-action" onclick="deleteReceivable(${item.id})">Excluir</button>
+      `
+    )
   );
   const financeMeta = document.getElementById("financeMeta");
   if (financeMeta && payload) {
@@ -465,11 +470,16 @@ async function loadPayables() {
   });
   const payload = await showResult(response);
   renderList("payablesList", (payload && payload.items) || [], (item) =>
-    `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
-    ${item.category || "-"} | ${item.due_date}<br>
-    <button onclick="settlePayable(${item.id})">Conciliar</button>
-    <button onclick="updatePayableStatus(${item.id})">Atualizar status</button>
-    <button onclick="deletePayable(${item.id})">Excluir</button>`
+    buildDataRow(
+      `Pagar #${item.id}`,
+      `${item.category || "-"} | ${item.due_date} | R$ ${Number(item.amount).toFixed(2)}`,
+      item.status,
+      `
+        <button class="table-action" onclick="settlePayable(${item.id})">Conciliar</button>
+        <button class="table-action" onclick="openStatusEditor('payable', ${item.id}, '${item.status}')">Atualizar status</button>
+        <button class="table-action" onclick="deletePayable(${item.id})">Excluir</button>
+      `
+    )
   );
   const financeMeta = document.getElementById("financeMeta");
   if (financeMeta && payload) {
@@ -493,11 +503,16 @@ async function loadReceivablesOnly() {
   if (payload) {
     setPanelCache("finance", payload);
     renderList("receivablesList", payload.receivables || [], (item) =>
-      `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
-      ${item.category || "-"} | ${item.due_date || "-"}<br>
-      <button onclick="settleReceivable(${item.id})">Dar baixa</button>
-      <button onclick="updateReceivableStatus(${item.id})">Atualizar status</button>
-      <button onclick="deleteReceivable(${item.id})">Excluir</button>`
+      buildDataRow(
+        `Receber #${item.id}`,
+        `${item.category || "-"} | ${item.due_date || "-"} | R$ ${Number(item.amount).toFixed(2)}`,
+        item.status,
+        `
+          <button class="table-action" onclick="settleReceivable(${item.id})">Dar baixa</button>
+          <button class="table-action" onclick="openStatusEditor('receivable', ${item.id}, '${item.status}')">Atualizar status</button>
+          <button class="table-action" onclick="deleteReceivable(${item.id})">Excluir</button>
+        `
+      )
     );
     const receivablesMeta = document.getElementById("receivablesMeta");
     if (receivablesMeta) {
@@ -518,11 +533,16 @@ async function loadPayablesOnly() {
   if (payload) {
     setPanelCache("finance", payload);
     renderList("payablesList", payload.payables || [], (item) =>
-      `#${item.id} | ${item.status} | R$ ${Number(item.amount).toFixed(2)}<br>
-      ${item.category || "-"} | ${item.due_date || "-"}<br>
-      <button onclick="settlePayable(${item.id})">Conciliar</button>
-      <button onclick="updatePayableStatus(${item.id})">Atualizar status</button>
-      <button onclick="deletePayable(${item.id})">Excluir</button>`
+      buildDataRow(
+        `Pagar #${item.id}`,
+        `${item.category || "-"} | ${item.due_date || "-"} | R$ ${Number(item.amount).toFixed(2)}`,
+        item.status,
+        `
+          <button class="table-action" onclick="settlePayable(${item.id})">Conciliar</button>
+          <button class="table-action" onclick="openStatusEditor('payable', ${item.id}, '${item.status}')">Atualizar status</button>
+          <button class="table-action" onclick="deletePayable(${item.id})">Excluir</button>
+        `
+      )
     );
     const payablesMeta = document.getElementById("payablesMeta");
     if (payablesMeta) {
@@ -547,8 +567,12 @@ async function loadOutboundMessagesOnly() {
   if (payload) {
     setPanelCache("messages", payload);
     renderList("messagesList", payload.messages || [], (item) =>
-      `#${item.id} | ${item.direction} | ${item.status}<br>${item.body}<br>
-      <button onclick="updateMessageStatus(${item.id})">Atualizar status</button>`
+      buildDataRow(
+        `Mensagem #${item.id}`,
+        `${item.direction} | ${item.body}`,
+        item.status,
+        `<button class="table-action" onclick="openStatusEditor('message', ${item.id}, '${item.status}')">Atualizar status</button>`
+      )
     );
     const messagesMeta = document.getElementById("messagesMeta");
     if (messagesMeta) {
@@ -573,8 +597,12 @@ async function loadInboundMessagesOnly() {
   if (payload) {
     setPanelCache("messages", payload);
     renderList("messagesList", payload.messages || [], (item) =>
-      `#${item.id} | ${item.direction} | ${item.status}<br>${item.body}<br>
-      <button onclick="updateMessageStatus(${item.id})">Atualizar status</button>`
+      buildDataRow(
+        `Mensagem #${item.id}`,
+        `${item.direction} | ${item.body}`,
+        item.status,
+        `<button class="table-action" onclick="openStatusEditor('message', ${item.id}, '${item.status}')">Atualizar status</button>`
+      )
     );
     const messagesMeta = document.getElementById("messagesMeta");
     if (messagesMeta) {
@@ -622,12 +650,12 @@ async function updateWhatsappSessionStatus() {
   await loadWorkspaceSummary();
 }
 
-async function updateReceivableStatus(id) {
+async function updateReceivableStatus(id, statusOverride = "") {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/finance/receivable/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
-    body: JSON.stringify({ status: selectedValue("receivableStatusUpdate", "paid") })
+    body: JSON.stringify({ status: statusOverride || selectedValue("receivableStatusUpdate", "paid") })
   });
   await showResult(response);
   invalidatePanelDomains("finance");
@@ -654,12 +682,12 @@ async function deleteReceivable(id) {
   await loadReceivables();
 }
 
-async function updatePayableStatus(id) {
+async function updatePayableStatus(id, statusOverride = "") {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/finance/payable/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
-    body: JSON.stringify({ status: selectedValue("payableStatusUpdate", "paid") })
+    body: JSON.stringify({ status: statusOverride || selectedValue("payableStatusUpdate", "paid") })
   });
   await showResult(response);
   invalidatePanelDomains("finance");
@@ -686,20 +714,20 @@ async function deletePayable(id) {
   await loadPayables();
 }
 
-async function updateMessageStatus(id) {
+async function updateMessageStatus(id, statusOverride = "") {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/message/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
-    body: JSON.stringify({ status: selectedValue("messageStatusUpdate", "read") })
+    body: JSON.stringify({ status: statusOverride || selectedValue("messageStatusUpdate", "read") })
   });
   await showResult(response);
   invalidatePanelDomains("messages");
   await loadMessagesSummary();
 }
 
-async function renameLead(id) {
-  const name = document.getElementById(`leadNameEdit-${id}`)?.value.trim() || "";
+async function renameLead(id, nameOverride = "") {
+  const name = nameOverride || document.getElementById(`leadNameEdit-${id}`)?.value.trim() || "";
   if (!name) {
     showToast("Informe o novo nome do lead.", "error");
     return;
@@ -722,8 +750,8 @@ async function deleteLead(id) {
   await loadLeadsOnly();
 }
 
-async function renameClient(id) {
-  const name = document.getElementById(`clientNameEdit-${id}`)?.value.trim() || "";
+async function renameClient(id, nameOverride = "") {
+  const name = nameOverride || document.getElementById(`clientNameEdit-${id}`)?.value.trim() || "";
   if (!name) {
     showToast("Informe o novo nome do client.", "error");
     return;
@@ -746,12 +774,12 @@ async function deleteClient(id) {
   await loadClientsOnly();
 }
 
-async function updateSalesOrderStatus(id) {
+async function updateSalesOrderStatus(id, statusOverride = "") {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/sales-order/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
-    body: JSON.stringify({ status: selectedValue("salesOrderStatusUpdate", "confirmed") })
+    body: JSON.stringify({ status: statusOverride || selectedValue("salesOrderStatusUpdate", "confirmed") })
   });
   await showResult(response);
   invalidatePanelDomains("orders");
@@ -765,8 +793,8 @@ async function deleteSalesOrder(id) {
   await loadOrdersSummary();
 }
 
-async function renameProposal(id) {
-  const title = document.getElementById(`proposalTitleEdit-${id}`)?.value.trim() || "";
+async function renameProposal(id, titleOverride = "") {
+  const title = titleOverride || document.getElementById(`proposalTitleEdit-${id}`)?.value.trim() || "";
   if (!title) {
     showToast("Informe o novo titulo da proposta.", "error");
     return;
@@ -795,8 +823,8 @@ async function deleteProposal(id) {
   await loadProposalsOnly();
 }
 
-async function renameContract(id) {
-  const title = document.getElementById(`contractTitleEdit-${id}`)?.value.trim() || "";
+async function renameContract(id, titleOverride = "") {
+  const title = titleOverride || document.getElementById(`contractTitleEdit-${id}`)?.value.trim() || "";
   if (!title) {
     showToast("Informe o novo titulo do contrato.", "error");
     return;
@@ -825,16 +853,120 @@ async function deleteContract(id) {
   await loadContractsOnly();
 }
 
-async function updateContractStatus(id) {
+async function updateContractStatus(id, statusOverride = "") {
   const response = await fetch(`/admin/panel/${getTenantSlug()}/contract/${id}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
-    body: JSON.stringify({ status: selectedValue("contractStatusUpdate", "sent") })
+    body: JSON.stringify({ status: statusOverride || selectedValue("contractStatusUpdate", "sent") })
   });
   await showResult(response);
   invalidatePanelDomains("documents");
   await loadContractsOnly();
+}
+
+function openLeadEditor(id, currentName = "") {
+  openEditorDrawer({
+    entity: "lead",
+    id,
+    title: `Editar lead #${id}`,
+    value: currentName,
+    placeholder: "Novo nome do lead",
+    onSubmit: async ({ id: itemId, value }) => renameLead(itemId, value),
+    onSuccess: closeEditorDrawer
+  });
+}
+
+function openClientEditor(id, currentName = "") {
+  openEditorDrawer({
+    entity: "client",
+    id,
+    title: `Editar client #${id}`,
+    value: currentName,
+    placeholder: "Novo nome do client",
+    onSubmit: async ({ id: itemId, value }) => renameClient(itemId, value),
+    onSuccess: closeEditorDrawer
+  });
+}
+
+function openProposalEditor(id, currentTitle = "") {
+  openEditorDrawer({
+    entity: "proposal",
+    id,
+    title: `Editar proposta #${id}`,
+    value: currentTitle,
+    placeholder: "Novo titulo da proposta",
+    onSubmit: async ({ id: itemId, value }) => renameProposal(itemId, value),
+    onSuccess: closeEditorDrawer
+  });
+}
+
+function openContractEditor(id, currentTitle = "") {
+  openEditorDrawer({
+    entity: "contract",
+    id,
+    title: `Editar contrato #${id}`,
+    value: currentTitle,
+    placeholder: "Novo titulo do contrato",
+    onSubmit: async ({ id: itemId, value }) => renameContract(itemId, value),
+    onSuccess: closeEditorDrawer
+  });
+}
+
+function openStatusEditor(entity, id, currentStatus = "") {
+  const optionsMap = {
+    sales_order: ["confirmed", "pending", "closed", "cancelled"],
+    contract: ["draft", "sent", "signed", "cancelled"],
+    receivable: ["paid", "pending", "overdue", "cancelled"],
+    payable: ["paid", "pending", "overdue", "cancelled"],
+    message: ["read", "sent", "delivered", "failed"]
+  };
+  const handlers = {
+    sales_order: (payload) => updateSalesOrderStatus(payload.id, payload.status),
+    contract: (payload) => updateContractStatus(payload.id, payload.status),
+    receivable: (payload) => updateReceivableStatus(payload.id, payload.status),
+    payable: (payload) => updatePayableStatus(payload.id, payload.status),
+    message: (payload) => updateMessageStatus(payload.id, payload.status)
+  };
+  openEditorDrawer({
+    entity,
+    id,
+    mode: "status",
+    title: `Atualizar status`,
+    value: currentStatus,
+    options: optionsMap[entity] || [],
+    hint: "Selecione o status e confirme.",
+    onSubmit: async ({ id: itemId, status }) => handlers[entity]({ id: itemId, status }),
+    onSuccess: closeEditorDrawer
+  });
+}
+
+async function submitEditorDrawer() {
+  const onSubmit = panelEditor.onSubmit;
+  if (!onSubmit) {
+    closeEditorDrawer();
+    return;
+  }
+  const id = Number(document.getElementById("editorDrawerItemId").value || "0");
+  const statusField = document.getElementById("editorStatusField");
+  const isStatusMode = !statusField.classList.contains("hidden");
+  const payload = {
+    id,
+    value: document.getElementById("editorDrawerName").value.trim(),
+    status: document.getElementById("editorDrawerStatus").value
+  };
+  if (!id) {
+    showToast("Item invalido para edicao.", "error");
+    return;
+  }
+  if (!isStatusMode && !payload.value) {
+    showToast("Informe um valor para salvar.", "error");
+    return;
+  }
+  await onSubmit(payload);
+  if (panelEditor.onSuccess) {
+    panelEditor.onSuccess();
+  }
 }
 
 async function loadDocumentsSummary() {
@@ -969,10 +1101,15 @@ async function loadLeadsOnly() {
   if (payload) {
     setPanelCache("leads", payload);
     renderList("leadsList", payload.items || [], (item) =>
-      `#${item.id} | ${item.name}<br>${item.email || "-"}<br>
-      <input id="leadNameEdit-${item.id}" placeholder="Novo nome">
-      <button onclick="renameLead(${item.id})">Editar</button>
-      <button onclick="deleteLead(${item.id})">Excluir</button>`
+      buildDataRow(
+        item.name,
+        item.email || "-",
+        "lead",
+        `
+          <button class="table-action" onclick="openLeadEditor(${item.id}, '${String(item.name).replace(/'/g, "\\'")}')">Editar</button>
+          <button class="table-action" onclick="deleteLead(${item.id})">Excluir</button>
+        `
+      )
     );
     const leadsMeta = document.getElementById("leadsMeta");
     if (leadsMeta) {
@@ -999,10 +1136,15 @@ async function loadClientsOnly() {
   if (payload) {
     setPanelCache("clients", payload);
     renderList("clientsList", payload.items || [], (item) =>
-      `#${item.id} | ${item.name}<br>${item.email || "-"}<br>
-      <input id="clientNameEdit-${item.id}" placeholder="Novo nome">
-      <button onclick="renameClient(${item.id})">Editar</button>
-      <button onclick="deleteClient(${item.id})">Excluir</button>`
+      buildDataRow(
+        item.name,
+        item.email || "-",
+        "client",
+        `
+          <button class="table-action" onclick="openClientEditor(${item.id}, '${String(item.name).replace(/'/g, "\\'")}')">Editar</button>
+          <button class="table-action" onclick="deleteClient(${item.id})">Excluir</button>
+        `
+      )
     );
     const clientsMeta = document.getElementById("clientsMeta");
     if (clientsMeta) {
@@ -1025,10 +1167,15 @@ async function loadProposalsOnly() {
   if (payload) {
     setPanelCache("proposals", payload);
     renderList("proposalsList", payload.items || [], (item) =>
-      `#${item.id} | ${item.title}<br>${item.pdf_path || "sem pdf"}<br>
-      <input id="proposalTitleEdit-${item.id}" placeholder="Novo titulo">
-      <button onclick="renameProposal(${item.id})">Renomear</button>
-      <button onclick="deleteProposal(${item.id})">Excluir</button>`
+      buildDataRow(
+        item.title,
+        item.pdf_path || "sem pdf",
+        "proposta",
+        `
+          <button class="table-action" onclick="openProposalEditor(${item.id}, '${String(item.title).replace(/'/g, "\\'")}')">Renomear</button>
+          <button class="table-action" onclick="deleteProposal(${item.id})">Excluir</button>
+        `
+      )
     );
     const docsMeta = document.getElementById("documentsMeta");
     if (docsMeta) {
@@ -1057,11 +1204,16 @@ async function loadContractsOnly() {
   if (payload) {
     setPanelCache("contracts", payload);
     renderList("contractsList", payload.items || [], (item) =>
-      `#${item.id} | ${item.title} | ${item.status}<br>
-      <input id="contractTitleEdit-${item.id}" placeholder="Novo titulo">
-      <button onclick="renameContract(${item.id})">Renomear</button>
-      <button onclick="updateContractStatus(${item.id})">Atualizar status</button>
-      <button onclick="deleteContract(${item.id})">Excluir</button>`
+      buildDataRow(
+        item.title,
+        `Contrato #${item.id}`,
+        item.status,
+        `
+          <button class="table-action" onclick="openContractEditor(${item.id}, '${String(item.title).replace(/'/g, "\\'")}')">Renomear</button>
+          <button class="table-action" onclick="openStatusEditor('contract', ${item.id}, '${item.status}')">Atualizar status</button>
+          <button class="table-action" onclick="deleteContract(${item.id})">Excluir</button>
+        `
+      )
     );
     const docsMeta = document.getElementById("documentsMeta");
     if (docsMeta) {
@@ -1129,16 +1281,26 @@ async function loadPeopleSummary() {
     const leadsBlock = payload.leads || {};
     const clientsBlock = payload.clients || {};
     renderList("leadsList", leadsBlock.items || [], (item) =>
-      `#${item.id} | ${item.name}<br>${item.email || "-"}<br>
-      <input id="leadNameEdit-${item.id}" placeholder="Novo nome">
-      <button onclick="renameLead(${item.id})">Editar</button>
-      <button onclick="deleteLead(${item.id})">Excluir</button>`
+      buildDataRow(
+        item.name,
+        item.email || "-",
+        "lead",
+        `
+          <button class="table-action" onclick="openLeadEditor(${item.id}, '${String(item.name).replace(/'/g, "\\'")}')">Editar</button>
+          <button class="table-action" onclick="deleteLead(${item.id})">Excluir</button>
+        `
+      )
     );
     renderList("clientsList", clientsBlock.items || [], (item) =>
-      `#${item.id} | ${item.name}<br>${item.email || "-"}<br>
-      <input id="clientNameEdit-${item.id}" placeholder="Novo nome">
-      <button onclick="renameClient(${item.id})">Editar</button>
-      <button onclick="deleteClient(${item.id})">Excluir</button>`
+      buildDataRow(
+        item.name,
+        item.email || "-",
+        "client",
+        `
+          <button class="table-action" onclick="openClientEditor(${item.id}, '${String(item.name).replace(/'/g, "\\'")}')">Editar</button>
+          <button class="table-action" onclick="deleteClient(${item.id})">Excluir</button>
+        `
+      )
     );
     const leadsMeta = document.getElementById("leadsMeta");
     if (leadsMeta) {
