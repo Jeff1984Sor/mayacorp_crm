@@ -10,6 +10,7 @@ async function centralLogin() {
   });
   const payload = await showResult(response);
   if (payload) {
+    panelAuth.centralToken = payload.token || null;
     setPanelVisibility(true);
     switchPanelSection("home");
     if (output) {
@@ -20,13 +21,14 @@ async function centralLogin() {
 }
 
 async function logoutPanel() {
-  const response = await fetch("/admin/panel/logout", { method: "POST", credentials: "same-origin" });
+  const response = await fetch("/admin/panel/logout", buildCentralRequestOptions({ method: "POST" }));
   await showResult(response);
+  panelAuth.centralToken = null;
   setPanelVisibility(false);
 }
 
 async function centralDashboard() {
-  const response = await fetch("/admin/panel/central/dashboard", { credentials: "same-origin" });
+  const response = await fetch("/admin/panel/central/dashboard", buildCentralRequestOptions());
   const payload = await showResult(response);
   if (payload) {
     setPanelVisibility(true);
@@ -37,9 +39,10 @@ async function centralDashboard() {
 
 async function createTenant() {
   const response = await fetch("/admin/panel/tenant", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "same-origin",
+    ...buildCentralRequestOptions({
+      method: "POST",
+      headers: { "Content-Type": "application/json" }
+    }),
     body: JSON.stringify({
       company_name: document.getElementById("companyName").value,
       workspace_slug: document.getElementById("workspaceSlug").value,

@@ -3,6 +3,7 @@ const toast = document.getElementById("toast");
 const panelCache = window.__PANEL_CACHE__ || (window.__PANEL_CACHE__ = {});
 const panelEditor = window.__PANEL_EDITOR__ || (window.__PANEL_EDITOR__ = {});
 const panelInspector = window.__PANEL_INSPECTOR__ || (window.__PANEL_INSPECTOR__ = { tab: "summary", detail: null });
+const panelAuth = window.__PANEL_AUTH__ || (window.__PANEL_AUTH__ = { centralToken: null });
 
 function unwrapPayload(parsed) {
   if (parsed && Object.prototype.hasOwnProperty.call(parsed, "ok") && Object.prototype.hasOwnProperty.call(parsed, "data")) {
@@ -100,6 +101,14 @@ function setPanelCache(key, value) {
 
 function getPanelCache(key) {
   return panelCache[key];
+}
+
+function buildCentralRequestOptions(extra = {}) {
+  const headers = { ...(extra.headers || {}) };
+  if (panelAuth.centralToken) {
+    headers["X-Panel-Central-Token"] = panelAuth.centralToken;
+  }
+  return { ...extra, headers, credentials: "same-origin" };
 }
 
 function setPanelVisibility(isAuthenticated) {

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import Cookie, Depends, HTTPException
+from fastapi import Cookie, Depends, Header, HTTPException
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
@@ -131,12 +131,14 @@ def ensure_panel_status(status: str, allowed: set[str], context: str) -> str:
 
 def panel_central_user_dep(
     panel_central_token: str | None = Cookie(default=None),
+    x_panel_central_token: str | None = Header(default=None),
     session: Session = Depends(central_session_dep),
 ) -> CentralUser:
-    if not panel_central_token:
+    token = panel_central_token or x_panel_central_token
+    if not token:
         raise HTTPException(status_code=401, detail="Panel central session required.")
     try:
-        payload = decode_token(panel_central_token)
+        payload = decode_token(token)
     except ValueError:
         raise HTTPException(status_code=401, detail="Invalid panel central session.")
     if payload.get("scope") != "central":

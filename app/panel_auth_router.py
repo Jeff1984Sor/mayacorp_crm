@@ -45,7 +45,7 @@ def admin_panel_login(
     response.set_cookie("panel_central_token", token, **panel_cookie_options())
     return panel_response(
         "Sessao central iniciada.",
-        {"email": user.email, "full_name": user.full_name, "must_change_password": user.must_change_password},
+        {"email": user.email, "full_name": user.full_name, "must_change_password": user.must_change_password, "token": token},
     )
 
 
