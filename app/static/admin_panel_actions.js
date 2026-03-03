@@ -14,6 +14,8 @@ async function centralLogin() {
     setPanelVisibility(true);
     switchPanelSection("home");
     loadCompanyAccounts().catch(() => {});
+    loadCatalogProducts().catch(() => {});
+    loadCatalogPlans().catch(() => {});
     if (output) {
       output.textContent = JSON.stringify({ ok: true, message: "Sessao central iniciada." }, null, 2);
     }
@@ -39,6 +41,8 @@ async function centralDashboard() {
     setPanelVisibility(true);
     activateSectionAndScroll("home", "topMetrics");
     loadCompanyAccounts().catch(() => {});
+    loadCatalogProducts().catch(() => {});
+    loadCatalogPlans().catch(() => {});
     await loadWorkspaceSummary();
   }
 }
@@ -95,22 +99,29 @@ function getActiveCompanyAccountId() {
   return toOptionalInt(document.getElementById("activeCompanyAccountId")?.value || "");
 }
 
-function renderTenantAccountResults(items) {
-  const results = document.getElementById("tenantAccountResults");
-  if (!results) {
+function getClientAccounts() {
+  const cache = getPanelCache("companyAccounts");
+  return (cache?.items || []).filter((item) => item.lifecycle_stage === "client");
+}
+
+function renderClientDirectory(items) {
+  const target = document.getElementById("clientDirectoryList");
+  if (!target) {
     return;
   }
   if (!items || items.length === 0) {
-    results.innerHTML = '<div class="tenant-account-result empty">Nenhum cliente encontrado.</div>';
+    target.innerHTML = '<div class="list-item">Nenhum cliente encontrado.</div>';
     return;
   }
-  results.innerHTML = items
+  target.innerHTML = items
     .map(
       (item) => `
-        <button type="button" class="tenant-account-result" onclick="selectTenantAccount(${item.id})">
-          <strong>#${item.id}</strong> ${item.name}
-          <span>${item.tenant_id ? `Tenant ${item.tenant_id}` : "Sem tenant"}</span>
-        </button>
+        <div class="list-item">
+          <button type="button" class="tenant-account-result" onclick="selectClientProfile(${item.id})">
+            <strong>#${item.id}</strong> ${item.name}
+            <span>${item.tenant_id ? `Tenant ${item.tenant_id}` : "Sem tenant"}</span>
+          </button>
+        </div>
       `
     )
     .join("");
@@ -119,14 +130,10 @@ function renderTenantAccountResults(items) {
 function applyTenantAccountSelection(selected) {
   const hidden = document.getElementById("tenantAccountId");
   const status = document.getElementById("tenantAccountTenantStatus");
-  const search = document.getElementById("tenantAccountSearch");
   if (!hidden) {
     return;
   }
   hidden.value = selected ? String(selected.id) : "";
-  if (search && selected) {
-    search.value = `#${selected.id} ${selected.name}`;
-  }
   if (!selected) {
     if (status) {
       status.textContent = "Selecione um cliente para ver o tenant vinculado.";
@@ -146,39 +153,297 @@ function applyTenantAccountSelection(selected) {
   if (adminEmail) {
     adminEmail.value = selected.admin_email || "";
   }
+  const tenantEmail = document.getElementById("tenantEmail");
+  if (tenantEmail) {
+    tenantEmail.value = selected.admin_email || "";
+  }
+}
+
+function renderClientProfile(selected) {
+  const empty = document.getElementById("clientProfileEmpty");
+  const panel = document.getElementById("clientProfilePanel");
+  if (!empty || !panel) {
+    return;
+  }
+  if (!selected) {
+    empty.classList.remove("hidden");
+    panel.classList.add("hidden");
+    return;
+  }
+  empty.classList.add("hidden");
+  panel.classList.remove("hidden");
+  document.getElementById("clientProfileStage").textContent = selected.lifecycle_stage || "client";
+  document.getElementById("clientProfileTenantBadge").textContent = selected.tenant_id
+    ? `Tenant ${selected.tenant_id}`
+    : "Sem tenant";
+  document.getElementById("clientProfileName").textContent = selected.name || "-";
+  document.getElementById("clientProfileMeta").textContent = `${selected.admin_email || "-"} | Cliente #${selected.id}`;
+  document.getElementById("clientSummaryStage").textContent = `Estagio: ${selected.lifecycle_stage}`;
+  document.getElementById("clientSummaryEmail").textContent = `Email: ${selected.admin_email || "-"}`;
+  document.getElementById("clientSummaryTenant").textContent = selected.tenant_id
+    ? `Tenant vinculado: ${selected.tenant_id}`
+    : "Tenant vinculado: nenhum";
+  document.getElementById("clientSalesHint").textContent = `Cliente ativo: ${selected.name} (#${selected.id})`;
+  document.getElementById("clientSalesFilter").textContent = `Vendas e documentos serao abertos com filtro pela conta ${selected.id}.`;
+  applyTenantAccountSelection(selected);
+}
+
+function selectClientProfile(accountId) {
+  const selected = getClientAccounts().find((item) => item.id === accountId) || null;
+  if (!selected) {
+    return;
+  }
+  setActiveCompanyAccount(selected.id);
+  renderClientProfile(selected);
+}
+
+function filterClientDirectory() {
+  const input = document.getElementById("clientDirectorySearch");
+  const items = getClientAccounts();
+  if (!input) {
+    return;
+  }
+  const term = (input.value || "").trim().toLowerCase();
+  if (!term) {
+    renderClientDirectory(items);
+    return;
+  }
+  renderClientDirectory(
+    items.filter((item) => `${item.id} ${item.name} ${item.admin_email || ""}`.toLowerCase().includes(term))
+  );
+}
+
+function openClientProfileTab(tab, trigger = null) {
+  document.querySelectorAll(".client-tab-panel").forEach((node) => {
+    node.classList.toggle("active", node.dataset.clientPanel === tab);
+  });
+  document.querySelectorAll("[data-client-tab]").forEach((node) => {
+    node.classList.toggle("active", node.dataset.clientTab === tab);
+  });
+  if (trigger && trigger.classList) {
+    trigger.classList.add("active");
+  }
+}
+
+function openNewClientComposer() {
+  switchPanelSection("tenant");
+  const name = document.getElementById("companyName");
+  if (name && typeof name.focus === "function") {
+    name.focus();
+  }
+}
+
+function buildCatalogProductPayload() {
+  return {
+    code: document.getElementById("catalogProductCode").value,
+    name: document.getElementById("catalogProductName").value,
+    amount: Number(document.getElementById("catalogProductAmount").value || "0")
+  };
+}
+
+function buildCatalogPlanPayload() {
+  return {
+    code: document.getElementById("catalogPlanCode").value,
+    name: document.getElementById("catalogPlanName").value,
+    product_id: toOptionalInt(document.getElementById("catalogPlanProductId").value),
+    amount: Number(document.getElementById("catalogPlanAmount").value || "0"),
+    billing_cycle: document.getElementById("catalogPlanBillingCycle").value,
+    currency: document.getElementById("catalogPlanCurrency").value || "BRL",
+    is_active: selectedValue("catalogPlanIsActive", "true") === "true"
+  };
+}
+
+function syncCatalogProductOptions() {
+  const select = document.getElementById("catalogPlanProductId");
+  if (!select) {
+    return;
+  }
+  const cache = getPanelCache("catalogProducts");
+  const items = cache?.items || [];
+  const currentValue = select.value;
+  select.innerHTML = '<option value="">Sem produto</option>' + items
+    .map((item) => `<option value="${item.id}">${item.name} (#${item.id})</option>`)
+    .join("");
+  if (currentValue) {
+    select.value = currentValue;
+  }
+}
+
+async function createCatalogProduct() {
+  const response = await fetch("/admin/panel/catalog/product", {
+    ...buildCentralRequestOptions({
+      method: "POST",
+      headers: { "Content-Type": "application/json" }
+    }),
+    body: JSON.stringify(buildCatalogProductPayload())
+  });
+  const payload = await showResult(response);
+  if (payload) {
+    await loadCatalogProducts();
+  }
+}
+
+async function updateCatalogProduct(productId) {
+  const products = getPanelCache("catalogProducts")?.items || [];
+  const current = products.find((item) => item.id === productId);
+  if (!current) {
+    return;
+  }
+  const name = window.prompt("Nome do produto:", current.name);
+  if (name === null) {
+    return;
+  }
+  const amount = window.prompt("Valor base:", String(current.amount));
+  if (amount === null) {
+    return;
+  }
+  const response = await fetch(`/admin/panel/catalog/product/${productId}`, {
+    ...buildCentralRequestOptions({
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" }
+    }),
+    body: JSON.stringify({
+      code: current.code,
+      name: name.trim() || current.name,
+      amount: Number(amount || current.amount)
+    })
+  });
+  const payload = await showResult(response);
+  if (payload) {
+    await loadCatalogProducts();
+  }
+}
+
+async function loadCatalogProducts() {
+  const response = await fetch("/admin/panel/catalog/products", buildCentralRequestOptions());
+  const payload = await showResult(response);
+  if (!payload) {
+    return;
+  }
+  setPanelCache("catalogProducts", payload);
+  syncCatalogProductOptions();
+  const meta = document.getElementById("catalogProductsMeta");
+  if (meta) {
+    meta.textContent = `Produtos ${payload.total || 0}`;
+  }
+  const list = document.getElementById("catalogProductsList");
+  if (list) {
+    list.innerHTML = (payload.items || []).length
+      ? payload.items
+          .map(
+            (item) => `
+              <div class="list-item">
+                <strong>${item.name}</strong> | ${item.code} | R$ ${Number(item.amount || 0).toFixed(2)}
+                <button class="table-action" type="button" onclick="updateCatalogProduct(${item.id})">Editar</button>
+              </div>
+            `
+          )
+          .join("")
+      : '<div class="list-item">Nenhum produto cadastrado.</div>';
+  }
+}
+
+async function createCatalogPlan() {
+  const response = await fetch("/admin/panel/catalog/plan", {
+    ...buildCentralRequestOptions({
+      method: "POST",
+      headers: { "Content-Type": "application/json" }
+    }),
+    body: JSON.stringify(buildCatalogPlanPayload())
+  });
+  const payload = await showResult(response);
+  if (payload) {
+    await loadCatalogPlans();
+  }
+}
+
+async function updateCatalogPlan(planId) {
+  const plans = getPanelCache("catalogPlans")?.items || [];
+  const current = plans.find((item) => item.id === planId);
+  if (!current) {
+    return;
+  }
+  const name = window.prompt("Nome do plano:", current.name);
+  if (name === null) {
+    return;
+  }
+  const amount = window.prompt("Valor do plano:", String(current.amount));
+  if (amount === null) {
+    return;
+  }
+  const billingCycle = window.prompt("Duracao do plano:", current.billing_cycle || "monthly");
+  if (billingCycle === null) {
+    return;
+  }
+  const response = await fetch(`/admin/panel/catalog/plan/${planId}`, {
+    ...buildCentralRequestOptions({
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" }
+    }),
+    body: JSON.stringify({
+      code: current.code,
+      name: name.trim() || current.name,
+      product_id: current.product_id || null,
+      amount: Number(amount || current.amount),
+      billing_cycle: billingCycle.trim() || current.billing_cycle || "monthly",
+      currency: current.currency || "BRL",
+      is_active: current.is_active !== false
+    })
+  });
+  const payload = await showResult(response);
+  if (payload) {
+    await loadCatalogPlans();
+  }
+}
+
+async function loadCatalogPlans() {
+  const response = await fetch("/admin/panel/catalog/plans", buildCentralRequestOptions());
+  const payload = await showResult(response);
+  if (!payload) {
+    return;
+  }
+  setPanelCache("catalogPlans", payload);
+  const meta = document.getElementById("catalogPlansMeta");
+  if (meta) {
+    meta.textContent = `Planos ${payload.total || 0}`;
+  }
+  const list = document.getElementById("catalogPlansList");
+  if (list) {
+    list.innerHTML = (payload.items || []).length
+      ? payload.items
+          .map(
+            (item) => `
+              <div class="list-item">
+                <strong>${item.name}</strong> | ${item.code} | ${item.billing_cycle || "-"} | R$ ${Number(item.amount || 0).toFixed(2)} | Produto ${item.product_id || "-"}
+                <button class="table-action" type="button" onclick="updateCatalogPlan(${item.id})">Editar</button>
+              </div>
+            `
+          )
+          .join("")
+      : '<div class="list-item">Nenhum plano cadastrado.</div>';
+  }
+}
+
+function prepareClientSale() {
+  const activeId = getActiveCompanyAccountId();
+  if (!activeId) {
+    showToast("Selecione um cliente antes de abrir nova venda.", "error");
+    return;
+  }
+  const salesAccount = document.getElementById("salesCompanyAccountId");
+  if (salesAccount) {
+    salesAccount.value = String(activeId);
+  }
+  const summaryAccount = document.getElementById("summaryCompanyAccountId");
+  if (summaryAccount) {
+    summaryAccount.value = String(activeId);
+  }
+  activateSectionAndScroll("sales", "salesDescription");
+  loadOrdersSummary().catch(() => {});
 }
 
 function filterTenantAccounts() {
-  const search = document.getElementById("tenantAccountSearch");
-  const cache = getPanelCache("companyAccounts");
-  const items = (cache?.items || []).filter((item) => item.lifecycle_stage === "client");
-  if (!search) {
-    return;
-  }
-  const term = (search.value || "").trim().toLowerCase();
-  if (!term) {
-    renderTenantAccountResults(items);
-    const hidden = document.getElementById("tenantAccountId");
-    if (hidden) {
-      hidden.value = "";
-    }
-    const status = document.getElementById("tenantAccountTenantStatus");
-    if (status) {
-      status.textContent = "Selecione um cliente para ver o tenant vinculado.";
-    }
-    return;
-  }
-  const filtered = items.filter((item) => {
-    const haystack = `${item.id} ${item.name} ${item.admin_email || ""}`.toLowerCase();
-    return haystack.includes(term);
-  });
-  renderTenantAccountResults(filtered);
-}
-
-function selectTenantAccount(accountId) {
-  const cache = getPanelCache("companyAccounts");
-  const selected = (cache?.items || []).find((item) => item.id === accountId && item.lifecycle_stage === "client") || null;
-  applyTenantAccountSelection(selected);
+  filterClientDirectory();
 }
 
 function setActiveCompanyAccount(accountId) {
@@ -200,12 +465,7 @@ function setActiveCompanyAccount(accountId) {
     }
   });
   if (value) {
-    const tenantSearch = document.getElementById("tenantAccountSearch");
-    const cache = getPanelCache("companyAccounts");
-    const selected = cache?.items?.find((item) => item.id === accountId) || null;
-    if (tenantSearch) {
-      tenantSearch.value = selected ? `#${selected.id} ${selected.name}` : value;
-    }
+    const selected = getClientAccounts().find((item) => item.id === accountId) || null;
     const tenantCompanyName = document.getElementById("tenantCompanyName");
     if (tenantCompanyName && document.getElementById("companyName")) {
       tenantCompanyName.value = document.getElementById("companyName").value;
@@ -215,6 +475,7 @@ function setActiveCompanyAccount(accountId) {
       tenantAdminCreateEmail.value = document.getElementById("tenantAdminEmail").value;
     }
     applyTenantAccountSelection(selected);
+    renderClientProfile(selected);
     showToast(`Conta ${value} selecionada para pedidos e documentos.`);
   }
 }
@@ -240,33 +501,10 @@ async function loadCompanyAccounts() {
     return;
   }
   setPanelCache("companyAccounts", payload);
-  renderTenantAccountResults((payload.items || []).filter((item) => item.lifecycle_stage === "client"));
-  renderList("companyAccountsList", payload.items || [], (item) =>
-    buildDataRow(
-      item.name,
-      `${item.admin_email || "-"} | tenant ${item.tenant_id || "sem vinculo"}`,
-      item.lifecycle_stage,
-      `
-        <button class="table-action" onclick="setActiveCompanyAccount(${item.id})">Usar no fluxo</button>
-        <button class="table-action" onclick="promoteCompanyAccount(${item.id})">Virar client</button>
-        <button class="table-action" onclick="renameCompanyAccount(${item.id}, '${String(item.name).replace(/'/g, "\\'")}', '${String(item.lifecycle_stage || "lead").replace(/'/g, "\\'")}', '${String(item.admin_email || "").replace(/'/g, "\\'")}', '${String(item.phone || "").replace(/'/g, "\\'")}', '${String(item.company_document || "").replace(/'/g, "\\'")}', '${String(item.notes || "").replace(/'/g, "\\'")}')">Renomear</button>
-      `,
-      {
-        entity: "conta",
-        title: item.name,
-        subtitle: item.admin_email || "-",
-        status: item.lifecycle_stage,
-        meta: [
-          `Tenant ${item.tenant_id || "sem vinculo"}`,
-          item.phone || "Sem telefone",
-          item.company_document || "Sem documento"
-        ]
-      }
-    )
-  );
+  renderClientDirectory(getClientAccounts());
   const meta = document.getElementById("accountsMeta");
   if (meta) {
-    meta.textContent = `Total ${payload.total || 0}`;
+    meta.textContent = `Clientes ${getClientAccounts().length}`;
   }
 }
 

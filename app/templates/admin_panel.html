@@ -57,7 +57,8 @@
           </div>
           <div class="nav-group">
             <div class="nav-group-label">Setup</div>
-            <button class="menu-btn" data-panel-section="tenant" onclick="switchPanelSection('tenant', this)">Conta</button>
+            <button class="menu-btn" data-panel-section="tenant" onclick="switchPanelSection('tenant', this)">Clientes</button>
+            <button class="menu-btn" data-panel-section="catalog" onclick="switchPanelSection('catalog', this)">Catalogo</button>
           </div>
           <div class="nav-group">
             <div class="nav-group-label">Comercial</div>
@@ -187,203 +188,193 @@
             <div class="section-heading">
               <div>
                 <div class="section-kicker">Setup</div>
-                <h2>Conta, tenant e evolucao comercial</h2>
-                <p>O fluxo agora parte da empresa. Primeiro voce registra a conta, define se ela esta como lead ou cliente, e depois abre tenant, planos e operacao.</p>
+                <h2>Clientes</h2>
+                <p>Essa tela concentra a base central de clientes. Escolha um cliente na lista, abra a ficha e execute as acoes contextuais dali.</p>
               </div>
-              <button class="ghost-btn" onclick="loadWorkspaceSummary()">Abrir resumo do workspace</button>
-            </div>
-            <div class="account-stage-card">
-              <div class="card-topline">
-                <span class="pill">Regra de negocio</span>
-                <span class="helper">Lead pode evoluir</span>
-              </div>
-              <h3 class="card-title">Empresa como conta principal</h3>
-              <p class="card-copy">A mesma empresa pode nascer como lead e depois virar cliente. O tenant passa a ser uma aba operacional da conta, nao o ponto de entrada.</p>
-              <div class="stage-flow">
-                <div class="stage-pill">1. Conta</div>
-                <div class="stage-pill">2. Status: Lead ou Cliente</div>
-                <div class="stage-pill">3. Tenant</div>
-                <div class="stage-pill">4. Planos e Operacao</div>
+              <div class="app-header-actions">
+                <button class="ghost-btn" type="button" onclick="openNewClientComposer()">Novo cliente</button>
+                <button class="ghost-btn" type="button" onclick="loadCompanyAccounts()">Atualizar lista</button>
               </div>
             </div>
-            <div class="workspace-tabs">
-              <button class="workspace-tab active" type="button" data-workspace-tab="account" onclick="switchWorkspaceFlowTab('account', this)">Conta</button>
-              <button class="workspace-tab" type="button" data-workspace-tab="workspace" onclick="switchWorkspaceFlowTab('workspace', this)">Tenant</button>
-              <button class="workspace-tab" type="button" data-workspace-tab="plans" onclick="switchWorkspaceFlowTab('plans', this)">Planos</button>
-              <button class="workspace-tab" type="button" data-workspace-tab="relationship" onclick="switchWorkspaceFlowTab('relationship', this)">Relacionamento</button>
-            </div>
-            <div class="workspace-tab-panel active" data-workspace-panel="account">
-              <div class="section-heading">
-                <div>
-                  <div class="section-kicker">Conta</div>
-                  <h3 class="card-title">Cadastro principal</h3>
+            <input id="activeCompanyAccountId" type="hidden">
+            <div class="clients-shell">
+              <aside class="card module-card clients-list-card">
+                <div class="card-topline">
+                  <span class="pill">Clientes</span>
+                  <span class="helper">Base central</span>
                 </div>
-                <div class="app-header-actions">
-                  <button class="ghost-btn" type="button" onclick="loadCompanyAccounts()">Atualizar contas</button>
-                  <button class="ghost-btn" type="button" onclick="switchWorkspaceFlowTab('workspace')">Tenant</button>
-                  <button class="ghost-btn" type="button" onclick="switchWorkspaceFlowTab('plans')">Planos</button>
-                  <button class="ghost-btn" type="button" onclick="switchWorkspaceFlowTab('relationship')">Relacionamento</button>
+                <label for="clientDirectorySearch">Pesquisar cliente</label>
+                <input id="clientDirectorySearch" placeholder="Nome, email ou ID" oninput="filterClientDirectory()">
+                <div id="accountsMeta" class="helper"></div>
+                <div id="clientDirectoryList" class="listbox table-list"></div>
+              </aside>
+              <section class="card module-card client-profile-card">
+                <div class="card-topline">
+                  <span class="pill pill-dark">Ficha</span>
+                  <span class="helper">Cliente selecionado</span>
                 </div>
-              </div>
-              <div class="module-grid">
-                <div class="card module-card module-card-accent">
-                  <div class="card-topline">
-                    <span class="pill">Conta</span>
-                    <span class="helper">Entrada principal</span>
-                  </div>
-                  <h3 class="card-title">Cadastrar empresa</h3>
-                  <p class="card-copy">Abra a conta da empresa primeiro. O mesmo cadastro pode comecar como lead e depois seguir para cliente com tenant ativo.</p>
-                  <details class="module-reveal" open>
-                    <summary>Abrir cadastro da conta</summary>
-                    <label for="companyName">Empresa</label>
-                    <input id="companyName">
-                    <label for="companyStage">Estagio da conta</label>
-                    <select id="companyStage">
-                      <option value="lead">lead</option>
-                      <option value="client">client</option>
-                    </select>
-                    <label for="workspaceSlug">Workspace</label>
-                    <input id="workspaceSlug">
-                    <div class="row">
-                      <div><label for="tenantAdminName">Responsavel</label><input id="tenantAdminName"></div>
-                      <div><label for="tenantAdminPassword">Senha</label><input id="tenantAdminPassword" type="password"></div>
+                <div id="clientProfileEmpty" class="inspector-empty">Selecione um cliente na lista para abrir a ficha.</div>
+                <div id="clientProfilePanel" class="hidden">
+                  <div class="client-profile-hero">
+                    <div class="client-profile-identity">
+                      <div class="client-profile-topline">
+                        <span id="clientProfileStage" class="pill">client</span>
+                        <span id="clientProfileTenantBadge" class="helper">Sem tenant</span>
+                      </div>
+                      <h3 id="clientProfileName" class="card-title">-</h3>
+                      <p id="clientProfileMeta" class="card-copy">-</p>
                     </div>
-                    <label for="tenantAdminEmail">Email principal</label>
-                    <input id="tenantAdminEmail">
-                    <label for="companyPhone">Telefone</label>
-                    <input id="companyPhone">
-                    <label for="companyDocument">Documento</label>
-                    <input id="companyDocument" placeholder="CNPJ opcional">
-                    <label for="companyNotes">Observacoes</label>
-                    <textarea id="companyNotes"></textarea>
-                    <button type="button" onclick="createCompanyAccount()">Criar conta</button>
-                  </details>
+                    <div class="client-profile-actions">
+                      <button type="button" onclick="openNewClientComposer()">Novo</button>
+                      <button type="button" onclick="openClientProfileTab('tenant')">Tenant</button>
+                      <button type="button" onclick="prepareClientSale()">Nova venda</button>
+                    </div>
+                  </div>
+                  <div class="workspace-tabs">
+                    <button class="workspace-tab active" type="button" data-client-tab="summary" onclick="openClientProfileTab('summary', this)">Resumo</button>
+                    <button class="workspace-tab" type="button" data-client-tab="tenant" onclick="openClientProfileTab('tenant', this)">Tenant</button>
+                    <button class="workspace-tab" type="button" data-client-tab="sales" onclick="openClientProfileTab('sales', this)">Vendas</button>
+                    <button class="workspace-tab" type="button" data-client-tab="plans" onclick="openClientProfileTab('plans', this)">Planos</button>
+                  </div>
+                  <div class="client-tab-panel active" data-client-panel="summary">
+                    <div class="account-notes">
+                      <div id="clientSummaryStage" class="list-item"></div>
+                      <div id="clientSummaryEmail" class="list-item"></div>
+                      <div id="clientSummaryTenant" class="list-item"></div>
+                    </div>
+                  </div>
+                  <div class="client-tab-panel" data-client-panel="tenant">
+                    <div class="module-reveal" open>
+                      <summary>Criar ou acessar tenant</summary>
+                      <p id="tenantAccountTenantStatus" class="helper">Selecione um cliente para ver o tenant vinculado.</p>
+                      <label for="tenantCompanyName">Empresa</label>
+                      <input id="tenantCompanyName">
+                      <label for="tenantWorkspaceSlug">Workspace</label>
+                      <input id="tenantWorkspaceSlug">
+                      <div class="row">
+                        <div><label for="tenantAdminCreateName">Responsavel</label><input id="tenantAdminCreateName"></div>
+                        <div><label for="tenantAdminCreatePassword">Senha</label><input id="tenantAdminCreatePassword" type="password"></div>
+                      </div>
+                      <label for="tenantAdminCreateEmail">Email principal</label>
+                      <input id="tenantAdminCreateEmail">
+                      <input id="tenantAccountId" type="hidden">
+                      <button type="button" onclick="createTenant()">Criar tenant para este cliente</button>
+                      <label for="tenantSlug">Workspace</label>
+                      <input id="tenantSlug">
+                      <label for="tenantEmail">Email</label>
+                      <input id="tenantEmail">
+                      <label for="tenantPassword">Senha</label>
+                      <input id="tenantPassword" type="password">
+                      <div class="inline-actions">
+                        <button type="button" onclick="tenantLogin()">Entrar no workspace</button>
+                        <button class="secondary-btn" type="button" onclick="tenantHealth()">Health</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="client-tab-panel" data-client-panel="sales">
+                    <div class="account-notes">
+                      <div id="clientSalesHint" class="list-item">Use o botao "Nova venda" para abrir o modulo de vendas com este cliente ativo.</div>
+                      <div id="clientSalesFilter" class="list-item">Os pedidos e documentos podem herdar o cliente selecionado.</div>
+                      <button type="button" onclick="prepareClientSale()">Ir para vendas deste cliente</button>
+                    </div>
+                  </div>
+                  <div class="client-tab-panel" data-client-panel="plans">
+                    <div class="account-notes">
+                      <div class="list-item">Use a tela Catalogo para cadastrar e editar produtos e planos.</div>
+                      <div class="list-item">Depois disso, vincule o plano ao tenant deste cliente.</div>
+                      <button type="button" onclick="switchPanelSection('catalog')">Abrir catalogo</button>
+                    </div>
+                  </div>
                 </div>
+                <div class="module-reveal" open>
+                  <summary>Novo cliente</summary>
+                  <label for="companyName">Empresa</label>
+                  <input id="companyName">
+                  <label for="companyStage">Estagio da conta</label>
+                  <select id="companyStage">
+                    <option value="lead">lead</option>
+                    <option value="client">client</option>
+                  </select>
+                  <label for="tenantAdminEmail">Email principal</label>
+                  <input id="tenantAdminEmail">
+                  <label for="companyPhone">Telefone</label>
+                  <input id="companyPhone">
+                  <label for="companyDocument">Documento</label>
+                  <input id="companyDocument" placeholder="CNPJ opcional">
+                  <label for="companyNotes">Observacoes</label>
+                  <textarea id="companyNotes"></textarea>
+                  <button type="button" onclick="createCompanyAccount()">Salvar cliente</button>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section class="panel-section" data-section="catalog">
+            <div class="section-heading">
+              <div>
+                <div class="section-kicker">Setup</div>
+                <h2>Catalogo comercial</h2>
+                <p>Cadastre os produtos e monte os planos com valor e duracao, em uma area separada da ficha do cliente.</p>
               </div>
-              <input id="activeCompanyAccountId" type="hidden">
+              <div class="app-header-actions">
+                <button class="ghost-btn" type="button" onclick="loadCatalogProducts()">Atualizar produtos</button>
+                <button class="ghost-btn" type="button" onclick="loadCatalogPlans()">Atualizar planos</button>
+              </div>
+            </div>
+            <div class="module-grid">
               <div class="card module-card">
                 <div class="card-topline">
-                  <span class="pill">Base Central</span>
-                  <span class="helper">Contas reais</span>
+                  <span class="pill">Produtos</span>
+                  <span class="helper">Base comercial</span>
                 </div>
-                <h3 class="card-title">Contas cadastradas</h3>
-                <p class="card-copy">Lista central de empresas, com estagio comercial e vinculo opcional com tenant.</p>
-                <div id="accountsMeta" class="helper"></div>
-                <div id="companyAccountsList" class="listbox table-list"></div>
+                <h3 class="card-title">Cadastrar produto</h3>
+                <label for="catalogProductCode">Codigo</label>
+                <input id="catalogProductCode">
+                <label for="catalogProductName">Nome</label>
+                <input id="catalogProductName">
+                <label for="catalogProductAmount">Valor base</label>
+                <input id="catalogProductAmount" placeholder="0.00">
+                <div class="inline-actions">
+                  <button type="button" onclick="createCatalogProduct()">Salvar produto</button>
+                  <button class="secondary-btn" type="button" onclick="loadCatalogProducts()">Listar</button>
+                </div>
+                <div id="catalogProductsMeta" class="helper"></div>
+                <div id="catalogProductsList" class="listbox table-list"></div>
               </div>
-            </div>
-            <div class="workspace-tab-panel" data-workspace-panel="workspace">
-              <div class="module-grid">
-                <div class="card module-card">
-                  <div class="card-topline">
-                    <span class="pill pill-muted">Workspace</span>
-                    <span class="helper">Sessao operacional</span>
-                  </div>
-                  <h3 class="card-title">Criar e acessar tenant</h3>
-                  <p class="card-copy">Depois de criar a conta e converter para cliente, vincule um tenant a essa empresa e so entao entre no workspace.</p>
-                  <details class="module-reveal" open>
-                    <summary>Criar tenant para a conta</summary>
-                    <label for="tenantAccountSearch">Cliente central</label>
-                    <input id="tenantAccountSearch" placeholder="Pesquise por nome ou ID" oninput="filterTenantAccounts()" autocomplete="off">
-                    <div id="tenantAccountResults" class="tenant-account-results"></div>
-                    <input id="tenantAccountId" type="hidden">
-                    <p id="tenantAccountTenantStatus" class="helper">Selecione um cliente para ver o tenant vinculado.</p>
-                    <label for="tenantCompanyName">Empresa</label>
-                    <input id="tenantCompanyName">
-                    <label for="tenantWorkspaceSlug">Workspace</label>
-                    <input id="tenantWorkspaceSlug">
-                    <div class="row">
-                      <div><label for="tenantAdminCreateName">Responsavel</label><input id="tenantAdminCreateName"></div>
-                      <div><label for="tenantAdminCreatePassword">Senha</label><input id="tenantAdminCreatePassword" type="password"></div>
-                    </div>
-                    <label for="tenantAdminCreateEmail">Email principal</label>
-                    <input id="tenantAdminCreateEmail">
-                    <button type="button" onclick="createTenant()">Criar tenant para esta conta</button>
-                  </details>
-                  <details class="module-reveal" open>
-                    <summary>Abrir sessao do workspace</summary>
-                    <label for="tenantSlug">Workspace</label>
-                    <input id="tenantSlug">
-                    <label for="tenantEmail">Email</label>
-                    <input id="tenantEmail">
-                    <label for="tenantPassword">Senha</label>
-                    <input id="tenantPassword" type="password">
-                    <button onclick="tenantLogin()">Entrar no workspace</button>
-                    <div class="inline-actions">
-                      <button class="secondary-btn" onclick="tenantHealth()">Health</button>
-                      <button class="secondary-btn" onclick="loadWorkspaceSummary()">Resumo</button>
-                    </div>
-                  </details>
+              <div class="card module-card">
+                <div class="card-topline">
+                  <span class="pill pill-dark">Planos</span>
+                  <span class="helper">Oferta</span>
                 </div>
-                <div class="card module-card">
-                  <div class="card-topline">
-                    <span class="pill">Operacao</span>
-                    <span class="helper">Ambiente ativo</span>
-                  </div>
-                  <h3 class="card-title">Abertura do cliente</h3>
-                  <p class="card-copy">Use esta aba quando a conta ja estiver definida e voce quiser entrar na operacao real do cliente.</p>
+                <h3 class="card-title">Cadastrar plano</h3>
+                <label for="catalogPlanCode">Codigo</label>
+                <input id="catalogPlanCode">
+                <label for="catalogPlanName">Nome</label>
+                <input id="catalogPlanName">
+                <label for="catalogPlanProductId">Produto</label>
+                <select id="catalogPlanProductId">
+                  <option value="">Sem produto</option>
+                </select>
+                <div class="row">
+                  <div><label for="catalogPlanAmount">Valor</label><input id="catalogPlanAmount" placeholder="0.00"></div>
+                  <div><label for="catalogPlanBillingCycle">Duracao</label><input id="catalogPlanBillingCycle" placeholder="monthly"></div>
                 </div>
-              </div>
-            </div>
-            <div class="workspace-tab-panel" data-workspace-panel="plans">
-              <div class="module-grid">
-                <div class="card module-card">
-                  <div class="card-topline">
-                    <span class="pill">Planos</span>
-                    <span class="helper">Camada comercial</span>
-                  </div>
-                  <h3 class="card-title">Organizacao por etapas</h3>
-                  <p class="card-copy">Apos criar a conta e antes de operar, esta aba separa a conversa de plano, contratacao e regras de assinatura do restante do onboarding.</p>
-                  <div class="account-notes">
-                    <div class="list-item">Plano escolhido deve acompanhar a empresa.</div>
-                    <div class="list-item">Tenant entra como recurso operacional do plano.</div>
-                    <div class="list-item">A aba prepara o terreno para acoplar contratos e cobranca sem misturar tudo no mesmo formulario.</div>
+                <div class="row">
+                  <div><label for="catalogPlanCurrency">Moeda</label><input id="catalogPlanCurrency" value="BRL"></div>
+                  <div>
+                    <label for="catalogPlanIsActive">Status</label>
+                    <select id="catalogPlanIsActive">
+                      <option value="true">Ativo</option>
+                      <option value="false">Inativo</option>
+                    </select>
                   </div>
                 </div>
-                <div class="card module-card overview-card">
-                  <div class="card-topline">
-                    <span class="pill pill-dark">Atalhos</span>
-                    <span class="helper">Fluxo comercial</span>
-                  </div>
-                  <h3 class="card-title">Ir para modulos ligados</h3>
-                  <div class="overview-grid">
-                    <button class="overview-btn" onclick="activateSectionAndScroll('docs', 'proposalsList')">Documentos</button>
-                    <button class="overview-btn" onclick="activateSectionAndScroll('finance', 'receivablesList')">Financeiro</button>
-                    <button class="overview-btn" onclick="activateSectionAndScroll('sales', 'salesOrdersList')">Vendas</button>
-                    <button class="overview-btn" type="button" onclick="switchWorkspaceFlowTab('relationship')">Relacionamento</button>
-                  </div>
+                <div class="inline-actions">
+                  <button type="button" onclick="createCatalogPlan()">Salvar plano</button>
+                  <button class="secondary-btn" type="button" onclick="loadCatalogPlans()">Listar</button>
                 </div>
-              </div>
-            </div>
-            <div class="workspace-tab-panel" data-workspace-panel="relationship">
-              <div class="module-grid">
-                <div class="card module-card">
-                  <div class="card-topline">
-                    <span class="pill">Relacionamento</span>
-                    <span class="helper">Lead e cliente</span>
-                  </div>
-                  <h3 class="card-title">Evolucao da empresa</h3>
-                  <p class="card-copy">Aqui a empresa nasce como lead na base central, pode virar cliente, e so depois segue para tenant.</p>
-                  <details class="module-reveal" open>
-                    <summary>Abrir cadastros comerciais</summary>
-                    <label for="relationshipCompanyAccountId">Conta central</label><input id="relationshipCompanyAccountId" placeholder="ID da conta selecionada">
-                    <label for="accountLeadName">Empresa como lead</label><input id="accountLeadName">
-                    <label for="accountLeadEmail">Email Lead</label><input id="accountLeadEmail">
-                    <button onclick="createLeadFromAccount()">Criar lead</button>
-                    <label for="accountClientName">Nome ao virar cliente</label><input id="accountClientName">
-                    <label for="accountClientEmail">Email ao virar cliente</label><input id="accountClientEmail">
-                    <button onclick="createClientFromAccount()">Virar cliente</button>
-                  </details>
-                </div>
-                <div class="card module-card">
-                  <div class="card-topline">
-                    <span class="pill pill-muted">CRM</span>
-                    <span class="helper">Continuacao</span>
-                  </div>
-                  <h3 class="card-title">Abrir mesa comercial</h3>
-                  <p class="card-copy">Depois do cadastro inicial, a gestao de filtros, listas e acompanhamento continua no modulo de CRM.</p>
-                  <button onclick="activateSectionAndScroll('crm', 'leadsList')">Abrir CRM</button>
-                </div>
+                <div id="catalogPlansMeta" class="helper"></div>
+                <div id="catalogPlansList" class="listbox table-list"></div>
               </div>
             </div>
           </section>
@@ -399,28 +390,11 @@
             <div class="module-grid">
               <div class="card module-card">
                 <div class="card-topline">
-                  <span class="pill">Entrada</span>
-                  <span class="helper">Contato operacional</span>
-                </div>
-                <h3 class="card-title">Contatos do Tenant</h3>
-                <p class="card-copy">Use estes cadastros apenas quando o tenant ja existir e voce estiver operando dentro do workspace.</p>
-                <details class="module-reveal">
-                  <summary>Abrir cadastro rapido</summary>
-                  <label for="crmCompanyAccountId">Conta central</label><input id="crmCompanyAccountId" placeholder="ID da conta selecionada">
-                  <label for="leadName">Contato tipo lead</label><input id="leadName">
-                  <label for="leadEmail">Email do contato</label><input id="leadEmail">
-                  <button onclick="createLead()">Criar lead no tenant</button>
-                  <label for="clientName">Contato tipo cliente</label><input id="clientName">
-                  <label for="clientEmail">Email do cliente</label><input id="clientEmail">
-                  <button onclick="createClient()">Criar client no tenant</button>
-                </details>
-              </div>
-              <div class="card module-card">
-                <div class="card-topline">
                   <span class="pill pill-muted">Lista</span>
                   <span class="helper">Segmentacao</span>
                 </div>
-                <h3 class="card-title">Filtros de Pessoas</h3>
+                <h3 class="card-title">Leads e clients do tenant</h3>
+                <p class="card-copy">Esse modulo agora fica focado em leitura e filtro da operacao do workspace. O cadastro principal do cliente acontece na tela Clientes.</p>
                 <label for="summaryQuery">Filtro</label><input id="summaryQuery" placeholder="Nome ou titulo">
                 <label for="summaryCompanyAccountId">Conta central</label><input id="summaryCompanyAccountId" placeholder="ID da conta">
                 <label for="peopleEmailFilter">Filtro email</label><input id="peopleEmailFilter" placeholder="email@dominio.com">

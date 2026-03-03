@@ -101,6 +101,29 @@ class PanelCompanyAccountRequest(BaseModel):
     notes: str | None = None
 
 
+class PanelCompanyAccountPlanRequest(BaseModel):
+    plan_code: str = Field(min_length=2, max_length=80)
+    status: str = Field(default="active", min_length=2, max_length=40)
+    billing_day: int = Field(default=1, ge=1, le=31)
+    discount_percent: float = Field(default=0, ge=0, le=100)
+
+
+class PanelCatalogProductRequest(BaseModel):
+    code: str = Field(min_length=2, max_length=80)
+    name: str = Field(min_length=2, max_length=120)
+    amount: float = Field(default=0, ge=0)
+
+
+class PanelCatalogPlanRequest(BaseModel):
+    code: str = Field(min_length=2, max_length=80)
+    name: str = Field(min_length=2, max_length=120)
+    product_id: int | None = None
+    amount: float = Field(ge=0)
+    billing_cycle: str = Field(min_length=2, max_length=40)
+    currency: str = Field(default="BRL", min_length=2, max_length=8)
+    is_active: bool = True
+
+
 class PanelStatusRequest(BaseModel):
     status: str = Field(min_length=2, max_length=40)
 
