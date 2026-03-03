@@ -57,7 +57,7 @@
           </div>
           <div class="nav-group">
             <div class="nav-group-label">Setup</div>
-            <button class="menu-btn" data-panel-section="tenant" onclick="switchPanelSection('tenant', this)">Pipeline</button>
+            <button class="menu-btn" data-panel-section="tenant" onclick="switchPanelSection('tenant', this)">Cadastros</button>
             <button class="menu-btn" data-panel-section="catalog" onclick="switchPanelSection('catalog', this)">Catalogo</button>
           </div>
           <div class="nav-group">
@@ -187,29 +187,30 @@
           <section class="panel-section" data-section="tenant">
             <div class="section-heading">
               <div>
-                <div class="section-kicker">Setup</div>
-                <h2>Pipeline de contas</h2>
-                <p>Essa tela concentra a base central de contas. Escolha um lead ou client na lista, abra a ficha e execute as acoes contextuais dali.</p>
+                <div class="section-kicker">Cadastros</div>
+                <h2>Leads e clientes</h2>
+                <p>Use os filtros para localizar a base central. Clique no resultado para abrir a ficha e trabalhar o cadastro selecionado.</p>
               </div>
               <div class="app-header-actions">
-                <button class="ghost-btn" type="button" onclick="openNewClientComposer()">Nova conta</button>
-                <button class="ghost-btn" type="button" onclick="closeNewClientComposer()">Fechar composer</button>
-                <button class="ghost-btn" type="button" onclick="loadCompanyAccounts()">Atualizar lista</button>
+                <button class="ghost-btn" type="button" onclick="openNewClientComposer()">Novo cadastro</button>
+                <button class="ghost-btn" type="button" onclick="loadCompanyAccounts()">Atualizar</button>
               </div>
             </div>
             <input id="activeCompanyAccountId" type="hidden">
             <div class="clients-shell">
               <aside class="card module-card clients-list-card">
                 <div class="card-topline">
-                  <span class="pill">Pipeline</span>
+                  <span class="pill">Lista</span>
                   <span class="helper">Base central</span>
                 </div>
+                <h3 class="card-title">Cadastros</h3>
+                <p class="card-copy">Filtre por etapa, pesquise por nome ou email e abra a ficha clicando no cadastro desejado.</p>
                 <div class="workspace-tabs client-filter-tabs">
                   <button class="workspace-tab active" type="button" data-account-filter="all" onclick="setCompanyAccountStageFilter('all', this)">Todos</button>
                   <button class="workspace-tab" type="button" data-account-filter="lead" onclick="setCompanyAccountStageFilter('lead', this)">Leads</button>
-                  <button class="workspace-tab" type="button" data-account-filter="client" onclick="setCompanyAccountStageFilter('client', this)">Clients</button>
+                  <button class="workspace-tab" type="button" data-account-filter="client" onclick="setCompanyAccountStageFilter('client', this)">Clientes</button>
                 </div>
-                <label for="clientDirectorySearch">Pesquisar conta</label>
+                <label for="clientDirectorySearch">Pesquisar cadastro</label>
                 <input id="clientDirectorySearch" placeholder="Nome, email ou ID" oninput="filterClientDirectory()">
                 <div id="accountsMeta" class="helper"></div>
                 <div id="clientDirectoryList" class="listbox table-list"></div>
@@ -217,9 +218,9 @@
               <section class="card module-card client-profile-card">
                 <div class="card-topline">
                   <span class="pill pill-dark">Ficha</span>
-                  <span class="helper">Conta selecionada</span>
+                  <span class="helper">Cadastro selecionado</span>
                 </div>
-                <div id="clientProfileEmpty" class="inspector-empty">Selecione uma conta na lista para abrir a ficha.</div>
+                <div id="clientProfileEmpty" class="inspector-empty">Selecione um lead ou cliente na lista para abrir a ficha.</div>
                 <div id="clientProfilePanel" class="hidden">
                   <div class="client-profile-shell">
                     <div class="client-profile-hero">
@@ -233,8 +234,8 @@
                       </div>
                       <div class="client-profile-actions">
                         <button type="button" onclick="openNewClientComposer()">Novo</button>
-                        <button id="clientPrimaryAction" type="button" onclick="runClientPrimaryAction()">Abrir</button>
-                        <button id="clientSecondaryAction" type="button" onclick="runClientSecondaryAction()">Detalhes</button>
+                        <button id="clientPrimaryAction" type="button" onclick="runClientPrimaryAction()">Acao principal</button>
+                        <button id="clientSecondaryAction" type="button" onclick="runClientSecondaryAction()">Acao secundaria</button>
                       </div>
                     </div>
                     <div class="workspace-tabs client-tabs client-subnav">
@@ -267,7 +268,7 @@
                         <div class="client-pane-card">
                           <div class="card-topline">
                             <span class="pill">Criar</span>
-                            <span class="helper">Novo tenant</span>
+                            <span class="helper">Tenant</span>
                           </div>
                           <p id="tenantAccountTenantStatus" class="helper">Selecione uma conta para ver o tenant vinculado.</p>
                           <label for="tenantCompanyName">Empresa</label>
@@ -764,14 +765,14 @@
         <div class="editor-head">
           <div>
             <div class="section-kicker">Cadastro central</div>
-            <h3>Cadastrar conta</h3>
+            <h3>Novo cadastro</h3>
           </div>
           <button class="secondary-btn" type="button" onclick="closeNewClientComposer()">Fechar</button>
         </div>
         <div class="editor-body">
           <div class="card-topline">
-            <span class="pill">Nova conta</span>
-            <span class="helper">Lead ou client</span>
+            <span class="pill">Lead / Cliente</span>
+            <span class="helper">Base central</span>
           </div>
           <div class="composer-grid">
             <div>
@@ -779,10 +780,10 @@
               <input id="companyName">
             </div>
             <div>
-              <label for="companyStage">Estagio da conta</label>
+              <label for="companyStage">Tipo de cadastro</label>
               <select id="companyStage">
-                <option value="lead">lead</option>
-                <option value="client">client</option>
+                <option value="lead">Lead</option>
+                <option value="client">Cliente</option>
               </select>
             </div>
           </div>
@@ -803,7 +804,7 @@
         </div>
         <div class="editor-foot">
           <button class="secondary-btn" type="button" onclick="closeNewClientComposer()">Cancelar</button>
-          <button type="button" onclick="createCompanyAccount()">Salvar conta</button>
+          <button type="button" onclick="createCompanyAccount()">Salvar cadastro</button>
         </div>
       </div>
     </aside>

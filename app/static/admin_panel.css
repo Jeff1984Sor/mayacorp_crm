@@ -22,15 +22,17 @@ body {
   min-height: 100vh;
 }
 .wrap {
-  max-width: 1220px;
-  margin: 0 auto;
-  padding: 28px 20px 56px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 20px 24px 48px;
 }
 .hidden {
   display: none !important;
 }
 .shell {
-  max-width: 1440px;
+  width: 100%;
+  max-width: none;
 }
 .auth-screen {
   min-height: calc(100vh - 56px);

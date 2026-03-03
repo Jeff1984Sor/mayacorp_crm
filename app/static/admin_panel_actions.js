@@ -162,7 +162,7 @@ function renderClientDirectory(items) {
     return;
   }
   if (!items || items.length === 0) {
-    target.innerHTML = '<div class="list-item">Nenhum cliente encontrado.</div>';
+    target.innerHTML = '<div class="list-item">Nenhum cadastro encontrado.</div>';
     return;
   }
   target.innerHTML = items
@@ -752,7 +752,7 @@ async function loadCompanyAccounts() {
     const total = (payload.items || []).length;
     const visible = getVisibleCompanyAccounts().length;
     const stage = getCompanyAccountStageFilter();
-    const label = stage === "all" ? "Todos" : stage === "lead" ? "Leads" : "Clients";
+    const label = stage === "all" ? "Todos" : stage === "lead" ? "Leads" : "Clientes";
     meta.textContent = `${label}: ${visible} de ${total}`;
   }
 }
