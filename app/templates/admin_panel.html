@@ -37,10 +37,15 @@
 
     <section id="appShell" class="app-shell hidden">
       <header class="app-header">
-        <div>
+        <div class="app-header-copy">
           <div class="auth-badge">Mayacorp Admin</div>
           <h1 class="app-title">Controle Central</h1>
           <p class="app-subtitle">Um cockpit visual para onboarding, operacao comercial e modulos de servico.</p>
+          <div class="app-header-strip">
+            <span>Base central</span>
+            <span>Cadastros e operacao</span>
+            <span>Fluxo comercial</span>
+          </div>
         </div>
         <div class="app-header-actions">
           <button onclick="centralDashboard()">Dashboard central</button>
@@ -50,7 +55,10 @@
 
       <div class="app-layout">
         <aside class="side-nav">
-          <button class="nav-toggle" onclick="toggleSideNav()">Recolher menu</button>
+          <div class="side-nav-top">
+            <div class="side-nav-badge">Workspace</div>
+            <button class="nav-toggle" onclick="toggleSideNav()">Recolher menu</button>
+          </div>
           <div class="nav-group">
             <div class="nav-group-label">Home</div>
             <button class="menu-btn active" data-panel-section="home" onclick="switchPanelSection('home', this)">Dashboard</button>

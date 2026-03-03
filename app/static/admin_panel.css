@@ -126,32 +126,57 @@ body {
 }
 .app-shell {
   display: grid;
-  gap: 18px;
+  gap: 20px;
 }
 .app-header {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 20px;
   align-items: flex-start;
-  padding: 24px;
-  border-radius: 24px;
-  background: linear-gradient(135deg, #0f172a, #0f766e 62%, #14b8a6);
+  padding: 28px 30px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(255,255,255,0.16), transparent 24%),
+    linear-gradient(135deg, #0f172a, #0f766e 58%, #14b8a6);
   color: #ecfeff;
-  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.16);
+  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.18);
+}
+.app-header-copy {
+  display: grid;
+  gap: 10px;
 }
 .app-title {
   margin: 8px 0 6px;
-  font-size: 34px;
+  font-size: 38px;
+  line-height: 1.04;
 }
 .app-subtitle {
   margin: 0;
   opacity: 0.9;
   max-width: 620px;
 }
+.app-header-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.app-header-strip span {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.14);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
 .app-header-actions {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  align-items: start;
 }
 .app-header-actions button {
   width: auto;
@@ -164,27 +189,47 @@ body {
 .app-layout {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
-  gap: 18px;
+  gap: 20px;
 }
 .side-nav {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   align-content: start;
   position: sticky;
   top: 16px;
-  padding: 16px;
-  border-radius: 22px;
-  background: var(--nav-bg);
-  border: 1px solid rgba(255,255,255,0.8);
-  box-shadow: var(--shadow);
+  padding: 18px;
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.97), rgba(248,250,252,0.94));
+  border: 1px solid rgba(255,255,255,0.9);
+  box-shadow: 0 22px 44px rgba(15, 23, 42, 0.08);
+}
+.side-nav-top {
+  display: grid;
+  gap: 10px;
+}
+.side-nav-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #eefcf8;
+  color: var(--brand-dark);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 .nav-toggle {
   margin-top: 0;
-  background: #0f172a;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  border-radius: 14px;
 }
 .nav-group {
   display: grid;
-  gap: 8px;
+  gap: 9px;
+  padding: 10px 0 0;
 }
 .nav-submenu {
   display: grid;
@@ -212,7 +257,7 @@ body {
   border-color: #b7ece1;
 }
 .nav-group + .nav-group {
-  padding-top: 8px;
+  padding-top: 12px;
   border-top: 1px solid var(--line);
 }
 .nav-group-label {
@@ -225,14 +270,17 @@ body {
 .menu-btn {
   margin-top: 0;
   text-align: left;
-  background: rgba(255,255,255,0.88);
+  background: rgba(255,255,255,0.92);
   color: var(--ink);
   border: 1px solid var(--line);
+  border-radius: 14px;
+  font-weight: 700;
 }
 .menu-btn.active {
   background: linear-gradient(135deg, #134e4a, #0f766e);
   color: white;
   border-color: transparent;
+  box-shadow: 0 12px 24px rgba(15, 118, 110, 0.16);
 }
 .content-stack {
   display: grid;
