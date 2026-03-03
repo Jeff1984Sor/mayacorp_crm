@@ -169,18 +169,30 @@ function renderClientDirectory(items) {
     .map(
       (item) => `
         <div class="list-item ${activeId === item.id ? "active-client-row" : ""}">
-          <div class="client-directory-row">
-            <button type="button" class="tenant-account-result client-directory-main ${activeId === item.id ? "active" : ""}" onclick="selectClientProfile(${item.id}, 'summary')">
-              <strong>#${item.id}</strong> ${item.name}
-              <span>${item.tenant_id ? `Tenant ${item.tenant_id}` : "Sem tenant"}</span>
-            </button>
-            <div class="client-directory-tabs">
-              <button type="button" class="table-action ${activeId === item.id ? "active" : ""}" onclick="selectClientProfile(${item.id}, 'summary')">Resumo</button>
-              <button type="button" class="table-action ${activeId === item.id ? "active" : ""}" onclick="selectClientProfile(${item.id}, 'tenant')">Tenant</button>
-              <button type="button" class="table-action ${activeId === item.id ? "active" : ""}" onclick="selectClientProfile(${item.id}, 'sales')">Vendas</button>
-              <button type="button" class="table-action ${activeId === item.id ? "active" : ""}" onclick="selectClientProfile(${item.id}, 'plans')">Planos</button>
+          <button type="button" class="tenant-account-result client-directory-main ${activeId === item.id ? "active" : ""}" onclick="selectClientProfile(${item.id}, 'summary')">
+            <div class="directory-row-head">
+              <span class="directory-stage">${item.lifecycle_stage === "lead" ? "Lead" : "Cliente"}</span>
+              <span class="directory-id">#${item.id}</span>
             </div>
-          </div>
+            <div class="directory-columns">
+              <div class="directory-col">
+                <span class="directory-label">Nome</span>
+                <strong>${item.name || "-"}</strong>
+              </div>
+              <div class="directory-col">
+                <span class="directory-label">Tipo</span>
+                <span>${item.lifecycle_stage === "lead" ? "Lead" : "Cliente"}</span>
+              </div>
+              <div class="directory-col">
+                <span class="directory-label">Email</span>
+                <span>${item.admin_email || "Sem email principal"}</span>
+              </div>
+              <div class="directory-col">
+                <span class="directory-label">Tenant</span>
+                <span>${item.tenant_id ? item.tenant_slug || `#${item.tenant_id}` : "Sem tenant"}</span>
+              </div>
+            </div>
+          </button>
         </div>
       `
     )
@@ -356,10 +368,18 @@ function setCompanyAccountStageFilter(stage, trigger = null) {
   document.querySelectorAll("[data-account-filter]").forEach((node) => {
     node.classList.toggle("active", node.dataset.accountFilter === stage);
   });
+  document.querySelectorAll("[data-cadastro-stage]").forEach((node) => {
+    node.classList.toggle("active", node.dataset.cadastroStage === stage);
+  });
   if (trigger && trigger.classList) {
     trigger.classList.add("active");
   }
   filterClientDirectory();
+}
+
+function openCadastrosStage(stage, trigger = null) {
+  switchPanelSection("tenant");
+  setCompanyAccountStageFilter(stage, trigger);
 }
 
 function openClientProfileTab(tab, trigger = null) {
