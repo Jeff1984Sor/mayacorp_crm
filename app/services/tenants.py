@@ -19,6 +19,8 @@ from app.services.tenant_schema import migrate_tenant_schema
 def _build_tenant_db_url(slug: str) -> str:
     if settings.central_database_url.startswith("sqlite"):
         tenant_path = Path(DATA_DIR / f"{slug}.db")
+        if tenant_path.exists():
+            raise ValueError("Workspace database already exists for this slug.")
         return f"sqlite+pysqlite:///{tenant_path.as_posix()}"
 
     from sqlalchemy.engine.url import make_url
@@ -27,6 +29,12 @@ def _build_tenant_db_url(slug: str) -> str:
     tenant_db_name = f"tenant_{slug}"
     admin_engine = create_engine(central_url.set(database="postgres"), isolation_level="AUTOCOMMIT")
     with admin_engine.connect() as conn:
+        exists = conn.exec_driver_sql(
+            "SELECT 1 FROM pg_database WHERE datname = %(db_name)s",
+            {"db_name": tenant_db_name},
+        ).scalar()
+        if exists:
+            raise ValueError("Workspace database already exists for this slug.")
         conn.exec_driver_sql(f'CREATE DATABASE "{tenant_db_name}"')
     return str(central_url.set(database=tenant_db_name))
 

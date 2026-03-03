@@ -103,26 +103,29 @@ def admin_panel_create_tenant(
             raise HTTPException(status_code=404, detail="Company account not found.")
         if account.tenant_id:
             raise HTTPException(status_code=409, detail="Company account already has a tenant.")
-    tenant = create_tenant(
-        session,
-        TenantCreateRequest(
-            company_name=payload.company_name,
-            workspace_slug=payload.workspace_slug,
-            company_document=None,
-            admin_name=payload.admin_name,
-            admin_email=payload.admin_email,
-            admin_password=payload.admin_password,
-            plan_code="starter",
-            addon_codes=[],
-            billing_day=5,
-            discount_percent=0,
-            generate_invoice=True,
-            issue_fiscal_document=False,
-        ),
-        actor_email=current_user.email,
-        account_stage=payload.account_stage,
-        account_id=payload.account_id,
-    )
+    try:
+        tenant = create_tenant(
+            session,
+            TenantCreateRequest(
+                company_name=payload.company_name,
+                workspace_slug=payload.workspace_slug,
+                company_document=None,
+                admin_name=payload.admin_name,
+                admin_email=payload.admin_email,
+                admin_password=payload.admin_password,
+                plan_code="starter",
+                addon_codes=[],
+                billing_day=5,
+                discount_percent=0,
+                generate_invoice=True,
+                issue_fiscal_document=False,
+            ),
+            actor_email=current_user.email,
+            account_stage=payload.account_stage,
+            account_id=payload.account_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return panel_response(
         "Tenant criado.",
         {"tenant_id": tenant.id, "workspace_slug": tenant.slug, "status": tenant.status, "account_stage": payload.account_stage},
