@@ -312,6 +312,73 @@ body {
 .workspace-tab-panel.active {
   display: block;
 }
+.client-tab-panel {
+  display: none;
+  margin-top: 14px;
+}
+.client-tab-panel.active {
+  display: block;
+}
+.clients-shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+.clients-list-card,
+.client-profile-card {
+  align-self: start;
+}
+.clients-list-card {
+  order: 1;
+}
+.client-profile-card {
+  order: 2;
+}
+.client-directory-row {
+  display: grid;
+  gap: 10px;
+}
+.client-directory-main {
+  min-height: 64px;
+}
+.client-directory-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+.client-directory-tabs .table-action {
+  flex: initial;
+}
+.client-profile-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+.client-profile-identity {
+  display: grid;
+  gap: 8px;
+}
+.client-profile-topline {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.client-profile-topline .pill {
+  margin: 0;
+}
+.client-profile-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.client-profile-actions button {
+  width: auto;
+  margin-top: 0;
+}
 .account-notes {
   margin-top: 14px;
   display: grid;
@@ -942,6 +1009,7 @@ button:hover { background: var(--brand-dark); }
 @media (max-width: 760px) {
   .auth-layout,
   .app-layout,
+  .clients-shell,
   .module-grid-tenant,
   .module-grid,
   .dashboard-grid-commercial,
@@ -986,5 +1054,9 @@ button:hover { background: var(--brand-dark); }
   .editor-head button,
   .editor-foot button {
     width: 100%;
+  }
+  .client-directory-tabs {
+    grid-template-columns: 1fr 1fr;
+    padding-inline: 10px;
   }
 }

@@ -117,10 +117,18 @@ function renderClientDirectory(items) {
     .map(
       (item) => `
         <div class="list-item">
-          <button type="button" class="tenant-account-result" onclick="selectClientProfile(${item.id})">
-            <strong>#${item.id}</strong> ${item.name}
-            <span>${item.tenant_id ? `Tenant ${item.tenant_id}` : "Sem tenant"}</span>
-          </button>
+          <div class="client-directory-row">
+            <button type="button" class="tenant-account-result client-directory-main" onclick="selectClientProfile(${item.id}, 'summary')">
+              <strong>#${item.id}</strong> ${item.name}
+              <span>${item.tenant_id ? `Tenant ${item.tenant_id}` : "Sem tenant"}</span>
+            </button>
+            <div class="client-directory-tabs">
+              <button type="button" class="table-action" onclick="selectClientProfile(${item.id}, 'summary')">Resumo</button>
+              <button type="button" class="table-action" onclick="selectClientProfile(${item.id}, 'tenant')">Tenant</button>
+              <button type="button" class="table-action" onclick="selectClientProfile(${item.id}, 'sales')">Vendas</button>
+              <button type="button" class="table-action" onclick="selectClientProfile(${item.id}, 'plans')">Planos</button>
+            </div>
+          </div>
         </div>
       `
     )
@@ -188,13 +196,18 @@ function renderClientProfile(selected) {
   applyTenantAccountSelection(selected);
 }
 
-function selectClientProfile(accountId) {
+function selectClientProfile(accountId, tab = "summary") {
   const selected = getClientAccounts().find((item) => item.id === accountId) || null;
   if (!selected) {
     return;
   }
   setActiveCompanyAccount(selected.id);
   renderClientProfile(selected);
+  openClientProfileTab(tab);
+  const profilePanel = document.getElementById("clientProfilePanel");
+  if (profilePanel && typeof profilePanel.scrollIntoView === "function") {
+    profilePanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 function filterClientDirectory() {
