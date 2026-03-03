@@ -213,7 +213,19 @@
               <button class="workspace-tab" type="button" data-workspace-tab="relationship" onclick="switchWorkspaceFlowTab('relationship', this)">Relacionamento</button>
             </div>
             <div class="workspace-tab-panel active" data-workspace-panel="account">
-              <div class="module-grid module-grid-tenant">
+              <div class="section-heading">
+                <div>
+                  <div class="section-kicker">Conta</div>
+                  <h3 class="card-title">Cadastro principal</h3>
+                </div>
+                <div class="app-header-actions">
+                  <button class="ghost-btn" type="button" onclick="loadCompanyAccounts()">Atualizar contas</button>
+                  <button class="ghost-btn" type="button" onclick="switchWorkspaceFlowTab('workspace')">Tenant</button>
+                  <button class="ghost-btn" type="button" onclick="switchWorkspaceFlowTab('plans')">Planos</button>
+                  <button class="ghost-btn" type="button" onclick="switchWorkspaceFlowTab('relationship')">Relacionamento</button>
+                </div>
+              </div>
+              <div class="module-grid">
                 <div class="card module-card module-card-accent">
                   <div class="card-topline">
                     <span class="pill">Conta</span>
@@ -247,35 +259,6 @@
                     <button class="secondary-btn" type="button" onclick="createCompanyAccount()">Criar somente conta</button>
                     <button onclick="createTenant()">Criar conta com tenant inicial</button>
                   </details>
-                </div>
-                <div class="card module-card">
-                  <div class="card-topline">
-                    <span class="pill pill-muted">Modelo</span>
-                    <span class="helper">Regra atual</span>
-                  </div>
-                  <h3 class="card-title">Leitura do fluxo</h3>
-                  <p class="card-copy">No backend atual, o cadastro ainda cria diretamente o tenant. No painel, ele passa a ser apresentado como parte da conta para seguir a ordem correta da operacao.</p>
-                  <div class="account-notes">
-                    <div class="list-item">A conta e a empresa passam a ser o contexto principal.</div>
-                    <div class="list-item">O status comercial pode comecar em lead.</div>
-                    <div class="list-item">Quando fechar, a empresa pode ser tratada como cliente e manter o mesmo contexto.</div>
-                  </div>
-                  <button class="secondary-btn" type="button" onclick="loadCompanyAccounts()">Atualizar contas</button>
-                </div>
-                <div class="card module-card overview-card">
-                  <div class="card-topline">
-                    <span class="pill pill-dark">Navegacao</span>
-                    <span class="helper">Proximos passos</span>
-                  </div>
-                  <h3 class="card-title">Abrir proximas abas</h3>
-                  <div class="overview-grid">
-                    <button class="overview-btn" type="button" onclick="switchWorkspaceFlowTab('workspace')">Tenant</button>
-                    <button class="overview-btn" type="button" onclick="switchWorkspaceFlowTab('plans')">Planos</button>
-                    <button class="overview-btn" type="button" onclick="switchWorkspaceFlowTab('relationship')">Relacionamento</button>
-                    <button class="overview-btn" onclick="activateSectionAndScroll('crm', 'leadsList')">CRM</button>
-                    <button class="overview-btn" onclick="activateSectionAndScroll('finance', 'receivablesList')">Financeiro</button>
-                    <button class="overview-btn" onclick="activateSectionAndScroll('actions', 'output')">Acoes</button>
-                  </div>
                 </div>
               </div>
               <input id="activeCompanyAccountId" type="hidden">
