@@ -27,9 +27,9 @@
           <h1>Painel Administrativo</h1>
           <p>Entre com o login central para abrir o painel completo.</p>
           <label for="centralEmail">Email</label>
-          <input id="centralEmail" value="admin@mayacorp.com">
+          <input id="centralEmail">
           <label for="centralPassword">Senha</label>
-          <input id="centralPassword" type="password" value="1234">
+          <input id="centralPassword" type="password">
           <button onclick="centralLogin()">Entrar no painel</button>
         </div>
       </div>
@@ -302,11 +302,11 @@
                   <details class="module-reveal" open>
                     <summary>Abrir sessao do workspace</summary>
                     <label for="tenantSlug">Workspace</label>
-                    <input id="tenantSlug" value="acme">
+                    <input id="tenantSlug">
                     <label for="tenantEmail">Email</label>
-                    <input id="tenantEmail" value="owner@acme.com">
+                    <input id="tenantEmail">
                     <label for="tenantPassword">Senha</label>
-                    <input id="tenantPassword" type="password" value="1234">
+                    <input id="tenantPassword" type="password">
                     <button onclick="tenantLogin()">Entrar no workspace</button>
                     <div class="inline-actions">
                       <button class="secondary-btn" onclick="tenantHealth()">Health</button>
@@ -364,7 +364,7 @@
                   <h3 class="card-title">Evolucao da empresa</h3>
                   <p class="card-copy">Aqui a empresa nasce como lead na base central, pode virar cliente, e so depois segue para tenant.</p>
                   <details class="module-reveal" open>
-                  <summary>Abrir cadastros comerciais</summary>
+                    <summary>Abrir cadastros comerciais</summary>
                     <label for="relationshipCompanyAccountId">Conta central</label><input id="relationshipCompanyAccountId" placeholder="ID da conta selecionada">
                     <label for="accountLeadName">Empresa como lead</label><input id="accountLeadName">
                     <label for="accountLeadEmail">Email Lead</label><input id="accountLeadEmail">
@@ -460,12 +460,12 @@
                 <details class="module-reveal">
                   <summary>Abrir mesa de pedidos</summary>
                   <label for="salesCompanyAccountId">Conta central</label><input id="salesCompanyAccountId" placeholder="ID da conta selecionada">
-                  <label for="salesDescription">Descricao</label><input id="salesDescription" value="Servico Mensal">
+                  <label for="salesDescription">Descricao</label><input id="salesDescription">
                   <div class="row">
-                    <div><label for="salesQuantity">Quantidade</label><input id="salesQuantity" value="1"></div>
-                    <div><label for="salesPrice">Valor</label><input id="salesPrice" value="250"></div>
+                    <div><label for="salesQuantity">Quantidade</label><input id="salesQuantity"></div>
+                    <div><label for="salesPrice">Valor</label><input id="salesPrice"></div>
                   </div>
-                  <label for="salesDueDate">Primeiro vencimento</label><input id="salesDueDate" value="2026-03-01">
+                  <label for="salesDueDate">Primeiro vencimento</label><input id="salesDueDate">
                   <button onclick="createSalesOrder()">Criar pedido</button>
                   <label for="salesEditOrderId">Pedido ID</label><input id="salesEditOrderId" placeholder="ID do pedido">
                   <label for="salesEditDescription">Nova descricao</label><input id="salesEditDescription" value="Servico Mensal Ajustado">
@@ -511,18 +511,18 @@
                 <details class="module-reveal">
                   <summary>Abrir fluxo documental</summary>
                   <label for="proposalCompanyAccountId">Conta central proposta</label><input id="proposalCompanyAccountId" placeholder="ID da conta selecionada">
-                  <label for="proposalTitle">Proposta</label><input id="proposalTitle" value="Proposta Comercial">
+                  <label for="proposalTitle">Proposta</label><input id="proposalTitle">
                   <label for="proposalOrderId">ID do Pedido</label><input id="proposalOrderId" placeholder="Opcional">
                   <button onclick="createProposal()">Criar proposta</button>
                   <label for="contractCompanyAccountId">Conta central contrato</label><input id="contractCompanyAccountId" placeholder="ID da conta selecionada">
-                  <label for="contractTitle">Contrato</label><input id="contractTitle" value="Contrato Comercial">
+                  <label for="contractTitle">Contrato</label><input id="contractTitle">
                   <label for="contractOrderId">ID do Pedido</label><input id="contractOrderId" placeholder="Opcional">
                   <button onclick="createContract()">Criar contrato</button>
                   <label for="contractStatusUpdate">Status contrato</label>
                   <select id="contractStatusUpdate"><option value="draft">draft</option><option value="sent">sent</option><option value="signed">signed</option><option value="cancelled">cancelled</option></select>
                   <label for="signContractId">Assinar contrato ID</label><input id="signContractId" placeholder="1">
-                  <label for="signFileName">Arquivo</label><input id="signFileName" value="assinado.txt">
-                  <label for="signContent">Conteudo</label><textarea id="signContent">contrato assinado via painel</textarea>
+                  <label for="signFileName">Arquivo</label><input id="signFileName">
+                  <label for="signContent">Conteudo</label><textarea id="signContent"></textarea>
                   <button onclick="signContract()">Enviar assinatura</button>
                 </details>
               </div>
@@ -573,13 +573,13 @@
                 <h3 class="card-title">Financeiro</h3>
                 <details class="module-reveal">
                   <summary>Abrir lancamentos e conciliacao</summary>
-                  <label for="financeCategoryName">Categoria</label><input id="financeCategoryName" value="Mensalidades">
-                  <label for="financeEntryType">Tipo</label><input id="financeEntryType" value="receivable">
+                  <label for="financeCategoryName">Categoria</label><input id="financeCategoryName">
+                  <label for="financeEntryType">Tipo</label><input id="financeEntryType">
                   <button onclick="createFinanceCategory()">Criar categoria</button>
-                  <label for="receivableAmount">Receber</label><input id="receivableAmount" value="100">
-                  <label for="financeDueDate">Vencimento</label><input id="financeDueDate" value="2026-03-05">
+                  <label for="receivableAmount">Receber</label><input id="receivableAmount">
+                  <label for="financeDueDate">Vencimento</label><input id="financeDueDate">
                   <button onclick="createReceivable()">Criar contas a receber</button>
-                  <label for="payableAmount">Pagar</label><input id="payableAmount" value="50">
+                  <label for="payableAmount">Pagar</label><input id="payableAmount">
                   <button onclick="createPayable()">Criar contas a pagar</button>
                   <button onclick="runFinanceReconcile()">Conciliar financeiro</button>
                 </details>
@@ -637,12 +637,12 @@
                 <h3 class="card-title">WhatsApp</h3>
                 <details class="module-reveal">
                   <summary>Abrir console de mensagens</summary>
-                  <label for="whatsappSessionId">Provider Session ID</label><input id="whatsappSessionId" value="panel-session">
+                  <label for="whatsappSessionId">Provider Session ID</label><input id="whatsappSessionId">
                   <button onclick="connectWhatsapp()">Conectar sessao</button>
                   <label for="whatsappSessionStatus">Status sessao</label>
                   <select id="whatsappSessionStatus"><option value="connected">connected</option><option value="connecting">connecting</option><option value="disconnected">disconnected</option><option value="failed">failed</option></select>
                   <button onclick="updateWhatsappSessionStatus()">Atualizar status da sessao</button>
-                  <label for="whatsappBody">Mensagem</label><textarea id="whatsappBody">Mensagem enviada pelo painel</textarea>
+                  <label for="whatsappBody">Mensagem</label><textarea id="whatsappBody"></textarea>
                   <label for="whatsappClientId">Client ID</label><input id="whatsappClientId" placeholder="Opcional">
                   <label for="whatsappLeadId">Lead ID</label><input id="whatsappLeadId" placeholder="Opcional">
                   <button onclick="sendWhatsapp()">Enviar mensagem</button>
