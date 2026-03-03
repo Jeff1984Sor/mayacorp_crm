@@ -278,6 +278,29 @@ body {
   letter-spacing: 0.08em;
   color: var(--brand-dark);
 }
+.cadastros-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.cadastro-switch {
+  width: auto;
+  margin-top: 0;
+  min-width: 120px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+.cadastro-switch.active {
+  background: linear-gradient(135deg, #134e4a, #0f766e);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 12px 24px rgba(15, 118, 110, 0.16);
+}
 .grid,
 .module-grid {
   display: grid;
@@ -387,18 +410,13 @@ body {
 }
 .clients-shell {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
+  grid-template-columns: minmax(340px, 0.9fr) minmax(0, 1.4fr);
+  gap: 18px;
+  align-items: start;
 }
 .clients-list-card,
 .client-profile-card {
   align-self: start;
-}
-.clients-list-card {
-  order: 1;
-}
-.client-profile-card {
-  order: 2;
 }
 .client-profile-shell {
   display: grid;
@@ -531,6 +549,9 @@ body {
 .client-profile-actions #clientSecondaryAction {
   background: #e2e8f0;
   color: #334155;
+}
+.client-profile-actions #clientSecondaryAction:hover {
+  background: #cbd5e1;
 }
 .client-tabs {
   margin-bottom: 0;
@@ -1319,6 +1340,13 @@ button:hover { background: var(--brand-dark); }
   }
   .app-header-actions button,
   .ghost-btn {
+    width: 100%;
+  }
+  .cadastros-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .cadastro-switch {
     width: 100%;
   }
   .side-nav {

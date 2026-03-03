@@ -354,13 +354,25 @@ function filterClientDirectory() {
     return;
   }
   const term = (input.value || "").trim().toLowerCase();
-  if (!term) {
-    renderClientDirectory(items);
+  const filteredItems = !term
+    ? items
+    : items.filter((item) => `${item.id} ${item.name} ${item.admin_email || ""}`.toLowerCase().includes(term));
+  renderClientDirectory(filteredItems);
+  const activeId = getActiveCompanyAccountId();
+  const hasActiveVisible = filteredItems.some((item) => item.id === activeId);
+  if (!hasActiveVisible && filteredItems.length) {
+    setActiveCompanyAccount(filteredItems[0].id);
     return;
   }
-  renderClientDirectory(
-    items.filter((item) => `${item.id} ${item.name} ${item.admin_email || ""}`.toLowerCase().includes(term))
-  );
+  if (!term) {
+    if (!filteredItems.length) {
+      renderClientProfile(null);
+    }
+    return;
+  }
+  if (!filteredItems.length) {
+    renderClientProfile(null);
+  }
 }
 
 function setCompanyAccountStageFilter(stage, trigger = null) {
@@ -774,6 +786,13 @@ async function loadCompanyAccounts() {
     const stage = getCompanyAccountStageFilter();
     const label = stage === "all" ? "Todos" : stage === "lead" ? "Leads" : "Clientes";
     meta.textContent = `${label}: ${visible} de ${total}`;
+  }
+  const visibleItems = getVisibleCompanyAccounts();
+  const activeId = getActiveCompanyAccountId();
+  if (visibleItems.length && !visibleItems.some((item) => item.id === activeId)) {
+    setActiveCompanyAccount(visibleItems[0].id);
+  } else if (!visibleItems.length) {
+    renderClientProfile(null);
   }
 }
 
