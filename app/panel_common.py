@@ -27,6 +27,7 @@ class PanelTenantLoginRequest(BaseModel):
 
 
 class PanelTenantCreateRequest(BaseModel):
+    account_id: int | None = None
     company_name: str = Field(min_length=2, max_length=255)
     workspace_slug: str = Field(min_length=2, max_length=80)
     account_stage: str = Field(default="lead", max_length=40)

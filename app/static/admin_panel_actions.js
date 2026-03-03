@@ -50,16 +50,21 @@ async function createTenant() {
       headers: { "Content-Type": "application/json" }
     }),
     body: JSON.stringify({
-      company_name: document.getElementById("companyName").value,
-      workspace_slug: document.getElementById("workspaceSlug").value,
-      account_stage: selectedValue("companyStage", "lead"),
-      admin_name: document.getElementById("tenantAdminName").value,
-      admin_email: document.getElementById("tenantAdminEmail").value,
-      admin_password: document.getElementById("tenantAdminPassword").value
+      account_id: toOptionalInt(document.getElementById("tenantAccountId").value) || getActiveCompanyAccountId(),
+      company_name: document.getElementById("tenantCompanyName").value,
+      workspace_slug: document.getElementById("tenantWorkspaceSlug").value,
+      account_stage: "client",
+      admin_name: document.getElementById("tenantAdminCreateName").value,
+      admin_email: document.getElementById("tenantAdminCreateEmail").value,
+      admin_password: document.getElementById("tenantAdminCreatePassword").value
     })
   });
   const payload = await showResult(response);
   if (payload) {
+    const tenantSlug = document.getElementById("tenantSlug");
+    if (tenantSlug) {
+      tenantSlug.value = payload.workspace_slug || document.getElementById("tenantWorkspaceSlug").value;
+    }
     await loadCompanyAccounts();
   }
 }
@@ -97,6 +102,7 @@ function setActiveCompanyAccount(accountId) {
     "summaryCompanyAccountId",
     "relationshipCompanyAccountId",
     "crmCompanyAccountId",
+    "tenantAccountId",
     "salesCompanyAccountId",
     "proposalCompanyAccountId",
     "contractCompanyAccountId"
@@ -108,6 +114,14 @@ function setActiveCompanyAccount(accountId) {
     }
   });
   if (value) {
+    const tenantCompanyName = document.getElementById("tenantCompanyName");
+    if (tenantCompanyName && document.getElementById("companyName")) {
+      tenantCompanyName.value = document.getElementById("companyName").value;
+    }
+    const tenantAdminCreateEmail = document.getElementById("tenantAdminCreateEmail");
+    if (tenantAdminCreateEmail && document.getElementById("tenantAdminEmail")) {
+      tenantAdminCreateEmail.value = document.getElementById("tenantAdminEmail").value;
+    }
     showToast(`Conta ${value} selecionada para pedidos e documentos.`);
   }
 }
@@ -280,6 +294,14 @@ async function createLeadFromAccount() {
     if (crmLeadEmail) {
       crmLeadEmail.value = document.getElementById("accountLeadEmail").value;
     }
+    const tenantCompanyName = document.getElementById("tenantCompanyName");
+    const tenantAdminCreateEmail = document.getElementById("tenantAdminCreateEmail");
+    if (tenantCompanyName) {
+      tenantCompanyName.value = document.getElementById("accountLeadName").value;
+    }
+    if (tenantAdminCreateEmail) {
+      tenantAdminCreateEmail.value = document.getElementById("accountLeadEmail").value;
+    }
     await loadCompanyAccounts();
   }
 }
@@ -313,6 +335,15 @@ async function createClientFromAccount() {
     }
   }
   await promoteCompanyAccount(accountId);
+  const tenantCompanyName = document.getElementById("tenantCompanyName");
+  const tenantAdminCreateEmail = document.getElementById("tenantAdminCreateEmail");
+  if (tenantCompanyName) {
+    tenantCompanyName.value = nextName || document.getElementById("accountLeadName").value;
+  }
+  if (tenantAdminCreateEmail) {
+    tenantAdminCreateEmail.value = nextEmail || document.getElementById("accountLeadEmail").value;
+  }
+  switchWorkspaceFlowTab("workspace");
 }
 
 async function createSalesOrder() {

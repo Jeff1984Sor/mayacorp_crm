@@ -256,8 +256,7 @@
                     <input id="companyDocument" placeholder="CNPJ opcional">
                     <label for="companyNotes">Observacoes</label>
                     <textarea id="companyNotes"></textarea>
-                    <button class="secondary-btn" type="button" onclick="createCompanyAccount()">Criar somente conta</button>
-                    <button onclick="createTenant()">Criar conta com tenant inicial</button>
+                    <button type="button" onclick="createCompanyAccount()">Criar conta</button>
                   </details>
                 </div>
               </div>
@@ -280,8 +279,24 @@
                     <span class="pill pill-muted">Workspace</span>
                     <span class="helper">Sessao operacional</span>
                   </div>
-                  <h3 class="card-title">Login Tenant</h3>
-                  <p class="card-copy">Depois de criar a conta, abra a sessao operacional do tenant e valide o ambiente do cliente.</p>
+                  <h3 class="card-title">Criar e acessar tenant</h3>
+                  <p class="card-copy">Depois de criar a conta e converter para cliente, vincule um tenant a essa empresa e so entao entre no workspace.</p>
+                  <details class="module-reveal" open>
+                    <summary>Criar tenant para a conta</summary>
+                    <label for="tenantAccountId">Conta central</label>
+                    <input id="tenantAccountId" placeholder="ID da conta cliente">
+                    <label for="tenantCompanyName">Empresa</label>
+                    <input id="tenantCompanyName">
+                    <label for="tenantWorkspaceSlug">Workspace</label>
+                    <input id="tenantWorkspaceSlug">
+                    <div class="row">
+                      <div><label for="tenantAdminCreateName">Responsavel</label><input id="tenantAdminCreateName"></div>
+                      <div><label for="tenantAdminCreatePassword">Senha</label><input id="tenantAdminCreatePassword" type="password"></div>
+                    </div>
+                    <label for="tenantAdminCreateEmail">Email principal</label>
+                    <input id="tenantAdminCreateEmail">
+                    <button type="button" onclick="createTenant()">Criar tenant para esta conta</button>
+                  </details>
                   <details class="module-reveal" open>
                     <summary>Abrir sessao do workspace</summary>
                     <label for="tenantSlug">Workspace</label>

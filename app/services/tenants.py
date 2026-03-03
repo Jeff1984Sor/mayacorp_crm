@@ -34,6 +34,7 @@ def _build_tenant_db_url(slug: str) -> str:
 def sync_company_account(
     session: Session,
     *,
+    account_id: int | None = None,
     company_name: str,
     lifecycle_stage: str,
     admin_email: str,
@@ -41,12 +42,16 @@ def sync_company_account(
     tenant_id: int | None,
     actor_email: str,
 ) -> CompanyAccount:
-    account = (
-        session.query(CompanyAccount)
-        .filter(CompanyAccount.admin_email == admin_email, CompanyAccount.name == company_name)
-        .order_by(CompanyAccount.id.desc())
-        .one_or_none()
-    )
+    account = None
+    if account_id is not None:
+        account = session.query(CompanyAccount).filter(CompanyAccount.id == account_id).one_or_none()
+    if account is None:
+        account = (
+            session.query(CompanyAccount)
+            .filter(CompanyAccount.admin_email == admin_email, CompanyAccount.name == company_name)
+            .order_by(CompanyAccount.id.desc())
+            .one_or_none()
+        )
     action = "account.updated"
     if account is None:
         account = CompanyAccount(
@@ -88,6 +93,7 @@ def create_tenant(
     payload: TenantCreateRequest,
     actor_email: str,
     account_stage: str = "lead",
+    account_id: int | None = None,
 ) -> Tenant:
     tenant_db_url = _build_tenant_db_url(payload.workspace_slug)
     tenant = Tenant(
@@ -104,6 +110,7 @@ def create_tenant(
     session.flush()
     sync_company_account(
         session,
+        account_id=account_id,
         company_name=payload.company_name,
         lifecycle_stage=account_stage,
         admin_email=payload.admin_email,

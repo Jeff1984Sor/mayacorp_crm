@@ -90,8 +90,14 @@ def admin_panel_create_tenant(
     current_user: CentralUser = Depends(panel_central_user_dep),
     session: Session = Depends(central_session_dep),
 ) -> dict:
+    from app.models.central import CompanyAccount
+
     if payload.account_stage not in {"lead", "client"}:
         raise HTTPException(status_code=422, detail=f"Invalid account stage: {payload.account_stage}")
+    if payload.account_id is not None:
+        account = session.query(CompanyAccount).filter(CompanyAccount.id == payload.account_id).one_or_none()
+        if account is None:
+            raise HTTPException(status_code=404, detail="Company account not found.")
     tenant = create_tenant(
         session,
         TenantCreateRequest(
@@ -110,6 +116,7 @@ def admin_panel_create_tenant(
         ),
         actor_email=current_user.email,
         account_stage=payload.account_stage,
+        account_id=payload.account_id,
     )
     return panel_response(
         "Tenant criado.",
