@@ -104,8 +104,23 @@ function getClientAccounts() {
   return (cache?.items || []).filter((item) => item.lifecycle_stage === "client");
 }
 
+function getCompanyAccountStageFilter() {
+  return getPanelCache("companyAccountStageFilter") || "all";
+}
+
+function getVisibleCompanyAccounts() {
+  const cache = getPanelCache("companyAccounts");
+  const items = cache?.items || [];
+  const stage = getCompanyAccountStageFilter();
+  if (stage === "all") {
+    return items;
+  }
+  return items.filter((item) => item.lifecycle_stage === stage);
+}
+
 function renderClientDirectory(items) {
   const target = document.getElementById("clientDirectoryList");
+  const activeId = getActiveCompanyAccountId();
   if (!target) {
     return;
   }
@@ -116,17 +131,17 @@ function renderClientDirectory(items) {
   target.innerHTML = items
     .map(
       (item) => `
-        <div class="list-item">
+        <div class="list-item ${activeId === item.id ? "active-client-row" : ""}">
           <div class="client-directory-row">
-            <button type="button" class="tenant-account-result client-directory-main" onclick="selectClientProfile(${item.id}, 'summary')">
+            <button type="button" class="tenant-account-result client-directory-main ${activeId === item.id ? "active" : ""}" onclick="selectClientProfile(${item.id}, 'summary')">
               <strong>#${item.id}</strong> ${item.name}
               <span>${item.tenant_id ? `Tenant ${item.tenant_id}` : "Sem tenant"}</span>
             </button>
             <div class="client-directory-tabs">
-              <button type="button" class="table-action" onclick="selectClientProfile(${item.id}, 'summary')">Resumo</button>
-              <button type="button" class="table-action" onclick="selectClientProfile(${item.id}, 'tenant')">Tenant</button>
-              <button type="button" class="table-action" onclick="selectClientProfile(${item.id}, 'sales')">Vendas</button>
-              <button type="button" class="table-action" onclick="selectClientProfile(${item.id}, 'plans')">Planos</button>
+              <button type="button" class="table-action ${activeId === item.id ? "active" : ""}" onclick="selectClientProfile(${item.id}, 'summary')">Resumo</button>
+              <button type="button" class="table-action ${activeId === item.id ? "active" : ""}" onclick="selectClientProfile(${item.id}, 'tenant')">Tenant</button>
+              <button type="button" class="table-action ${activeId === item.id ? "active" : ""}" onclick="selectClientProfile(${item.id}, 'sales')">Vendas</button>
+              <button type="button" class="table-action ${activeId === item.id ? "active" : ""}" onclick="selectClientProfile(${item.id}, 'plans')">Planos</button>
             </div>
           </div>
         </div>
@@ -144,7 +159,7 @@ function applyTenantAccountSelection(selected) {
   hidden.value = selected ? String(selected.id) : "";
   if (!selected) {
     if (status) {
-      status.textContent = "Selecione um cliente para ver o tenant vinculado.";
+      status.textContent = "Selecione uma conta para ver o tenant vinculado.";
     }
     return;
   }
@@ -167,6 +182,62 @@ function applyTenantAccountSelection(selected) {
   }
 }
 
+function applyClientHeaderActions(selected) {
+  const primary = document.getElementById("clientPrimaryAction");
+  const secondary = document.getElementById("clientSecondaryAction");
+  if (!primary || !secondary) {
+    return;
+  }
+  if (!selected) {
+    primary.textContent = "Abrir";
+    secondary.textContent = "Detalhes";
+    return;
+  }
+  if (selected.lifecycle_stage === "lead") {
+    primary.textContent = "Converter";
+    secondary.textContent = "Editar lead";
+    return;
+  }
+  primary.textContent = selected.tenant_id ? "Abrir tenant" : "Criar tenant";
+  secondary.textContent = "Nova venda";
+}
+
+function runClientPrimaryAction() {
+  const activeId = getActiveCompanyAccountId();
+  if (!activeId) {
+    showToast("Selecione uma conta antes de executar a acao.", "error");
+    return;
+  }
+  const selected = (getPanelCache("companyAccounts")?.items || []).find((item) => item.id === activeId) || null;
+  if (!selected) {
+    showToast("Conta ativa nao encontrada.", "error");
+    return;
+  }
+  if (selected.lifecycle_stage === "lead") {
+    promoteCompanyAccount(activeId).catch(() => {});
+    return;
+  }
+  openClientProfileTab("tenant");
+}
+
+function runClientSecondaryAction() {
+  const activeId = getActiveCompanyAccountId();
+  if (!activeId) {
+    showToast("Selecione uma conta antes de executar a acao.", "error");
+    return;
+  }
+  const selected = (getPanelCache("companyAccounts")?.items || []).find((item) => item.id === activeId) || null;
+  if (!selected) {
+    showToast("Conta ativa nao encontrada.", "error");
+    return;
+  }
+  if (selected.lifecycle_stage === "lead") {
+    openClientProfileTab("summary");
+    return;
+  }
+  prepareClientSale();
+}
+
 function renderClientProfile(selected) {
   const empty = document.getElementById("clientProfileEmpty");
   const panel = document.getElementById("clientProfilePanel");
@@ -185,19 +256,20 @@ function renderClientProfile(selected) {
     ? `Tenant ${selected.tenant_id}`
     : "Sem tenant";
   document.getElementById("clientProfileName").textContent = selected.name || "-";
-  document.getElementById("clientProfileMeta").textContent = `${selected.admin_email || "-"} | Cliente #${selected.id}`;
+  document.getElementById("clientProfileMeta").textContent = `${selected.admin_email || "-"} | Conta #${selected.id}`;
   document.getElementById("clientSummaryStage").textContent = `Estagio: ${selected.lifecycle_stage}`;
   document.getElementById("clientSummaryEmail").textContent = `Email: ${selected.admin_email || "-"}`;
   document.getElementById("clientSummaryTenant").textContent = selected.tenant_id
     ? `Tenant vinculado: ${selected.tenant_id}`
     : "Tenant vinculado: nenhum";
-  document.getElementById("clientSalesHint").textContent = `Cliente ativo: ${selected.name} (#${selected.id})`;
+  document.getElementById("clientSalesHint").textContent = `Conta ativa: ${selected.name} (#${selected.id})`;
   document.getElementById("clientSalesFilter").textContent = `Vendas e documentos serao abertos com filtro pela conta ${selected.id}.`;
   applyTenantAccountSelection(selected);
+  applyClientHeaderActions(selected);
 }
 
 function selectClientProfile(accountId, tab = "summary") {
-  const selected = getClientAccounts().find((item) => item.id === accountId) || null;
+  const selected = (getPanelCache("companyAccounts")?.items || []).find((item) => item.id === accountId) || null;
   if (!selected) {
     return;
   }
@@ -212,7 +284,7 @@ function selectClientProfile(accountId, tab = "summary") {
 
 function filterClientDirectory() {
   const input = document.getElementById("clientDirectorySearch");
-  const items = getClientAccounts();
+  const items = getVisibleCompanyAccounts();
   if (!input) {
     return;
   }
@@ -224,6 +296,17 @@ function filterClientDirectory() {
   renderClientDirectory(
     items.filter((item) => `${item.id} ${item.name} ${item.admin_email || ""}`.toLowerCase().includes(term))
   );
+}
+
+function setCompanyAccountStageFilter(stage, trigger = null) {
+  setPanelCache("companyAccountStageFilter", stage);
+  document.querySelectorAll("[data-account-filter]").forEach((node) => {
+    node.classList.toggle("active", node.dataset.accountFilter === stage);
+  });
+  if (trigger && trigger.classList) {
+    trigger.classList.add("active");
+  }
+  filterClientDirectory();
 }
 
 function openClientProfileTab(tab, trigger = null) {
@@ -238,17 +321,40 @@ function openClientProfileTab(tab, trigger = null) {
   }
 }
 
+function openCatalogTab(tab, trigger = null) {
+  document.querySelectorAll(".catalog-tab-panel").forEach((node) => {
+    node.classList.toggle("active", node.dataset.catalogPanel === tab);
+  });
+  document.querySelectorAll("[data-catalog-tab]").forEach((node) => {
+    node.classList.toggle("active", node.dataset.catalogTab === tab);
+  });
+  if (trigger && trigger.classList) {
+    trigger.classList.add("active");
+  }
+}
+
 function openNewClientComposer() {
   switchPanelSection("tenant");
+  const composer = document.getElementById("newClientComposer");
+  if (composer) {
+    composer.classList.remove("hidden");
+  }
   const name = document.getElementById("companyName");
   if (name && typeof name.focus === "function") {
     name.focus();
   }
 }
 
+function closeNewClientComposer() {
+  const composer = document.getElementById("newClientComposer");
+  if (composer) {
+    composer.classList.add("hidden");
+  }
+}
+
 function buildCatalogProductPayload() {
   return {
-    code: document.getElementById("catalogProductCode").value,
+    code: null,
     name: document.getElementById("catalogProductName").value,
     amount: Number(document.getElementById("catalogProductAmount").value || "0")
   };
@@ -256,7 +362,7 @@ function buildCatalogProductPayload() {
 
 function buildCatalogPlanPayload() {
   return {
-    code: document.getElementById("catalogPlanCode").value,
+    code: null,
     name: document.getElementById("catalogPlanName").value,
     product_id: toOptionalInt(document.getElementById("catalogPlanProductId").value),
     amount: Number(document.getElementById("catalogPlanAmount").value || "0"),
@@ -268,17 +374,87 @@ function buildCatalogPlanPayload() {
 
 function syncCatalogProductOptions() {
   const select = document.getElementById("catalogPlanProductId");
-  if (!select) {
+  if (select) {
+    const cache = getPanelCache("catalogProducts");
+    const items = cache?.items || [];
+    const currentValue = select.value;
+    select.innerHTML = '<option value="">Sem produto</option>' + items
+      .map((item) => `<option value="${item.id}">${item.name} (#${item.id})</option>`)
+      .join("");
+    if (currentValue) {
+      select.value = currentValue;
+    }
+  }
+  syncSalesCatalogOptions();
+}
+
+function syncSalesCatalogOptions() {
+  const planSelect = document.getElementById("salesPlanId");
+  const addonList = document.getElementById("salesAddonList");
+  const plans = getPanelCache("catalogPlans")?.items || [];
+  const products = getPanelCache("catalogProducts")?.items || [];
+  if (planSelect) {
+    const currentValue = planSelect.value;
+    planSelect.innerHTML = '<option value="">Sem plano</option>' + plans
+      .filter((item) => item.is_active !== false)
+      .map((item) => `<option value="${item.id}">${item.name} | ${item.billing_cycle || "-"} | R$ ${Number(item.amount || 0).toFixed(2)}</option>`)
+      .join("");
+    if (currentValue) {
+      planSelect.value = currentValue;
+    }
+  }
+  if (addonList) {
+    const currentValues = new Set(
+      Array.from(addonList.querySelectorAll("input[type='checkbox']:checked")).map((node) => Number(node.value))
+    );
+    addonList.innerHTML = products.length
+      ? products
+          .map(
+            (item) => `
+              <label class="sales-addon-option">
+                <input type="checkbox" value="${item.id}" ${currentValues.has(item.id) ? "checked" : ""} onchange="applySalesCatalogSelection()">
+                <span>${item.name}</span>
+                <strong>R$ ${Number(item.amount || 0).toFixed(2)}</strong>
+              </label>
+            `
+          )
+          .join("")
+      : '<div class="list-item">Nenhum produto adicional cadastrado.</div>';
+  }
+  applySalesCatalogSelection();
+}
+
+function applySalesCatalogSelection() {
+  const plans = getPanelCache("catalogPlans")?.items || [];
+  const products = getPanelCache("catalogProducts")?.items || [];
+  const planSelect = document.getElementById("salesPlanId");
+  const description = document.getElementById("salesDescription");
+  const price = document.getElementById("salesPrice");
+  const quantity = document.getElementById("salesQuantity");
+  if (!planSelect || !description || !price || !quantity) {
     return;
   }
-  const cache = getPanelCache("catalogProducts");
-  const items = cache?.items || [];
-  const currentValue = select.value;
-  select.innerHTML = '<option value="">Sem produto</option>' + items
-    .map((item) => `<option value="${item.id}">${item.name} (#${item.id})</option>`)
-    .join("");
-  if (currentValue) {
-    select.value = currentValue;
+  const selectedPlanId = toOptionalInt(planSelect.value || "");
+  const selectedPlan = plans.find((item) => item.id === selectedPlanId) || null;
+  const selectedProductIds = Array.from(document.querySelectorAll("#salesAddonList input[type='checkbox']:checked"))
+    .map((input) => Number(input.value));
+  const selectedProducts = products.filter((item) => selectedProductIds.includes(item.id));
+  const parts = [];
+  let total = 0;
+  if (selectedPlan) {
+    parts.push(`Plano ${selectedPlan.name}`);
+    total += Number(selectedPlan.amount || 0);
+  }
+  if (selectedProducts.length) {
+    parts.push(`Add-ons: ${selectedProducts.map((item) => item.name).join(", ")}`);
+    total += selectedProducts.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  }
+  if (parts.length) {
+    description.value = parts.join(" | ");
+    price.value = total.toFixed(2);
+    if (!quantity.value) {
+      quantity.value = "1";
+    }
   }
 }
 
@@ -316,7 +492,7 @@ async function updateCatalogProduct(productId) {
       headers: { "Content-Type": "application/json" }
     }),
     body: JSON.stringify({
-      code: current.code,
+      code: null,
       name: name.trim() || current.name,
       amount: Number(amount || current.amount)
     })
@@ -394,7 +570,7 @@ async function updateCatalogPlan(planId) {
       headers: { "Content-Type": "application/json" }
     }),
     body: JSON.stringify({
-      code: current.code,
+      code: null,
       name: name.trim() || current.name,
       product_id: current.product_id || null,
       amount: Number(amount || current.amount),
@@ -416,6 +592,7 @@ async function loadCatalogPlans() {
     return;
   }
   setPanelCache("catalogPlans", payload);
+  syncSalesCatalogOptions();
   const meta = document.getElementById("catalogPlansMeta");
   if (meta) {
     meta.textContent = `Planos ${payload.total || 0}`;
@@ -440,7 +617,7 @@ async function loadCatalogPlans() {
 function prepareClientSale() {
   const activeId = getActiveCompanyAccountId();
   if (!activeId) {
-    showToast("Selecione um cliente antes de abrir nova venda.", "error");
+    showToast("Selecione uma conta antes de abrir nova venda.", "error");
     return;
   }
   const salesAccount = document.getElementById("salesCompanyAccountId");
@@ -478,7 +655,7 @@ function setActiveCompanyAccount(accountId) {
     }
   });
   if (value) {
-    const selected = getClientAccounts().find((item) => item.id === accountId) || null;
+    const selected = (getPanelCache("companyAccounts")?.items || []).find((item) => item.id === accountId) || null;
     const tenantCompanyName = document.getElementById("tenantCompanyName");
     if (tenantCompanyName && document.getElementById("companyName")) {
       tenantCompanyName.value = document.getElementById("companyName").value;
@@ -489,6 +666,7 @@ function setActiveCompanyAccount(accountId) {
     }
     applyTenantAccountSelection(selected);
     renderClientProfile(selected);
+    renderClientDirectory(getVisibleCompanyAccounts());
     showToast(`Conta ${value} selecionada para pedidos e documentos.`);
   }
 }
@@ -503,6 +681,7 @@ async function createCompanyAccount() {
   });
   const payload = await showResult(response);
   if (payload) {
+    closeNewClientComposer();
     await loadCompanyAccounts();
   }
 }
@@ -514,10 +693,14 @@ async function loadCompanyAccounts() {
     return;
   }
   setPanelCache("companyAccounts", payload);
-  renderClientDirectory(getClientAccounts());
+  renderClientDirectory(getVisibleCompanyAccounts());
   const meta = document.getElementById("accountsMeta");
   if (meta) {
-    meta.textContent = `Clientes ${getClientAccounts().length}`;
+    const total = (payload.items || []).length;
+    const visible = getVisibleCompanyAccounts().length;
+    const stage = getCompanyAccountStageFilter();
+    const label = stage === "all" ? "Todos" : stage === "lead" ? "Leads" : "Clients";
+    meta.textContent = `${label}: ${visible} de ${total}`;
   }
 }
 
@@ -540,6 +723,7 @@ async function promoteCompanyAccount(accountId) {
   const payload = await showResult(response);
   if (payload) {
     await loadCompanyAccounts();
+    selectClientProfile(accountId, "summary");
   }
 }
 
@@ -693,6 +877,8 @@ async function createClientFromAccount() {
 }
 
 async function createSalesOrder() {
+  const addonIds = Array.from(document.querySelectorAll("#salesAddonList input[type='checkbox']:checked"))
+    .map((input) => Number(input.value));
   const response = await fetch(`/admin/panel/${getTenantSlug()}/sales-order`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -702,7 +888,9 @@ async function createSalesOrder() {
       quantity: Number(document.getElementById("salesQuantity").value || "1"),
       unit_price: Number(document.getElementById("salesPrice").value || "0"),
       first_due_date: document.getElementById("salesDueDate").value,
-      company_account_id: toOptionalInt(document.getElementById("salesCompanyAccountId").value) || getActiveCompanyAccountId()
+      company_account_id: toOptionalInt(document.getElementById("salesCompanyAccountId").value) || getActiveCompanyAccountId(),
+      plan_id: toOptionalInt(document.getElementById("salesPlanId")?.value || ""),
+      addon_ids: addonIds
     })
   });
   const payload = await showResult(response);
@@ -1780,16 +1968,19 @@ async function loadProposalsOnly() {
   if (payload) {
     setPanelCache("proposals", payload);
     renderList("proposalsList", payload.items || [], (item) =>
-      buildDataRow(
+      (() => {
+        const pkg = formatDocumentSalesPackage(item);
+        return buildDataRow(
         item.title,
-        `${item.pdf_path || "sem pdf"} | Conta ${item.company_account_id || "-"}`,
+        `${item.pdf_path || "sem pdf"} | Conta ${item.company_account_id || "-"} | ${pkg.summary}`,
         "proposta",
         `
           <button class="table-action" onclick="openProposalEditor(${item.id}, '${String(item.title).replace(/'/g, "\\'")}')">Renomear</button>
           <button class="table-action" onclick="deleteProposal(${item.id})">Excluir</button>
         `,
-        { entity: "proposta", title: item.title, subtitle: `${item.pdf_path || "sem pdf"} | Conta ${item.company_account_id || "-"}`, status: "proposta", meta: [`Proposta #${item.id}`, item.pdf_path || "Sem PDF gerado", `Conta ${item.company_account_id || "-"}`] }
-      )
+        { entity: "proposta", title: item.title, subtitle: `${item.pdf_path || "sem pdf"} | Conta ${item.company_account_id || "-"} | ${pkg.summary}`, status: "proposta", meta: [`Proposta #${item.id}`, item.pdf_path || "Sem PDF gerado", `Conta ${item.company_account_id || "-"}`, `Plano ${pkg.planLabel}`, `Add-ons ${pkg.addonsLabel}`] }
+      );
+      })()
     );
     const docsMeta = document.getElementById("documentsMeta");
     if (docsMeta) {
@@ -1820,17 +2011,20 @@ async function loadContractsOnly() {
   if (payload) {
     setPanelCache("contracts", payload);
     renderList("contractsList", payload.items || [], (item) =>
-      buildDataRow(
+      (() => {
+        const pkg = formatDocumentSalesPackage(item);
+        return buildDataRow(
         item.title,
-        `Contrato #${item.id} | Conta ${item.company_account_id || "-"}`,
+        `Contrato #${item.id} | Conta ${item.company_account_id || "-"} | ${pkg.summary}`,
         item.status,
         `
           <button class="table-action" onclick="openContractEditor(${item.id}, '${String(item.title).replace(/'/g, "\\'")}')">Renomear</button>
           <button class="table-action" onclick="openStatusEditor('contract', ${item.id}, '${item.status}')">Atualizar status</button>
           <button class="table-action" onclick="deleteContract(${item.id})">Excluir</button>
         `,
-        { entity: "contrato", title: item.title, subtitle: `Contrato #${item.id} | Conta ${item.company_account_id || "-"}`, status: item.status, meta: [`Contrato #${item.id}`, `Status ${item.status}`, `Conta ${item.company_account_id || "-"}`] }
-      )
+        { entity: "contrato", title: item.title, subtitle: `Contrato #${item.id} | Conta ${item.company_account_id || "-"} | ${pkg.summary}`, status: item.status, meta: [`Contrato #${item.id}`, `Status ${item.status}`, `Conta ${item.company_account_id || "-"}`, `Plano ${pkg.planLabel}`, `Add-ons ${pkg.addonsLabel}`] }
+      );
+      })()
     );
     const docsMeta = document.getElementById("documentsMeta");
     if (docsMeta) {
@@ -1863,9 +2057,12 @@ async function loadOrdersSummary() {
   if (payload) {
     setPanelCache("orders", payload);
     renderList("salesOrdersList", payload.sales_orders || [], (item) =>
-      `#${item.id} | ${item.status} | R$ ${Number(item.total_amount).toFixed(2)} | Conta ${item.company_account_id || "-"}<br>
+      (() => {
+        const pkg = formatSalesCatalogPackage(item);
+        return `#${item.id} | ${item.status} | R$ ${Number(item.total_amount).toFixed(2)} | Conta ${item.company_account_id || "-"} | ${pkg.summary}<br>
       <button onclick="updateSalesOrderStatus(${item.id})">Atualizar status</button>
-      <button onclick="deleteSalesOrder(${item.id})">Excluir</button>`
+      <button onclick="deleteSalesOrder(${item.id})">Excluir</button>`;
+      })()
     );
     const ordersMeta = document.getElementById("ordersMeta");
     if (ordersMeta) {

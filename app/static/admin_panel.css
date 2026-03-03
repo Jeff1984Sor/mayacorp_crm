@@ -306,6 +306,39 @@ body {
   color: #ffffff;
   border-color: transparent;
 }
+.client-subnav {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.client-filter-tabs {
+  margin-bottom: 10px;
+}
+.client-subnav .workspace-tab {
+  display: grid;
+  gap: 4px;
+  min-height: 74px;
+  text-align: left;
+  align-content: center;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+}
+.client-subnav .workspace-tab strong {
+  display: block;
+  font-size: 13px;
+}
+.client-subnav .workspace-tab span {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+}
+.client-subnav .workspace-tab.active {
+  box-shadow: 0 14px 28px rgba(15, 118, 110, 0.14);
+}
+.client-subnav .workspace-tab.active span {
+  color: rgba(255, 255, 255, 0.82);
+}
 .workspace-tab-panel {
   display: none;
 }
@@ -317,6 +350,12 @@ body {
   margin-top: 14px;
 }
 .client-tab-panel.active {
+  display: block;
+}
+.catalog-tab-panel {
+  display: none;
+}
+.catalog-tab-panel.active {
   display: block;
 }
 .clients-shell {
@@ -334,12 +373,32 @@ body {
 .client-profile-card {
   order: 2;
 }
+.client-profile-shell {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid #cfe3f5;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
 .client-directory-row {
   display: grid;
   gap: 10px;
 }
+.active-client-row {
+  border-color: #7dd3c7 !important;
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.16);
+}
 .client-directory-main {
   min-height: 64px;
+}
+.client-directory-main.active {
+  background: linear-gradient(135deg, #134e4a, #0f766e);
+  color: #ffffff;
+  border-color: transparent;
+}
+.client-directory-main.active span {
+  color: rgba(255, 255, 255, 0.82);
 }
 .client-directory-tabs {
   display: grid;
@@ -349,6 +408,11 @@ body {
 }
 .client-directory-tabs .table-action {
   flex: initial;
+}
+.client-directory-tabs .table-action.active {
+  background: #ccfbf1;
+  color: #115e59;
+  border: 1px solid #7dd3c7;
 }
 .client-profile-hero {
   display: flex;
@@ -378,6 +442,48 @@ body {
 .client-profile-actions button {
   width: auto;
   margin-top: 0;
+}
+.client-profile-actions #clientPrimaryAction {
+  background: linear-gradient(135deg, #134e4a, #0f766e);
+  min-width: 132px;
+}
+.client-profile-actions #clientSecondaryAction {
+  background: #e2e8f0;
+  color: #334155;
+}
+.client-tabs {
+  margin-bottom: 0;
+}
+.client-facts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.client-pane-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.client-pane-card {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.6);
+}
+.catalog-tabs {
+  margin-bottom: 16px;
+}
+.composer-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 12px;
+}
+.composer-drawer-panel {
+  width: min(100%, 520px);
+  background:
+    radial-gradient(circle at top right, rgba(20,184,166,0.12), transparent 24%),
+    linear-gradient(180deg, #ffffff, #f0fdfa);
 }
 .account-notes {
   margin-top: 14px;
@@ -940,6 +1046,28 @@ button:hover { background: var(--brand-dark); }
   line-height: 1.4;
   word-break: break-all;
 }
+.sales-addon-option {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  cursor: pointer;
+}
+.sales-addon-option input {
+  width: auto;
+  margin: 0;
+}
+.sales-addon-option span {
+  font-size: 13px;
+}
+.sales-addon-option strong {
+  font-size: 12px;
+  color: var(--brand-dark);
+}
 .pager-inline {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1058,5 +1186,11 @@ button:hover { background: var(--brand-dark); }
   .client-directory-tabs {
     grid-template-columns: 1fr 1fr;
     padding-inline: 10px;
+  }
+  .client-facts-grid,
+  .client-pane-grid,
+  .client-subnav,
+  .composer-grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -42,6 +42,8 @@ class PanelSalesOrderRequest(BaseModel):
     unit_price: float = Field(gt=0)
     first_due_date: str
     company_account_id: int | None = None
+    plan_id: int | None = None
+    addon_ids: list[int] = Field(default_factory=list)
 
 
 class PanelSalesOrderEditRequest(BaseModel):
@@ -109,13 +111,13 @@ class PanelCompanyAccountPlanRequest(BaseModel):
 
 
 class PanelCatalogProductRequest(BaseModel):
-    code: str = Field(min_length=2, max_length=80)
+    code: str | None = Field(default=None, min_length=2, max_length=80)
     name: str = Field(min_length=2, max_length=120)
     amount: float = Field(default=0, ge=0)
 
 
 class PanelCatalogPlanRequest(BaseModel):
-    code: str = Field(min_length=2, max_length=80)
+    code: str | None = Field(default=None, min_length=2, max_length=80)
     name: str = Field(min_length=2, max_length=120)
     product_id: int | None = None
     amount: float = Field(ge=0)

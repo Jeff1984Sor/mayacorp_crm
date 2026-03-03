@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import central_session_dep, tenant_session_dep
 from app.api.routes import _write_document_file, _write_signed_contract_file
-from app.models.central import CompanyAccount
+from app.models.central import Addon, CompanyAccount, Plan
 from app.models.tenant import AccountsReceivable, Client, Contract, Lead, Proposal, SalesItem, SalesOrder, User
 from app.panel_common import (
     PANEL_CONTRACT_STATUSES,
@@ -176,10 +176,21 @@ def admin_panel_create_sales_order(
         account = central_session.query(CompanyAccount).filter(CompanyAccount.id == payload.company_account_id).one_or_none()
         if account is None:
             raise HTTPException(status_code=404, detail="Company account not found.")
+    if payload.plan_id is not None:
+        plan = central_session.query(Plan).filter(Plan.id == payload.plan_id).one_or_none()
+        if plan is None:
+            raise HTTPException(status_code=404, detail="Plan not found.")
+    addon_ids = sorted({int(addon_id) for addon_id in payload.addon_ids})
+    if addon_ids:
+        existing_addons = central_session.query(Addon).filter(Addon.id.in_(addon_ids)).all()
+        if len(existing_addons) != len(addon_ids):
+            raise HTTPException(status_code=404, detail="One or more addons were not found.")
     total_amount = (Decimal(str(payload.quantity)) * Decimal(str(payload.unit_price))).quantize(Decimal("0.01"))
     order = SalesOrder(
         client_id=None,
         company_account_id=payload.company_account_id,
+        plan_id=payload.plan_id,
+        addon_ids_json=addon_ids,
         order_type="one_time",
         duration_months=None,
         total_amount=total_amount,
@@ -207,6 +218,8 @@ def admin_panel_create_sales_order(
             "total_amount": float(total_amount),
             "workspace_slug": workspace_slug,
             "company_account_id": order.company_account_id,
+            "plan_id": order.plan_id,
+            "addon_ids": order.addon_ids_json or [],
         },
     )
 

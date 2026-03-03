@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -13,6 +15,25 @@ from app.panel_common import (
 )
 
 panel_catalog_router = APIRouter(tags=["health"])
+
+
+def _normalize_code(value: str) -> str:
+    cleaned = re.sub(r"[^a-z0-9]+", "-", value.strip().lower())
+    return cleaned.strip("-")
+
+
+def _build_unique_code(session: Session, model, base_text: str, current_id: int | None = None) -> str:
+    base = _normalize_code(base_text) or "item"
+    candidate = base
+    suffix = 2
+    while True:
+        query = session.query(model).filter(model.code == candidate)
+        if current_id is not None:
+            query = query.filter(model.id != current_id)
+        if query.one_or_none() is None:
+            return candidate
+        candidate = f"{base}-{suffix}"
+        suffix += 1
 
 
 def _serialize_product(product: Addon) -> dict:
@@ -70,10 +91,8 @@ def admin_panel_create_product(
     current_user: CentralUser = Depends(panel_central_user_dep),
     session: Session = Depends(central_session_dep),
 ) -> dict:
-    existing = session.query(Addon).filter(Addon.code == payload.code).one_or_none()
-    if existing is not None:
-        raise HTTPException(status_code=409, detail="Product code already exists.")
-    product = Addon(code=payload.code, name=payload.name, amount=payload.amount)
+    code = _build_unique_code(session, Addon, payload.code or payload.name)
+    product = Addon(code=code, name=payload.name, amount=payload.amount)
     session.add(product)
     session.flush()
     session.add(
@@ -99,10 +118,7 @@ def admin_panel_update_product(
     product = session.query(Addon).filter(Addon.id == product_id).one_or_none()
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found.")
-    duplicate = session.query(Addon).filter(Addon.code == payload.code, Addon.id != product_id).one_or_none()
-    if duplicate is not None:
-        raise HTTPException(status_code=409, detail="Product code already exists.")
-    product.code = payload.code
+    product.code = _build_unique_code(session, Addon, payload.code or payload.name, current_id=product_id)
     product.name = payload.name
     product.amount = payload.amount
     session.add(
@@ -134,14 +150,12 @@ def admin_panel_create_plan(
     current_user: CentralUser = Depends(panel_central_user_dep),
     session: Session = Depends(central_session_dep),
 ) -> dict:
-    existing = session.query(Plan).filter(Plan.code == payload.code).one_or_none()
-    if existing is not None:
-        raise HTTPException(status_code=409, detail="Plan code already exists.")
+    code = _build_unique_code(session, Plan, payload.code or payload.name)
     if payload.product_id is not None:
         product = session.query(Addon).filter(Addon.id == payload.product_id).one_or_none()
         if product is None:
             raise HTTPException(status_code=404, detail="Product not found.")
-    plan = Plan(code=payload.code, name=payload.name, is_active=payload.is_active)
+    plan = Plan(code=code, name=payload.name, is_active=payload.is_active)
     session.add(plan)
     session.flush()
     session.add(
@@ -179,14 +193,11 @@ def admin_panel_update_plan(
     plan = session.query(Plan).filter(Plan.id == plan_id).one_or_none()
     if plan is None:
         raise HTTPException(status_code=404, detail="Plan not found.")
-    duplicate = session.query(Plan).filter(Plan.code == payload.code, Plan.id != plan_id).one_or_none()
-    if duplicate is not None:
-        raise HTTPException(status_code=409, detail="Plan code already exists.")
     if payload.product_id is not None:
         product = session.query(Addon).filter(Addon.id == payload.product_id).one_or_none()
         if product is None:
             raise HTTPException(status_code=404, detail="Product not found.")
-    plan.code = payload.code
+    plan.code = _build_unique_code(session, Plan, payload.code or payload.name, current_id=plan_id)
     plan.name = payload.name
     plan.is_active = payload.is_active
     price = session.query(PlanPrice).filter(PlanPrice.plan_id == plan.id).order_by(PlanPrice.id.asc()).first()

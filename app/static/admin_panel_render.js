@@ -149,9 +149,11 @@ function renderSummary(summary) {
   }
 
   renderDataRow("salesOrdersList", summary.sales_orders || [], (item) =>
-    buildDataRow(
+    (() => {
+      const pkg = formatSalesCatalogPackage(item);
+      return buildDataRow(
       `Pedido #${item.id}`,
-      `Total R$ ${Number(item.total_amount).toFixed(2)} | Conta ${item.company_account_id || "-"}`,
+      `Total R$ ${Number(item.total_amount).toFixed(2)} | Conta ${item.company_account_id || "-"} | ${pkg.summary}`,
       item.status,
       `
         <button class="table-action" onclick="openStatusEditor('sales_order', ${item.id}, '${item.status}')">Atualizar status</button>
@@ -160,17 +162,26 @@ function renderSummary(summary) {
       {
         entity: "pedido",
         title: `Pedido #${item.id}`,
-        subtitle: `Total R$ ${Number(item.total_amount).toFixed(2)} | Conta ${item.company_account_id || "-"}`,
+        subtitle: `Total R$ ${Number(item.total_amount).toFixed(2)} | Conta ${item.company_account_id || "-"} | ${pkg.summary}`,
         status: item.status,
-        meta: [`Pedido #${item.id}`, `Total R$ ${Number(item.total_amount).toFixed(2)}`, `Conta ${item.company_account_id || "-"}`]
+        meta: [
+          `Pedido #${item.id}`,
+          `Total R$ ${Number(item.total_amount).toFixed(2)}`,
+          `Conta ${item.company_account_id || "-"}`,
+          `Plano ${pkg.planLabel}`,
+          `Add-ons ${pkg.addonsLabel}`
+        ]
       }
-    )
+      );
+    })()
   );
 
   renderDataRow("proposalsList", summary.proposals || [], (item) =>
-    buildDataRow(
+    (() => {
+      const pkg = formatDocumentSalesPackage(item);
+      return buildDataRow(
       item.title,
-      `${item.pdf_path || "Sem PDF gerado"} | Conta ${item.company_account_id || "-"}`,
+      `${item.pdf_path || "Sem PDF gerado"} | Conta ${item.company_account_id || "-"} | ${pkg.summary}`,
       "proposta",
       `
         <button class="table-action" onclick="openProposalEditor(${item.id}, '${String(item.title).replace(/'/g, "\\'")}')">Renomear</button>
@@ -179,17 +190,20 @@ function renderSummary(summary) {
       {
         entity: "proposta",
         title: item.title,
-        subtitle: `${item.pdf_path || "Sem PDF gerado"} | Conta ${item.company_account_id || "-"}`,
+        subtitle: `${item.pdf_path || "Sem PDF gerado"} | Conta ${item.company_account_id || "-"} | ${pkg.summary}`,
         status: "proposta",
-        meta: [`Proposta #${item.id}`, item.pdf_path || "Sem PDF gerado", `Conta ${item.company_account_id || "-"}`]
+        meta: [`Proposta #${item.id}`, item.pdf_path || "Sem PDF gerado", `Conta ${item.company_account_id || "-"}`, `Plano ${pkg.planLabel}`, `Add-ons ${pkg.addonsLabel}`]
       }
-    )
+      );
+    })()
   );
 
   renderDataRow("contractsList", summary.contracts || [], (item) =>
-    buildDataRow(
+    (() => {
+      const pkg = formatDocumentSalesPackage(item);
+      return buildDataRow(
       item.title,
-      `Contrato #${item.id} | Conta ${item.company_account_id || "-"}`,
+      `Contrato #${item.id} | Conta ${item.company_account_id || "-"} | ${pkg.summary}`,
       item.status,
       `
         <button class="table-action" onclick="openContractEditor(${item.id}, '${String(item.title).replace(/'/g, "\\'")}')">Renomear</button>
@@ -199,11 +213,12 @@ function renderSummary(summary) {
       {
         entity: "contrato",
         title: item.title,
-        subtitle: `Contrato #${item.id} | Conta ${item.company_account_id || "-"}`,
+        subtitle: `Contrato #${item.id} | Conta ${item.company_account_id || "-"} | ${pkg.summary}`,
         status: item.status,
-        meta: [`Contrato #${item.id}`, `Status ${item.status}`, `Conta ${item.company_account_id || "-"}`]
+        meta: [`Contrato #${item.id}`, `Status ${item.status}`, `Conta ${item.company_account_id || "-"}`, `Plano ${pkg.planLabel}`, `Add-ons ${pkg.addonsLabel}`]
       }
-    )
+      );
+    })()
   );
 
   renderDataRow("leadsList", summary.leads || [], (item) =>

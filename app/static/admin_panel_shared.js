@@ -104,6 +104,76 @@ function getPanelCache(key) {
   return panelCache[key];
 }
 
+function formatSalesCatalogPackage(item) {
+  if (item?.sales_package) {
+    const pkg = item.sales_package;
+    if (pkg.plan_name || (pkg.addon_names && pkg.addon_names.length)) {
+      const planLabel = pkg.plan_name || (pkg.plan_id ? `#${pkg.plan_id}` : "-");
+      const addonsLabel = (pkg.addon_names && pkg.addon_names.length) ? pkg.addon_names.join(", ") : "-";
+      return {
+        planLabel,
+        addonsLabel,
+        summary: `Plano ${planLabel} | Add-ons ${addonsLabel}`,
+      };
+    }
+  }
+  const plans = getPanelCache("catalogPlans")?.items || [];
+  const products = getPanelCache("catalogProducts")?.items || [];
+  const plan = plans.find((entry) => entry.id === item.plan_id);
+  const addonNames = (item.addon_ids || [])
+    .map((addonId) => products.find((entry) => entry.id === addonId)?.name || `#${addonId}`)
+    .filter(Boolean);
+  const planLabel = plan ? plan.name : (item.plan_id ? `#${item.plan_id}` : "-");
+  const addonsLabel = addonNames.length ? addonNames.join(", ") : "-";
+  return {
+    planLabel,
+    addonsLabel,
+    summary: `Plano ${planLabel} | Add-ons ${addonsLabel}`,
+  };
+}
+
+function formatSalesOrderPackageById(salesOrderId) {
+  if (!salesOrderId) {
+    return { planLabel: "-", addonsLabel: "-", summary: "Sem pedido vinculado" };
+  }
+  const ordersPayload = getPanelCache("orders");
+  const orders = ordersPayload?.sales_orders || [];
+  const order = orders.find((item) => item.id === salesOrderId);
+  if (!order) {
+    return { planLabel: "-", addonsLabel: "-", summary: `Pedido ${salesOrderId}` };
+  }
+  return formatSalesCatalogPackage(order);
+}
+
+function formatDocumentSalesPackage(item) {
+  const pkg = item?.sales_package;
+  if (!pkg) {
+    return formatSalesOrderPackageById(item?.sales_order_id);
+  }
+  if (pkg.plan_name || (pkg.addon_names && pkg.addon_names.length)) {
+    const planLabel = pkg.plan_name || (pkg.plan_id ? `#${pkg.plan_id}` : "-");
+    const addonsLabel = (pkg.addon_names && pkg.addon_names.length) ? pkg.addon_names.join(", ") : "-";
+    return {
+      planLabel,
+      addonsLabel,
+      summary: `Plano ${planLabel} | Add-ons ${addonsLabel}`,
+    };
+  }
+  const plans = getPanelCache("catalogPlans")?.items || [];
+  const products = getPanelCache("catalogProducts")?.items || [];
+  const plan = plans.find((entry) => entry.id === pkg.plan_id);
+  const addonNames = (pkg.addon_ids || [])
+    .map((addonId) => products.find((entry) => entry.id === addonId)?.name || `#${addonId}`)
+    .filter(Boolean);
+  const planLabel = plan ? plan.name : (pkg.plan_id ? `#${pkg.plan_id}` : "-");
+  const addonsLabel = addonNames.length ? addonNames.join(", ") : "-";
+  return {
+    planLabel,
+    addonsLabel,
+    summary: `Plano ${planLabel} | Add-ons ${addonsLabel}`,
+  };
+}
+
 function buildCentralRequestOptions(extra = {}) {
   const headers = { ...(extra.headers || {}) };
   if (panelAuth.centralToken) {

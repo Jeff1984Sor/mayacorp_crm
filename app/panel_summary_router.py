@@ -8,7 +8,8 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Query, Session
 
-from app.api.deps import tenant_session_dep
+from app.api.deps import central_session_dep, tenant_session_dep
+from app.models.central import Addon, Plan
 from app.models.tenant import (
     AccountsPayable,
     AccountsReceivable,
@@ -40,6 +41,46 @@ from app.panel_summary_serializers import (
 )
 
 panel_summary_router = APIRouter(tags=["health"])
+
+
+def _build_sales_package_lookup_for_orders(
+    central_session: Session,
+    orders: list[SalesOrder],
+) -> dict[int, dict]:
+    if not orders:
+        return {}
+    plan_ids = sorted({order.plan_id for order in orders if order.plan_id})
+    addon_ids = sorted({addon_id for order in orders for addon_id in (order.addon_ids_json or [])})
+    plans = {}
+    addons = {}
+    if plan_ids:
+        plans = {plan.id: plan.name for plan in central_session.query(Plan).filter(Plan.id.in_(plan_ids)).all()}
+    if addon_ids:
+        addons = {addon.id: addon.name for addon in central_session.query(Addon).filter(Addon.id.in_(addon_ids)).all()}
+    return {
+        order.id: {
+            "sales_order_id": order.id,
+            "plan_id": order.plan_id,
+            "plan_name": plans.get(order.plan_id),
+            "addon_ids": order.addon_ids_json or [],
+            "addon_names": [addons.get(addon_id, f"#{addon_id}") for addon_id in (order.addon_ids_json or [])],
+            "total_amount": float(order.total_amount),
+            "status": order.status,
+        }
+        for order in orders
+    }
+
+
+def _build_sales_package_lookup(
+    session: Session,
+    central_session: Session,
+    items: list[Proposal] | list[Contract],
+) -> dict[int, dict]:
+    sales_order_ids = sorted({item.sales_order_id for item in items if item.sales_order_id})
+    if not sales_order_ids:
+        return {}
+    orders = session.query(SalesOrder).filter(SalesOrder.id.in_(sales_order_ids)).all()
+    return _build_sales_package_lookup_for_orders(central_session, orders)
 
 
 def _load_finance_snapshot(session: Session) -> dict:
@@ -80,14 +121,21 @@ def _people_payload(query: Query, *, page: int, page_size: int) -> dict:
     }
 
 
-def _orders_payload(query: Query, *, page: int, page_size: int, order_status: str | None) -> dict:
+def _orders_payload(
+    query: Query,
+    *,
+    page: int,
+    page_size: int,
+    order_status: str | None,
+    central_session: Session,
+) -> dict:
     page = bounded_page(page)
     page_size = bounded_page(page_size)
     offset = (page - 1) * page_size
     total = query.count()
     items = query.offset(offset).limit(page_size).all()
     return {
-        "sales_orders": serialize_sales_orders(items),
+        "sales_orders": serialize_sales_orders(items, _build_sales_package_lookup_for_orders(central_session, items)),
         "sales_orders_total": total,
         "page": page,
         "page_size": page_size,
@@ -171,6 +219,7 @@ def admin_panel_workspace_summary(
     document_sort_dir: str = "desc",
     message_status: str | None = None,
     message_direction: str | None = None,
+    central_session: Session = Depends(central_session_dep),
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> dict:
@@ -259,10 +308,10 @@ def admin_panel_workspace_summary(
         "Resumo carregado.",
         {
             "workspace_slug": workspace_slug,
-            "sales_orders": serialize_sales_orders(sales_orders),
+            "sales_orders": serialize_sales_orders(sales_orders, _build_sales_package_lookup_for_orders(central_session, sales_orders)),
             "sales_orders_total": sales_orders_total,
-            "proposals": serialize_documents(proposals),
-            "contracts": serialize_documents(contracts),
+            "proposals": serialize_documents(proposals, _build_sales_package_lookup(session, central_session, proposals)),
+            "contracts": serialize_documents(contracts, _build_sales_package_lookup(session, central_session, contracts)),
             "leads": serialize_people(leads),
             "clients": serialize_people(clients),
             "receivables": finance_snapshot["receivables"],
@@ -329,6 +378,7 @@ def admin_panel_orders_summary(
     company_account_id: int | None = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
+    central_session: Session = Depends(central_session_dep),
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> dict:
@@ -341,7 +391,13 @@ def admin_panel_orders_summary(
     )
     return panel_response(
         "Resumo de pedidos carregado.",
-        _orders_payload(sales_orders_query, page=page, page_size=page_size, order_status=order_status),
+        _orders_payload(
+            sales_orders_query,
+            page=page,
+            page_size=page_size,
+            order_status=order_status,
+            central_session=central_session,
+        ),
     )
 
 
@@ -384,6 +440,7 @@ def admin_panel_documents_summary(
     company_account_id: int | None = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
+    central_session: Session = Depends(central_session_dep),
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> dict:
@@ -406,8 +463,8 @@ def admin_panel_documents_summary(
     return panel_response(
         "Resumo de documentos carregado.",
         {
-            "proposals": serialize_documents(proposals),
-            "contracts": serialize_documents(contracts),
+            "proposals": serialize_documents(proposals, _build_sales_package_lookup(session, central_session, proposals)),
+            "contracts": serialize_documents(contracts, _build_sales_package_lookup(session, central_session, contracts)),
             "documents_page": documents_page,
             "documents_page_size": documents_page_size,
             "documents_total": max(proposals_total, contracts_total),
@@ -566,6 +623,7 @@ def admin_panel_proposals_summary(
     company_account_id: int | None = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
+    central_session: Session = Depends(central_session_dep),
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> dict:
@@ -586,7 +644,7 @@ def admin_panel_proposals_summary(
     return panel_response(
         "Resumo de propostas carregado.",
         {
-            "items": serialize_documents(items),
+            "items": serialize_documents(items, _build_sales_package_lookup(session, central_session, items)),
             "page": page,
             "page_size": page_size,
             "total": total,
@@ -605,6 +663,7 @@ def admin_panel_contracts_summary(
     company_account_id: int | None = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
+    central_session: Session = Depends(central_session_dep),
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> dict:
@@ -625,7 +684,7 @@ def admin_panel_contracts_summary(
     return panel_response(
         "Resumo de contratos carregado.",
         {
-            "items": serialize_documents(items),
+            "items": serialize_documents(items, _build_sales_package_lookup(session, central_session, items)),
             "page": page,
             "page_size": page_size,
             "total": total,
@@ -638,7 +697,7 @@ def admin_panel_contracts_summary(
 
 def _csv_response(fieldnames: list[str], rows: list[dict], filename: str) -> PlainTextResponse:
     buffer = io.StringIO()
-    writer = csv.DictWriter(buffer, fieldnames=fieldnames)
+    writer = csv.DictWriter(buffer, fieldnames=fieldnames, extrasaction="ignore")
     writer.writeheader()
     writer.writerows(rows)
     response = PlainTextResponse(buffer.getvalue(), media_type="text/csv")
@@ -653,6 +712,7 @@ def admin_panel_orders_export(
     company_account_id: int | None = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
+    central_session: Session = Depends(central_session_dep),
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> PlainTextResponse:
@@ -663,8 +723,13 @@ def admin_panel_orders_export(
         sort_by=sort_by,
         sort_dir=sort_dir,
     )
-    rows = serialize_sales_orders(query.limit(200).all())
-    return _csv_response(["id", "status", "total_amount", "company_account_id"], rows, f"{workspace_slug}-orders.csv")
+    order_items = query.limit(200).all()
+    rows = serialize_sales_orders(order_items, _build_sales_package_lookup_for_orders(central_session, order_items))
+    return _csv_response(
+        ["id", "status", "total_amount", "company_account_id", "plan_id", "addon_ids"],
+        rows,
+        f"{workspace_slug}-orders.csv",
+    )
 
 
 @panel_summary_router.get("/admin/panel/{workspace_slug}/summary/people/export")
@@ -723,6 +788,7 @@ def admin_panel_proposals_export(
     company_account_id: int | None = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
+    central_session: Session = Depends(central_session_dep),
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> PlainTextResponse:
@@ -735,7 +801,8 @@ def admin_panel_proposals_export(
         sort_by=sort_by,
         sort_dir=sort_dir,
     )
-    rows = serialize_documents(proposals_query.limit(200).all())
+    proposal_items = proposals_query.limit(200).all()
+    rows = serialize_documents(proposal_items, _build_sales_package_lookup(session, central_session, proposal_items))
     return _csv_response(
         ["id", "title", "sales_order_id", "pdf_path", "company_account_id"],
         rows,
@@ -751,6 +818,7 @@ def admin_panel_contracts_export(
     company_account_id: int | None = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
+    central_session: Session = Depends(central_session_dep),
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> PlainTextResponse:
@@ -763,7 +831,8 @@ def admin_panel_contracts_export(
         sort_by=sort_by,
         sort_dir=sort_dir,
     )
-    rows = serialize_documents(contracts_query.limit(200).all())
+    contract_items = contracts_query.limit(200).all()
+    rows = serialize_documents(contract_items, _build_sales_package_lookup(session, central_session, contract_items))
     return _csv_response(
         ["id", "title", "sales_order_id", "status", "signed_file_path", "company_account_id"],
         rows,

@@ -109,6 +109,8 @@ class SalesOrder(TenantTimestampMixin, TenantBase):
     id: Mapped[int] = mapped_column(primary_key=True)
     client_id: Mapped[int | None] = mapped_column(ForeignKey("clients.id"))
     company_account_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    plan_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    addon_ids_json: Mapped[list[int]] = mapped_column("addon_ids", JSON, default=list)
     order_type: Mapped[str] = mapped_column(String(20), default="one_time")
     duration_months: Mapped[int | None] = mapped_column(Integer)
     total_amount: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
