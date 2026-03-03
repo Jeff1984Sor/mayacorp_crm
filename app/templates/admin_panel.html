@@ -283,8 +283,11 @@
                   <p class="card-copy">Depois de criar a conta e converter para cliente, vincule um tenant a essa empresa e so entao entre no workspace.</p>
                   <details class="module-reveal" open>
                     <summary>Criar tenant para a conta</summary>
-                    <label for="tenantAccountId">Conta central</label>
-                    <input id="tenantAccountId" placeholder="ID da conta cliente">
+                    <label for="tenantAccountSearch">Cliente central</label>
+                    <input id="tenantAccountSearch" placeholder="Pesquise por nome ou ID" oninput="filterTenantAccounts()" autocomplete="off">
+                    <div id="tenantAccountResults" class="tenant-account-results"></div>
+                    <input id="tenantAccountId" type="hidden">
+                    <p id="tenantAccountTenantStatus" class="helper">Selecione um cliente para ver o tenant vinculado.</p>
                     <label for="tenantCompanyName">Empresa</label>
                     <input id="tenantCompanyName">
                     <label for="tenantWorkspaceSlug">Workspace</label>

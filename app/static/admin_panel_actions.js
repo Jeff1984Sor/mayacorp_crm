@@ -95,6 +95,92 @@ function getActiveCompanyAccountId() {
   return toOptionalInt(document.getElementById("activeCompanyAccountId")?.value || "");
 }
 
+function renderTenantAccountResults(items) {
+  const results = document.getElementById("tenantAccountResults");
+  if (!results) {
+    return;
+  }
+  if (!items || items.length === 0) {
+    results.innerHTML = '<div class="tenant-account-result empty">Nenhum cliente encontrado.</div>';
+    return;
+  }
+  results.innerHTML = items
+    .map(
+      (item) => `
+        <button type="button" class="tenant-account-result" onclick="selectTenantAccount(${item.id})">
+          <strong>#${item.id}</strong> ${item.name}
+          <span>${item.tenant_id ? `Tenant ${item.tenant_id}` : "Sem tenant"}</span>
+        </button>
+      `
+    )
+    .join("");
+}
+
+function applyTenantAccountSelection(selected) {
+  const hidden = document.getElementById("tenantAccountId");
+  const status = document.getElementById("tenantAccountTenantStatus");
+  const search = document.getElementById("tenantAccountSearch");
+  if (!hidden) {
+    return;
+  }
+  hidden.value = selected ? String(selected.id) : "";
+  if (search && selected) {
+    search.value = `#${selected.id} ${selected.name}`;
+  }
+  if (!selected) {
+    if (status) {
+      status.textContent = "Selecione um cliente para ver o tenant vinculado.";
+    }
+    return;
+  }
+  if (status) {
+    status.textContent = selected.tenant_id
+      ? `Tenant atual: ID ${selected.tenant_id} ja vinculado a este cliente.`
+      : "Este cliente ainda nao possui tenant vinculado.";
+  }
+  const companyName = document.getElementById("tenantCompanyName");
+  const adminEmail = document.getElementById("tenantAdminCreateEmail");
+  if (companyName) {
+    companyName.value = selected.name || "";
+  }
+  if (adminEmail) {
+    adminEmail.value = selected.admin_email || "";
+  }
+}
+
+function filterTenantAccounts() {
+  const search = document.getElementById("tenantAccountSearch");
+  const cache = getPanelCache("companyAccounts");
+  const items = (cache?.items || []).filter((item) => item.lifecycle_stage === "client");
+  if (!search) {
+    return;
+  }
+  const term = (search.value || "").trim().toLowerCase();
+  if (!term) {
+    renderTenantAccountResults(items);
+    const hidden = document.getElementById("tenantAccountId");
+    if (hidden) {
+      hidden.value = "";
+    }
+    const status = document.getElementById("tenantAccountTenantStatus");
+    if (status) {
+      status.textContent = "Selecione um cliente para ver o tenant vinculado.";
+    }
+    return;
+  }
+  const filtered = items.filter((item) => {
+    const haystack = `${item.id} ${item.name} ${item.admin_email || ""}`.toLowerCase();
+    return haystack.includes(term);
+  });
+  renderTenantAccountResults(filtered);
+}
+
+function selectTenantAccount(accountId) {
+  const cache = getPanelCache("companyAccounts");
+  const selected = (cache?.items || []).find((item) => item.id === accountId && item.lifecycle_stage === "client") || null;
+  applyTenantAccountSelection(selected);
+}
+
 function setActiveCompanyAccount(accountId) {
   const value = accountId ? String(accountId) : "";
   const ids = [
@@ -114,6 +200,12 @@ function setActiveCompanyAccount(accountId) {
     }
   });
   if (value) {
+    const tenantSearch = document.getElementById("tenantAccountSearch");
+    const cache = getPanelCache("companyAccounts");
+    const selected = cache?.items?.find((item) => item.id === accountId) || null;
+    if (tenantSearch) {
+      tenantSearch.value = selected ? `#${selected.id} ${selected.name}` : value;
+    }
     const tenantCompanyName = document.getElementById("tenantCompanyName");
     if (tenantCompanyName && document.getElementById("companyName")) {
       tenantCompanyName.value = document.getElementById("companyName").value;
@@ -122,6 +214,7 @@ function setActiveCompanyAccount(accountId) {
     if (tenantAdminCreateEmail && document.getElementById("tenantAdminEmail")) {
       tenantAdminCreateEmail.value = document.getElementById("tenantAdminEmail").value;
     }
+    applyTenantAccountSelection(selected);
     showToast(`Conta ${value} selecionada para pedidos e documentos.`);
   }
 }
@@ -146,6 +239,8 @@ async function loadCompanyAccounts() {
   if (!payload) {
     return;
   }
+  setPanelCache("companyAccounts", payload);
+  renderTenantAccountResults((payload.items || []).filter((item) => item.lifecycle_stage === "client"));
   renderList("companyAccountsList", payload.items || [], (item) =>
     buildDataRow(
       item.name,
