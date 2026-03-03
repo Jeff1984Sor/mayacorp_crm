@@ -224,26 +224,26 @@
                   <details class="module-reveal" open>
                     <summary>Abrir cadastro da conta</summary>
                     <label for="companyName">Empresa</label>
-                    <input id="companyName" value="Acme Ltda">
+                    <input id="companyName">
                     <label for="companyStage">Estagio da conta</label>
                     <select id="companyStage">
                       <option value="lead">lead</option>
                       <option value="client">client</option>
                     </select>
                     <label for="workspaceSlug">Workspace</label>
-                    <input id="workspaceSlug" value="acme">
+                    <input id="workspaceSlug">
                     <div class="row">
-                      <div><label for="tenantAdminName">Responsavel</label><input id="tenantAdminName" value="Owner"></div>
-                      <div><label for="tenantAdminPassword">Senha</label><input id="tenantAdminPassword" type="password" value="1234"></div>
+                      <div><label for="tenantAdminName">Responsavel</label><input id="tenantAdminName"></div>
+                      <div><label for="tenantAdminPassword">Senha</label><input id="tenantAdminPassword" type="password"></div>
                     </div>
                     <label for="tenantAdminEmail">Email principal</label>
-                    <input id="tenantAdminEmail" value="owner@acme.com">
+                    <input id="tenantAdminEmail">
                     <label for="companyPhone">Telefone</label>
-                    <input id="companyPhone" value="11999999999">
+                    <input id="companyPhone">
                     <label for="companyDocument">Documento</label>
                     <input id="companyDocument" placeholder="CNPJ opcional">
                     <label for="companyNotes">Observacoes</label>
-                    <textarea id="companyNotes">Conta criada pelo painel central.</textarea>
+                    <textarea id="companyNotes"></textarea>
                     <button class="secondary-btn" type="button" onclick="createCompanyAccount()">Criar somente conta</button>
                     <button onclick="createTenant()">Criar conta com tenant inicial</button>
                   </details>
@@ -362,16 +362,16 @@
                     <span class="helper">Lead e cliente</span>
                   </div>
                   <h3 class="card-title">Evolucao da empresa</h3>
-                  <p class="card-copy">Aqui o painel deixa claro que a mesma empresa pode ser lead no inicio e cliente depois, sem perder o contexto do cadastro principal.</p>
+                  <p class="card-copy">Aqui a empresa nasce como lead na base central, pode virar cliente, e so depois segue para tenant.</p>
                   <details class="module-reveal" open>
                   <summary>Abrir cadastros comerciais</summary>
                     <label for="relationshipCompanyAccountId">Conta central</label><input id="relationshipCompanyAccountId" placeholder="ID da conta selecionada">
-                    <label for="accountLeadName">Empresa como lead</label><input id="accountLeadName" value="Lead Painel">
-                    <label for="accountLeadEmail">Email Lead</label><input id="accountLeadEmail" value="lead@acme.com">
+                    <label for="accountLeadName">Empresa como lead</label><input id="accountLeadName">
+                    <label for="accountLeadEmail">Email Lead</label><input id="accountLeadEmail">
                     <button onclick="createLeadFromAccount()">Criar lead</button>
-                    <label for="accountClientName">Empresa como cliente</label><input id="accountClientName" value="Client Painel">
-                    <label for="accountClientEmail">Email Client</label><input id="accountClientEmail" value="client@acme.com">
-                    <button onclick="createClientFromAccount()">Criar client</button>
+                    <label for="accountClientName">Nome ao virar cliente</label><input id="accountClientName">
+                    <label for="accountClientEmail">Email ao virar cliente</label><input id="accountClientEmail">
+                    <button onclick="createClientFromAccount()">Virar cliente</button>
                   </details>
                 </div>
                 <div class="card module-card">
@@ -391,26 +391,27 @@
             <div class="section-heading">
               <div>
                 <div class="section-kicker">Comercial</div>
-                <h2>CRM de captura e relacionamento</h2>
-                <p>Cadastre novos contatos e use filtros para navegar por leads e clients como uma mesa comercial.</p>
+                <h2>CRM operacional do tenant</h2>
+                <p>Esta area serve para contatos internos do workspace ja ativo. O lead comercial da empresa nasce primeiro na base central, na aba Relacionamento.</p>
               </div>
             </div>
             <div class="module-grid">
               <div class="card module-card">
                 <div class="card-topline">
                   <span class="pill">Entrada</span>
-                  <span class="helper">Criacao rapida</span>
+                  <span class="helper">Contato operacional</span>
                 </div>
-                <h3 class="card-title">Leads e Clients</h3>
+                <h3 class="card-title">Contatos do Tenant</h3>
+                <p class="card-copy">Use estes cadastros apenas quando o tenant ja existir e voce estiver operando dentro do workspace.</p>
                 <details class="module-reveal">
                   <summary>Abrir cadastro rapido</summary>
                   <label for="crmCompanyAccountId">Conta central</label><input id="crmCompanyAccountId" placeholder="ID da conta selecionada">
-                  <label for="leadName">Lead</label><input id="leadName" value="Lead Painel">
-                  <label for="leadEmail">Email Lead</label><input id="leadEmail" value="lead@acme.com">
-                  <button onclick="createLead()">Criar lead</button>
-                  <label for="clientName">Client</label><input id="clientName" value="Client Painel">
-                  <label for="clientEmail">Email Client</label><input id="clientEmail" value="client@acme.com">
-                  <button onclick="createClient()">Criar client</button>
+                  <label for="leadName">Contato tipo lead</label><input id="leadName">
+                  <label for="leadEmail">Email do contato</label><input id="leadEmail">
+                  <button onclick="createLead()">Criar lead no tenant</button>
+                  <label for="clientName">Contato tipo cliente</label><input id="clientName">
+                  <label for="clientEmail">Email do cliente</label><input id="clientEmail">
+                  <button onclick="createClient()">Criar client no tenant</button>
                 </details>
               </div>
               <div class="card module-card">

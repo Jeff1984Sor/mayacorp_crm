@@ -75,6 +75,17 @@ function buildCompanyAccountPayload() {
   };
 }
 
+function buildRelationshipLeadPayload() {
+  return {
+    name: document.getElementById("accountLeadName").value,
+    lifecycle_stage: "lead",
+    admin_email: document.getElementById("accountLeadEmail").value || null,
+    phone: null,
+    company_document: null,
+    notes: "Lead criado na etapa comercial."
+  };
+}
+
 function getActiveCompanyAccountId() {
   return toOptionalInt(document.getElementById("activeCompanyAccountId")?.value || "");
 }
@@ -247,41 +258,61 @@ async function createClient() {
 }
 
 async function createLeadFromAccount() {
-  const nameInput = document.getElementById("accountLeadName");
-  const emailInput = document.getElementById("accountLeadEmail");
-  const relationshipAccount = document.getElementById("relationshipCompanyAccountId");
-  const crmAccount = document.getElementById("crmCompanyAccountId");
-  const leadName = document.getElementById("leadName");
-  const leadEmail = document.getElementById("leadEmail");
-  if (leadName && nameInput) {
-    leadName.value = nameInput.value;
+  const response = await fetch("/admin/panel/account", {
+    ...buildCentralRequestOptions({
+      method: "POST",
+      headers: { "Content-Type": "application/json" }
+    }),
+    body: JSON.stringify(buildRelationshipLeadPayload())
+  });
+  const payload = await showResult(response);
+  if (payload) {
+    setActiveCompanyAccount(payload.id);
+    const relationshipAccount = document.getElementById("relationshipCompanyAccountId");
+    if (relationshipAccount) {
+      relationshipAccount.value = String(payload.id);
+    }
+    const crmLeadName = document.getElementById("leadName");
+    const crmLeadEmail = document.getElementById("leadEmail");
+    if (crmLeadName) {
+      crmLeadName.value = document.getElementById("accountLeadName").value;
+    }
+    if (crmLeadEmail) {
+      crmLeadEmail.value = document.getElementById("accountLeadEmail").value;
+    }
+    await loadCompanyAccounts();
   }
-  if (leadEmail && emailInput) {
-    leadEmail.value = emailInput.value;
-  }
-  if (crmAccount && relationshipAccount) {
-    crmAccount.value = relationshipAccount.value;
-  }
-  await createLead();
 }
 
 async function createClientFromAccount() {
-  const nameInput = document.getElementById("accountClientName");
-  const emailInput = document.getElementById("accountClientEmail");
-  const relationshipAccount = document.getElementById("relationshipCompanyAccountId");
-  const crmAccount = document.getElementById("crmCompanyAccountId");
-  const clientName = document.getElementById("clientName");
-  const clientEmail = document.getElementById("clientEmail");
-  if (clientName && nameInput) {
-    clientName.value = nameInput.value;
+  const accountId = toOptionalInt(document.getElementById("relationshipCompanyAccountId").value) || getActiveCompanyAccountId();
+  if (!accountId) {
+    showToast("Crie ou selecione a conta lead antes de virar cliente.", "error");
+    return;
   }
-  if (clientEmail && emailInput) {
-    clientEmail.value = emailInput.value;
+  const nextName = (document.getElementById("accountClientName").value || "").trim();
+  const nextEmail = (document.getElementById("accountClientEmail").value || "").trim();
+  if (nextName || nextEmail) {
+    const response = await fetch(`/admin/panel/account/${accountId}`, {
+      ...buildCentralRequestOptions({
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" }
+      }),
+      body: JSON.stringify({
+        name: nextName || document.getElementById("accountLeadName").value,
+        lifecycle_stage: "lead",
+        admin_email: nextEmail || document.getElementById("accountLeadEmail").value || null,
+        phone: null,
+        company_document: null,
+        notes: "Lead preparado para conversao."
+      })
+    });
+    const updatePayload = await showResult(response);
+    if (!updatePayload) {
+      return;
+    }
   }
-  if (crmAccount && relationshipAccount) {
-    crmAccount.value = relationshipAccount.value;
-  }
-  await createClient();
+  await promoteCompanyAccount(accountId);
 }
 
 async function createSalesOrder() {
