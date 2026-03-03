@@ -58,6 +58,10 @@
           <div class="nav-group">
             <div class="nav-group-label">Setup</div>
             <button class="menu-btn" data-panel-section="tenant" onclick="switchPanelSection('tenant', this)">Cadastros</button>
+            <div class="nav-submenu">
+              <button class="submenu-btn" type="button" data-cadastro-stage="lead" onclick="openCadastrosStage('lead', this)">Lead</button>
+              <button class="submenu-btn" type="button" data-cadastro-stage="client" onclick="openCadastrosStage('client', this)">Cliente</button>
+            </div>
             <button class="menu-btn" data-panel-section="catalog" onclick="switchPanelSection('catalog', this)">Catalogo</button>
           </div>
           <div class="nav-group">
@@ -197,6 +201,11 @@
               </div>
             </div>
             <input id="activeCompanyAccountId" type="hidden">
+            <div class="cadastros-toolbar">
+              <button class="cadastro-switch active" type="button" data-account-filter="lead" onclick="setCompanyAccountStageFilter('lead', this)">Leads</button>
+              <button class="cadastro-switch" type="button" data-account-filter="client" onclick="setCompanyAccountStageFilter('client', this)">Clientes</button>
+              <button class="ghost-btn" type="button" onclick="setCompanyAccountStageFilter('all')">Todos</button>
+            </div>
             <div class="clients-shell">
               <aside class="card module-card clients-list-card">
                 <div class="card-topline">
@@ -205,11 +214,6 @@
                 </div>
                 <h3 class="card-title">Cadastros</h3>
                 <p class="card-copy">Filtre por etapa, pesquise por nome ou email e abra a ficha clicando no cadastro desejado.</p>
-                <div class="workspace-tabs client-filter-tabs">
-                  <button class="workspace-tab active" type="button" data-account-filter="all" onclick="setCompanyAccountStageFilter('all', this)">Todos</button>
-                  <button class="workspace-tab" type="button" data-account-filter="lead" onclick="setCompanyAccountStageFilter('lead', this)">Leads</button>
-                  <button class="workspace-tab" type="button" data-account-filter="client" onclick="setCompanyAccountStageFilter('client', this)">Clientes</button>
-                </div>
                 <label for="clientDirectorySearch">Pesquisar cadastro</label>
                 <input id="clientDirectorySearch" placeholder="Nome, email ou ID" oninput="filterClientDirectory()">
                 <div id="accountsMeta" class="helper"></div>
@@ -243,10 +247,6 @@
                         <strong>Resumo</strong>
                         <span>Visao geral</span>
                       </button>
-                      <button class="workspace-tab" type="button" data-client-tab="tenant" onclick="openClientProfileTab('tenant', this)">
-                        <strong>Tenant</strong>
-                        <span>Acesso e criacao</span>
-                      </button>
                       <button class="workspace-tab" type="button" data-client-tab="sales" onclick="openClientProfileTab('sales', this)">
                         <strong>Vendas</strong>
                         <span>Fluxo comercial</span>
@@ -255,12 +255,51 @@
                         <strong>Planos</strong>
                         <span>Catalogo e pacote</span>
                       </button>
+                      <button class="workspace-tab" type="button" data-client-tab="tenant" onclick="openClientProfileTab('tenant', this)">
+                        <strong>Tenant</strong>
+                        <span>Acesso e criacao</span>
+                      </button>
                     </div>
                     <div class="client-tab-panel active" data-client-panel="summary">
-                      <div class="client-facts-grid">
-                        <div id="clientSummaryStage" class="list-item"></div>
-                        <div id="clientSummaryEmail" class="list-item"></div>
-                        <div id="clientSummaryTenant" class="list-item"></div>
+                      <div class="client-facts-grid clean-facts-grid">
+                        <div id="clientSummaryStage" class="list-item profile-stat-card"></div>
+                        <div id="clientSummaryEmail" class="list-item profile-stat-card"></div>
+                        <div id="clientSummaryTenant" class="list-item profile-stat-card"></div>
+                      </div>
+                      <div class="client-summary-note">
+                        <div class="client-pane-card">
+                          <div class="card-topline">
+                            <span class="pill pill-muted">Leitura</span>
+                            <span class="helper">Contexto rapido</span>
+                          </div>
+                          <p class="helper">Use a ficha para decidir a proxima acao. Abra as abas quando precisar operar vendas, planos ou tenant.</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="client-tab-panel" data-client-panel="sales">
+                      <div class="client-pane-card">
+                        <div class="card-topline">
+                          <span class="pill">Comercial</span>
+                          <span class="helper">Acoes e contexto</span>
+                        </div>
+                        <div class="account-notes">
+                          <div id="clientSalesHint" class="list-item">Use o botao "Nova venda" para abrir o modulo de vendas com este cliente ativo.</div>
+                          <div id="clientSalesFilter" class="list-item">Os pedidos e documentos podem herdar a conta selecionada.</div>
+                          <button type="button" onclick="prepareClientSale()">Ir para vendas deste cliente</button>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="client-tab-panel" data-client-panel="plans">
+                      <div class="client-pane-card">
+                        <div class="card-topline">
+                          <span class="pill">Pacote</span>
+                          <span class="helper">Catalogo vinculado</span>
+                        </div>
+                        <div class="account-notes">
+                          <div class="list-item">Use a tela Catalogo para cadastrar e editar produtos e planos.</div>
+                          <div class="list-item">Depois disso, vincule o plano ao tenant deste cliente.</div>
+                          <button type="button" onclick="switchPanelSection('catalog')">Abrir catalogo</button>
+                        </div>
                       </div>
                     </div>
                     <div class="client-tab-panel" data-client-panel="tenant">
@@ -299,24 +338,6 @@
                             <button type="button" onclick="tenantLogin()">Entrar no workspace</button>
                             <button class="secondary-btn" type="button" onclick="tenantHealth()">Health</button>
                           </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="client-tab-panel" data-client-panel="sales">
-                      <div class="client-pane-card">
-                        <div class="account-notes">
-                          <div id="clientSalesHint" class="list-item">Use o botao "Nova venda" para abrir o modulo de vendas com este cliente ativo.</div>
-                          <div id="clientSalesFilter" class="list-item">Os pedidos e documentos podem herdar a conta selecionada.</div>
-                          <button type="button" onclick="prepareClientSale()">Ir para vendas deste cliente</button>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="client-tab-panel" data-client-panel="plans">
-                      <div class="client-pane-card">
-                        <div class="account-notes">
-                          <div class="list-item">Use a tela Catalogo para cadastrar e editar produtos e planos.</div>
-                          <div class="list-item">Depois disso, vincule o plano ao tenant deste cliente.</div>
-                          <button type="button" onclick="switchPanelSection('catalog')">Abrir catalogo</button>
                         </div>
                       </div>
                     </div>
