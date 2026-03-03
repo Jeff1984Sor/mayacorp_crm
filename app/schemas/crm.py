@@ -33,6 +33,7 @@ class TenantUserUpdateRequest(BaseModel):
 
 
 class LeadCreateRequest(BaseModel):
+    company_account_id: int | None = None
     name: str = Field(min_length=2, max_length=255)
     email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=40)
@@ -42,6 +43,7 @@ class LeadCreateRequest(BaseModel):
 
 class LeadResponse(BaseModel):
     id: int
+    company_account_id: int | None
     name: str
     email: EmailStr | None
     phone: str | None
@@ -51,6 +53,7 @@ class LeadResponse(BaseModel):
 
 
 class LeadUpdateRequest(BaseModel):
+    company_account_id: int | None = None
     name: str | None = Field(default=None, min_length=2, max_length=255)
     email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=40)
@@ -59,6 +62,7 @@ class LeadUpdateRequest(BaseModel):
 
 
 class ClientCreateRequest(BaseModel):
+    company_account_id: int | None = None
     name: str = Field(min_length=2, max_length=255)
     email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=40)
@@ -67,6 +71,7 @@ class ClientCreateRequest(BaseModel):
 
 class ClientResponse(BaseModel):
     id: int
+    company_account_id: int | None
     name: str
     email: EmailStr | None
     phone: str | None
@@ -74,6 +79,7 @@ class ClientResponse(BaseModel):
 
 
 class ClientUpdateRequest(BaseModel):
+    company_account_id: int | None = None
     name: str | None = Field(default=None, min_length=2, max_length=255)
     email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=40)

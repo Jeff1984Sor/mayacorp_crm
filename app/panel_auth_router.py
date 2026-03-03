@@ -63,14 +63,19 @@ def admin_panel_central_dashboard(
     session: Session = Depends(central_session_dep),
 ) -> dict:
     from app.models.central import CentralTask, SaasInvoice
+    from app.models.central import CompanyAccount
 
     tenants = session.query(Tenant).all()
+    accounts = session.query(CompanyAccount).all()
     invoices = session.query(SaasInvoice).all()
     open_tasks = session.query(CentralTask).filter(CentralTask.status == "open").count()
     return panel_response(
         "Dashboard central carregado.",
         {
             "tenant_count": len(tenants),
+            "account_count": len(accounts),
+            "lead_account_count": sum(1 for account in accounts if account.lifecycle_stage == "lead"),
+            "client_account_count": sum(1 for account in accounts if account.lifecycle_stage == "client"),
             "active_tenant_count": sum(1 for tenant in tenants if tenant.status == "active"),
             "open_task_count": open_tasks,
             "pending_invoice_count": sum(1 for invoice in invoices if invoice.status == "pending"),
@@ -85,6 +90,8 @@ def admin_panel_create_tenant(
     current_user: CentralUser = Depends(panel_central_user_dep),
     session: Session = Depends(central_session_dep),
 ) -> dict:
+    if payload.account_stage not in {"lead", "client"}:
+        raise HTTPException(status_code=422, detail=f"Invalid account stage: {payload.account_stage}")
     tenant = create_tenant(
         session,
         TenantCreateRequest(
@@ -102,8 +109,12 @@ def admin_panel_create_tenant(
             issue_fiscal_document=False,
         ),
         actor_email=current_user.email,
+        account_stage=payload.account_stage,
     )
-    return panel_response("Tenant criado.", {"tenant_id": tenant.id, "workspace_slug": tenant.slug, "status": tenant.status})
+    return panel_response(
+        "Tenant criado.",
+        {"tenant_id": tenant.id, "workspace_slug": tenant.slug, "status": tenant.status, "account_stage": payload.account_stage},
+    )
 
 
 @panel_auth_router.post("/admin/panel/{workspace_slug}/login")

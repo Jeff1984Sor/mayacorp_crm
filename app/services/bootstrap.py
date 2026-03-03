@@ -3,7 +3,7 @@ from __future__ import annotations
 from app.core.security import hash_password
 from app.db.base import CentralBase
 from app.db.session import get_central_engine, get_central_sessionmaker
-from app.models.central import Addon, CentralJwtKey, CentralRefreshToken, CentralSetting, CentralUser, Plan, PlanLimit, PlanPrice
+from app.models.central import Addon, CentralJwtKey, CentralRefreshToken, CentralSetting, CentralUser, CompanyAccount, Plan, PlanLimit, PlanPrice
 
 
 def bootstrap_central_database() -> None:
@@ -12,6 +12,7 @@ def bootstrap_central_database() -> None:
         bind=engine,
         tables=[
             CentralUser.__table__,
+            CompanyAccount.__table__,
             CentralSetting.__table__,
             CentralJwtKey.__table__,
             CentralRefreshToken.__table__,

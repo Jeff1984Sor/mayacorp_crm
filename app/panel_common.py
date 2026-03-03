@@ -29,6 +29,7 @@ class PanelTenantLoginRequest(BaseModel):
 class PanelTenantCreateRequest(BaseModel):
     company_name: str = Field(min_length=2, max_length=255)
     workspace_slug: str = Field(min_length=2, max_length=80)
+    account_stage: str = Field(default="lead", max_length=40)
     admin_name: str = Field(min_length=2, max_length=255)
     admin_email: EmailStr
     admin_password: str = Field(min_length=4, max_length=128)
@@ -39,6 +40,7 @@ class PanelSalesOrderRequest(BaseModel):
     quantity: float = Field(default=1, gt=0)
     unit_price: float = Field(gt=0)
     first_due_date: str
+    company_account_id: int | None = None
 
 
 class PanelSalesOrderEditRequest(BaseModel):
@@ -51,11 +53,13 @@ class PanelSalesOrderEditRequest(BaseModel):
 class PanelProposalRequest(BaseModel):
     title: str = Field(min_length=2, max_length=255)
     sales_order_id: int | None = None
+    company_account_id: int | None = None
 
 
 class PanelContractRequest(BaseModel):
     title: str = Field(min_length=2, max_length=255)
     sales_order_id: int | None = None
+    company_account_id: int | None = None
 
 
 class PanelContractSignRequest(BaseModel):
@@ -77,12 +81,23 @@ class PanelLeadRequest(BaseModel):
     name: str = Field(min_length=2, max_length=255)
     email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=40)
+    company_account_id: int | None = None
 
 
 class PanelClientRequest(BaseModel):
     name: str = Field(min_length=2, max_length=255)
     email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=40)
+    company_account_id: int | None = None
+
+
+class PanelCompanyAccountRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=255)
+    lifecycle_stage: str = Field(default="lead", max_length=40)
+    admin_email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=40)
+    company_document: str | None = Field(default=None, max_length=40)
+    notes: str | None = None
 
 
 class PanelStatusRequest(BaseModel):

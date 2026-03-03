@@ -153,6 +153,18 @@ function switchPanelSection(section, trigger = null) {
   }
 }
 
+function switchWorkspaceFlowTab(tab, trigger = null) {
+  document.querySelectorAll(".workspace-tab-panel").forEach((node) => {
+    node.classList.toggle("active", node.dataset.workspacePanel === tab);
+  });
+  document.querySelectorAll(".workspace-tab").forEach((node) => {
+    node.classList.toggle("active", node.dataset.workspaceTab === tab);
+  });
+  if (trigger && trigger.classList) {
+    trigger.classList.add("active");
+  }
+}
+
 function toggleSideNav() {
   const shell = document.getElementById("appShell");
   if (!shell) {

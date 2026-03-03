@@ -630,6 +630,7 @@ def list_leads(session: Session = Depends(tenant_session_dep)) -> list[LeadRespo
     return [
         LeadResponse(
             id=lead.id,
+            company_account_id=lead.company_account_id,
             name=lead.name,
             email=lead.email,
             phone=lead.phone,
@@ -644,6 +645,7 @@ def list_leads(session: Session = Depends(tenant_session_dep)) -> list[LeadRespo
 @router.post("/tenant/{workspace_slug}/leads", response_model=LeadResponse, status_code=201)
 def create_lead(payload: LeadCreateRequest, session: Session = Depends(tenant_session_dep)) -> LeadResponse:
     lead = Lead(
+        company_account_id=payload.company_account_id,
         name=payload.name,
         email=payload.email,
         phone=payload.phone,
@@ -655,6 +657,7 @@ def create_lead(payload: LeadCreateRequest, session: Session = Depends(tenant_se
     session.refresh(lead)
     return LeadResponse(
         id=lead.id,
+        company_account_id=lead.company_account_id,
         name=lead.name,
         email=lead.email,
         phone=lead.phone,
@@ -669,7 +672,7 @@ def update_lead(lead_id: int, payload: LeadUpdateRequest, session: Session = Dep
     lead = session.query(Lead).filter(Lead.id == lead_id).one_or_none()
     if lead is None:
         raise HTTPException(status_code=404, detail="Lead not found.")
-    for field in ("name", "email", "phone", "source", "manual_classification"):
+    for field in ("name", "email", "phone", "source", "manual_classification", "company_account_id"):
         value = getattr(payload, field)
         if value is not None:
             setattr(lead, field, value)
@@ -677,6 +680,7 @@ def update_lead(lead_id: int, payload: LeadUpdateRequest, session: Session = Dep
     session.refresh(lead)
     return LeadResponse(
         id=lead.id,
+        company_account_id=lead.company_account_id,
         name=lead.name,
         email=lead.email,
         phone=lead.phone,
@@ -703,6 +707,7 @@ def create_client(payload: ClientCreateRequest, session: Session = Depends(tenan
             raise HTTPException(status_code=404, detail="Lead not found.")
 
     client = Client(
+        company_account_id=payload.company_account_id,
         name=payload.name,
         email=payload.email,
         phone=payload.phone,
@@ -713,6 +718,7 @@ def create_client(payload: ClientCreateRequest, session: Session = Depends(tenan
     session.refresh(client)
     return ClientResponse(
         id=client.id,
+        company_account_id=client.company_account_id,
         name=client.name,
         email=client.email,
         phone=client.phone,
@@ -731,6 +737,7 @@ def convert_lead(
         raise HTTPException(status_code=404, detail="Lead not found.")
 
     client = Client(
+        company_account_id=lead.company_account_id,
         name=payload.client_name or lead.name,
         email=payload.client_email or lead.email,
         phone=payload.client_phone or lead.phone,
@@ -742,6 +749,7 @@ def convert_lead(
     session.refresh(client)
     return ClientResponse(
         id=client.id,
+        company_account_id=client.company_account_id,
         name=client.name,
         email=client.email,
         phone=client.phone,
@@ -755,6 +763,7 @@ def list_clients(session: Session = Depends(tenant_session_dep)) -> list[ClientR
     return [
         ClientResponse(
             id=client.id,
+            company_account_id=client.company_account_id,
             name=client.name,
             email=client.email,
             phone=client.phone,
@@ -771,7 +780,7 @@ def update_client(
     client = session.query(Client).filter(Client.id == client_id).one_or_none()
     if client is None:
         raise HTTPException(status_code=404, detail="Client not found.")
-    for field in ("name", "email", "phone"):
+    for field in ("name", "email", "phone", "company_account_id"):
         value = getattr(payload, field)
         if value is not None:
             setattr(client, field, value)
@@ -779,6 +788,7 @@ def update_client(
     session.refresh(client)
     return ClientResponse(
         id=client.id,
+        company_account_id=client.company_account_id,
         name=client.name,
         email=client.email,
         phone=client.phone,

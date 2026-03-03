@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from sqlalchemy import create_engine
@@ -10,7 +10,7 @@ from app.core.config import DATA_DIR, settings
 from app.core.security import hash_password
 from app.db.base import TenantBase
 from app.db.session import build_tenant_engine
-from app.models.central import Addon, CentralAuditLog, Plan, PlanPrice, SaasInvoice, Tenant, TenantSubscription
+from app.models.central import Addon, CentralAuditLog, CompanyAccount, Plan, PlanPrice, SaasInvoice, Tenant, TenantSubscription
 from app.models.tenant import BankAccount, CostCenter, FinanceCategory, RoleTemplate, User
 from app.schemas.tenant import TenantCreateRequest
 from app.services.tenant_schema import migrate_tenant_schema
@@ -31,7 +31,64 @@ def _build_tenant_db_url(slug: str) -> str:
     return str(central_url.set(database=tenant_db_name))
 
 
-def create_tenant(session: Session, payload: TenantCreateRequest, actor_email: str) -> Tenant:
+def sync_company_account(
+    session: Session,
+    *,
+    company_name: str,
+    lifecycle_stage: str,
+    admin_email: str,
+    company_document: str | None,
+    tenant_id: int | None,
+    actor_email: str,
+) -> CompanyAccount:
+    account = (
+        session.query(CompanyAccount)
+        .filter(CompanyAccount.admin_email == admin_email, CompanyAccount.name == company_name)
+        .order_by(CompanyAccount.id.desc())
+        .one_or_none()
+    )
+    action = "account.updated"
+    if account is None:
+        account = CompanyAccount(
+            name=company_name,
+            lifecycle_stage=lifecycle_stage,
+            admin_email=admin_email,
+            company_document=company_document,
+            tenant_id=tenant_id,
+            last_converted_at=datetime.now(UTC) if lifecycle_stage == "client" else None,
+        )
+        session.add(account)
+        session.flush()
+        action = "account.created"
+    else:
+        if account.lifecycle_stage != "client" and lifecycle_stage == "client":
+            account.last_converted_at = datetime.now(UTC)
+        account.name = company_name
+        account.lifecycle_stage = lifecycle_stage
+        account.admin_email = admin_email
+        account.company_document = company_document
+        if tenant_id is not None:
+            account.tenant_id = tenant_id
+
+    session.add(
+        CentralAuditLog(
+            actor_email=actor_email,
+            action=action,
+            target_type="company_account",
+            target_id=str(account.id),
+            payload={"stage": account.lifecycle_stage, "tenant_id": account.tenant_id},
+        )
+    )
+    session.flush()
+    return account
+
+
+def create_tenant(
+    session: Session,
+    payload: TenantCreateRequest,
+    actor_email: str,
+    account_stage: str = "lead",
+) -> Tenant:
     tenant_db_url = _build_tenant_db_url(payload.workspace_slug)
     tenant = Tenant(
         name=payload.company_name,
@@ -45,6 +102,15 @@ def create_tenant(session: Session, payload: TenantCreateRequest, actor_email: s
     )
     session.add(tenant)
     session.flush()
+    sync_company_account(
+        session,
+        company_name=payload.company_name,
+        lifecycle_stage=account_stage,
+        admin_email=payload.admin_email,
+        company_document=payload.company_document,
+        tenant_id=tenant.id,
+        actor_email=actor_email,
+    )
 
     tenant_engine = build_tenant_engine(tenant_db_url)
     TenantBase.metadata.create_all(bind=tenant_engine, checkfirst=True)

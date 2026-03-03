@@ -13,6 +13,7 @@ async function centralLogin() {
     panelAuth.centralToken = payload.token || null;
     setPanelVisibility(true);
     switchPanelSection("home");
+    loadCompanyAccounts().catch(() => {});
     if (output) {
       output.textContent = JSON.stringify({ ok: true, message: "Sessao central iniciada." }, null, 2);
     }
@@ -37,6 +38,7 @@ async function centralDashboard() {
     panelAuth.tenantSlug = payload.workspace_slug || slug;
     setPanelVisibility(true);
     activateSectionAndScroll("home", "topMetrics");
+    loadCompanyAccounts().catch(() => {});
     await loadWorkspaceSummary();
   }
 }
@@ -50,12 +52,144 @@ async function createTenant() {
     body: JSON.stringify({
       company_name: document.getElementById("companyName").value,
       workspace_slug: document.getElementById("workspaceSlug").value,
+      account_stage: selectedValue("companyStage", "lead"),
       admin_name: document.getElementById("tenantAdminName").value,
       admin_email: document.getElementById("tenantAdminEmail").value,
       admin_password: document.getElementById("tenantAdminPassword").value
     })
   });
-  await showResult(response);
+  const payload = await showResult(response);
+  if (payload) {
+    await loadCompanyAccounts();
+  }
+}
+
+function buildCompanyAccountPayload() {
+  return {
+    name: document.getElementById("companyName").value,
+    lifecycle_stage: selectedValue("companyStage", "lead"),
+    admin_email: document.getElementById("tenantAdminEmail").value,
+    phone: document.getElementById("companyPhone").value,
+    company_document: document.getElementById("companyDocument").value,
+    notes: document.getElementById("companyNotes").value
+  };
+}
+
+function getActiveCompanyAccountId() {
+  return toOptionalInt(document.getElementById("activeCompanyAccountId")?.value || "");
+}
+
+function setActiveCompanyAccount(accountId) {
+  const value = accountId ? String(accountId) : "";
+  const ids = [
+    "activeCompanyAccountId",
+    "summaryCompanyAccountId",
+    "relationshipCompanyAccountId",
+    "crmCompanyAccountId",
+    "salesCompanyAccountId",
+    "proposalCompanyAccountId",
+    "contractCompanyAccountId"
+  ];
+  ids.forEach((id) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.value = value;
+    }
+  });
+  if (value) {
+    showToast(`Conta ${value} selecionada para pedidos e documentos.`);
+  }
+}
+
+async function createCompanyAccount() {
+  const response = await fetch("/admin/panel/account", {
+    ...buildCentralRequestOptions({
+      method: "POST",
+      headers: { "Content-Type": "application/json" }
+    }),
+    body: JSON.stringify(buildCompanyAccountPayload())
+  });
+  const payload = await showResult(response);
+  if (payload) {
+    await loadCompanyAccounts();
+  }
+}
+
+async function loadCompanyAccounts() {
+  const response = await fetch("/admin/panel/accounts", buildCentralRequestOptions());
+  const payload = await showResult(response);
+  if (!payload) {
+    return;
+  }
+  renderList("companyAccountsList", payload.items || [], (item) =>
+    buildDataRow(
+      item.name,
+      `${item.admin_email || "-"} | tenant ${item.tenant_id || "sem vinculo"}`,
+      item.lifecycle_stage,
+      `
+        <button class="table-action" onclick="setActiveCompanyAccount(${item.id})">Usar no fluxo</button>
+        <button class="table-action" onclick="promoteCompanyAccount(${item.id})">Virar client</button>
+        <button class="table-action" onclick="renameCompanyAccount(${item.id}, '${String(item.name).replace(/'/g, "\\'")}', '${String(item.lifecycle_stage || "lead").replace(/'/g, "\\'")}', '${String(item.admin_email || "").replace(/'/g, "\\'")}', '${String(item.phone || "").replace(/'/g, "\\'")}', '${String(item.company_document || "").replace(/'/g, "\\'")}', '${String(item.notes || "").replace(/'/g, "\\'")}')">Renomear</button>
+      `,
+      {
+        entity: "conta",
+        title: item.name,
+        subtitle: item.admin_email || "-",
+        status: item.lifecycle_stage,
+        meta: [
+          `Tenant ${item.tenant_id || "sem vinculo"}`,
+          item.phone || "Sem telefone",
+          item.company_document || "Sem documento"
+        ]
+      }
+    )
+  );
+  const meta = document.getElementById("accountsMeta");
+  if (meta) {
+    meta.textContent = `Total ${payload.total || 0}`;
+  }
+}
+
+async function updateCompanyAccount(accountId, data) {
+  const response = await fetch(`/admin/panel/account/${accountId}`, {
+    ...buildCentralRequestOptions({
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" }
+    }),
+    body: JSON.stringify(data)
+  });
+  const payload = await showResult(response);
+  if (payload) {
+    await loadCompanyAccounts();
+  }
+}
+
+async function promoteCompanyAccount(accountId) {
+  const response = await fetch(`/admin/panel/account/${accountId}/convert`, buildCentralRequestOptions({ method: "POST" }));
+  const payload = await showResult(response);
+  if (payload) {
+    await loadCompanyAccounts();
+  }
+}
+
+async function renameCompanyAccount(accountId, currentName, lifecycleStage = "lead", adminEmail = "", phone = "", companyDocument = "", notes = "") {
+  const nextName = window.prompt("Novo nome da conta:", currentName);
+  if (nextName === null) {
+    return;
+  }
+  const cleaned = nextName.trim();
+  if (!cleaned) {
+    showToast("Informe um nome valido para a conta.", "error");
+    return;
+  }
+  await updateCompanyAccount(accountId, {
+    name: cleaned,
+    lifecycle_stage: lifecycleStage,
+    admin_email: adminEmail || null,
+    phone: phone || null,
+    company_document: companyDocument || null,
+    notes: notes || null
+  });
 }
 
 async function tenantLogin() {
@@ -89,7 +223,8 @@ async function createLead() {
     credentials: "same-origin",
     body: JSON.stringify({
       name: document.getElementById("leadName").value,
-      email: document.getElementById("leadEmail").value
+      email: document.getElementById("leadEmail").value,
+      company_account_id: toOptionalInt(document.getElementById("crmCompanyAccountId").value) || getActiveCompanyAccountId()
     })
   });
   await showResult(response);
@@ -103,11 +238,50 @@ async function createClient() {
     credentials: "same-origin",
     body: JSON.stringify({
       name: document.getElementById("clientName").value,
-      email: document.getElementById("clientEmail").value
+      email: document.getElementById("clientEmail").value,
+      company_account_id: toOptionalInt(document.getElementById("crmCompanyAccountId").value) || getActiveCompanyAccountId()
     })
   });
   await showResult(response);
   await loadClientsOnly();
+}
+
+async function createLeadFromAccount() {
+  const nameInput = document.getElementById("accountLeadName");
+  const emailInput = document.getElementById("accountLeadEmail");
+  const relationshipAccount = document.getElementById("relationshipCompanyAccountId");
+  const crmAccount = document.getElementById("crmCompanyAccountId");
+  const leadName = document.getElementById("leadName");
+  const leadEmail = document.getElementById("leadEmail");
+  if (leadName && nameInput) {
+    leadName.value = nameInput.value;
+  }
+  if (leadEmail && emailInput) {
+    leadEmail.value = emailInput.value;
+  }
+  if (crmAccount && relationshipAccount) {
+    crmAccount.value = relationshipAccount.value;
+  }
+  await createLead();
+}
+
+async function createClientFromAccount() {
+  const nameInput = document.getElementById("accountClientName");
+  const emailInput = document.getElementById("accountClientEmail");
+  const relationshipAccount = document.getElementById("relationshipCompanyAccountId");
+  const crmAccount = document.getElementById("crmCompanyAccountId");
+  const clientName = document.getElementById("clientName");
+  const clientEmail = document.getElementById("clientEmail");
+  if (clientName && nameInput) {
+    clientName.value = nameInput.value;
+  }
+  if (clientEmail && emailInput) {
+    clientEmail.value = emailInput.value;
+  }
+  if (crmAccount && relationshipAccount) {
+    crmAccount.value = relationshipAccount.value;
+  }
+  await createClient();
 }
 
 async function createSalesOrder() {
@@ -119,7 +293,8 @@ async function createSalesOrder() {
       title: document.getElementById("salesDescription").value,
       quantity: Number(document.getElementById("salesQuantity").value || "1"),
       unit_price: Number(document.getElementById("salesPrice").value || "0"),
-      first_due_date: document.getElementById("salesDueDate").value
+      first_due_date: document.getElementById("salesDueDate").value,
+      company_account_id: toOptionalInt(document.getElementById("salesCompanyAccountId").value) || getActiveCompanyAccountId()
     })
   });
   const payload = await showResult(response);
@@ -160,7 +335,8 @@ async function createProposal() {
     credentials: "same-origin",
     body: JSON.stringify({
       title: document.getElementById("proposalTitle").value,
-      sales_order_id: toOptionalInt(document.getElementById("proposalOrderId").value)
+      sales_order_id: toOptionalInt(document.getElementById("proposalOrderId").value),
+      company_account_id: toOptionalInt(document.getElementById("proposalCompanyAccountId").value) || getActiveCompanyAccountId()
     })
   });
   await showResult(response);
@@ -174,7 +350,8 @@ async function createContract() {
     credentials: "same-origin",
     body: JSON.stringify({
       title: document.getElementById("contractTitle").value,
-      sales_order_id: toOptionalInt(document.getElementById("contractOrderId").value)
+      sales_order_id: toOptionalInt(document.getElementById("contractOrderId").value),
+      company_account_id: toOptionalInt(document.getElementById("contractCompanyAccountId").value) || getActiveCompanyAccountId()
     })
   });
   const payload = await showResult(response);
@@ -226,6 +403,7 @@ async function loadWorkspaceSummary() {
   const peopleSortDir = selectedValue("peopleSortDir", "desc");
   const messageStatus = selectedValue("messageStatusFilter");
   const messageDirection = selectedValue("messageDirectionFilter");
+  const companyAccountId = toOptionalInt(document.getElementById("summaryCompanyAccountId").value) || getActiveCompanyAccountId();
   if (filterValue) {
     query.set("q", filterValue);
   }
@@ -247,6 +425,9 @@ async function loadWorkspaceSummary() {
   }
   if (contractStatus) {
     query.set("contract_status", contractStatus);
+  }
+  if (companyAccountId) {
+    query.set("company_account_id", String(companyAccountId));
   }
   query.set("document_sort_by", documentSortBy);
   query.set("document_sort_dir", documentSortDir);
@@ -992,6 +1173,7 @@ async function loadDocumentsSummary() {
   });
   const documentFilter = document.getElementById("documentQuery").value.trim();
   const contractStatus = selectedValue("contractStatusFilter");
+  const companyAccountId = toOptionalInt(document.getElementById("summaryCompanyAccountId").value) || getActiveCompanyAccountId();
   query.set("sort_by", selectedValue("documentSortBy", "id"));
   query.set("sort_dir", selectedValue("documentSortDir", "desc"));
   if (documentFilter) {
@@ -999,6 +1181,9 @@ async function loadDocumentsSummary() {
   }
   if (contractStatus) {
     query.set("contract_status", contractStatus);
+  }
+  if (companyAccountId) {
+    query.set("company_account_id", String(companyAccountId));
   }
   const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/documents?${query.toString()}`, { credentials: "same-origin" });
   const payload = await showResult(response);
@@ -1179,7 +1364,9 @@ async function loadProposalsOnly() {
     sort_dir: selectedValue("documentSortDir", "desc")
   });
   const documentFilter = document.getElementById("documentQuery").value.trim();
+  const companyAccountId = toOptionalInt(document.getElementById("summaryCompanyAccountId").value) || getActiveCompanyAccountId();
   if (documentFilter) query.set("document_q", documentFilter);
+  if (companyAccountId) query.set("company_account_id", String(companyAccountId));
   const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/proposals?${query.toString()}`, { credentials: "same-origin" });
   const payload = await showResult(response);
   if (payload) {
@@ -1187,13 +1374,13 @@ async function loadProposalsOnly() {
     renderList("proposalsList", payload.items || [], (item) =>
       buildDataRow(
         item.title,
-        item.pdf_path || "sem pdf",
+        `${item.pdf_path || "sem pdf"} | Conta ${item.company_account_id || "-"}`,
         "proposta",
         `
           <button class="table-action" onclick="openProposalEditor(${item.id}, '${String(item.title).replace(/'/g, "\\'")}')">Renomear</button>
           <button class="table-action" onclick="deleteProposal(${item.id})">Excluir</button>
         `,
-        { entity: "proposta", title: item.title, subtitle: item.pdf_path || "sem pdf", status: "proposta", meta: [`Proposta #${item.id}`, item.pdf_path || "Sem PDF gerado"] }
+        { entity: "proposta", title: item.title, subtitle: `${item.pdf_path || "sem pdf"} | Conta ${item.company_account_id || "-"}`, status: "proposta", meta: [`Proposta #${item.id}`, item.pdf_path || "Sem PDF gerado", `Conta ${item.company_account_id || "-"}`] }
       )
     );
     const docsMeta = document.getElementById("documentsMeta");
@@ -1216,8 +1403,10 @@ async function loadContractsOnly() {
   });
   const documentFilter = document.getElementById("documentQuery").value.trim();
   const contractStatus = selectedValue("contractStatusFilter");
+  const companyAccountId = toOptionalInt(document.getElementById("summaryCompanyAccountId").value) || getActiveCompanyAccountId();
   if (documentFilter) query.set("document_q", documentFilter);
   if (contractStatus) query.set("contract_status", contractStatus);
+  if (companyAccountId) query.set("company_account_id", String(companyAccountId));
   const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/contracts?${query.toString()}`, { credentials: "same-origin" });
   const payload = await showResult(response);
   if (payload) {
@@ -1225,14 +1414,14 @@ async function loadContractsOnly() {
     renderList("contractsList", payload.items || [], (item) =>
       buildDataRow(
         item.title,
-        `Contrato #${item.id}`,
+        `Contrato #${item.id} | Conta ${item.company_account_id || "-"}`,
         item.status,
         `
           <button class="table-action" onclick="openContractEditor(${item.id}, '${String(item.title).replace(/'/g, "\\'")}')">Renomear</button>
           <button class="table-action" onclick="openStatusEditor('contract', ${item.id}, '${item.status}')">Atualizar status</button>
           <button class="table-action" onclick="deleteContract(${item.id})">Excluir</button>
         `,
-        { entity: "contrato", title: item.title, subtitle: `Contrato #${item.id}`, status: item.status, meta: [`Contrato #${item.id}`, `Status ${item.status}`] }
+        { entity: "contrato", title: item.title, subtitle: `Contrato #${item.id} | Conta ${item.company_account_id || "-"}`, status: item.status, meta: [`Contrato #${item.id}`, `Status ${item.status}`, `Conta ${item.company_account_id || "-"}`] }
       )
     );
     const docsMeta = document.getElementById("documentsMeta");
@@ -1252,17 +1441,21 @@ async function loadOrdersSummary() {
     page_size: document.getElementById("summaryPageSize").value || "5"
   });
   const orderStatus = selectedValue("orderStatusFilter");
+  const companyAccountId = toOptionalInt(document.getElementById("summaryCompanyAccountId").value) || getActiveCompanyAccountId();
   query.set("sort_by", selectedValue("orderSortBy", "id"));
   query.set("sort_dir", selectedValue("orderSortDir", "desc"));
   if (orderStatus) {
     query.set("order_status", orderStatus);
+  }
+  if (companyAccountId) {
+    query.set("company_account_id", String(companyAccountId));
   }
   const response = await fetch(`/admin/panel/${getTenantSlug()}/summary/orders?${query.toString()}`, { credentials: "same-origin" });
   const payload = await showResult(response);
   if (payload) {
     setPanelCache("orders", payload);
     renderList("salesOrdersList", payload.sales_orders || [], (item) =>
-      `#${item.id} | ${item.status} | R$ ${Number(item.total_amount).toFixed(2)}<br>
+      `#${item.id} | ${item.status} | R$ ${Number(item.total_amount).toFixed(2)} | Conta ${item.company_account_id || "-"}<br>
       <button onclick="updateSalesOrderStatus(${item.id})">Atualizar status</button>
       <button onclick="deleteSalesOrder(${item.id})">Excluir</button>`
     );
@@ -1343,8 +1536,12 @@ function openPanelDownload(path, query) {
 async function exportOrdersCsv() {
   const query = new URLSearchParams();
   const orderStatus = selectedValue("orderStatusFilter");
+  const companyAccountId = toOptionalInt(document.getElementById("summaryCompanyAccountId").value) || getActiveCompanyAccountId();
   if (orderStatus) {
     query.set("order_status", orderStatus);
+  }
+  if (companyAccountId) {
+    query.set("company_account_id", String(companyAccountId));
   }
   query.set("sort_by", selectedValue("orderSortBy", "id"));
   query.set("sort_dir", selectedValue("orderSortDir", "desc"));
@@ -1400,8 +1597,10 @@ async function exportDocumentsCsv() {
   const common = new URLSearchParams();
   const documentFilter = document.getElementById("documentQuery").value.trim();
   const contractStatus = selectedValue("contractStatusFilter");
+  const companyAccountId = toOptionalInt(document.getElementById("summaryCompanyAccountId").value) || getActiveCompanyAccountId();
   if (documentFilter) common.set("document_q", documentFilter);
   if (contractStatus) common.set("contract_status", contractStatus);
+  if (companyAccountId) common.set("company_account_id", String(companyAccountId));
   common.set("sort_by", selectedValue("documentSortBy", "id"));
   common.set("sort_dir", selectedValue("documentSortDir", "desc"));
   openPanelDownload("/summary/proposals/export", common);
@@ -1411,7 +1610,9 @@ async function exportDocumentsCsv() {
 async function exportProposalsCsv() {
   const query = new URLSearchParams();
   const documentFilter = document.getElementById("documentQuery").value.trim();
+  const companyAccountId = toOptionalInt(document.getElementById("summaryCompanyAccountId").value) || getActiveCompanyAccountId();
   if (documentFilter) query.set("document_q", documentFilter);
+  if (companyAccountId) query.set("company_account_id", String(companyAccountId));
   query.set("sort_by", selectedValue("documentSortBy", "id"));
   query.set("sort_dir", selectedValue("documentSortDir", "desc"));
   openPanelDownload("/summary/proposals/export", query);
@@ -1421,8 +1622,10 @@ async function exportContractsCsv() {
   const query = new URLSearchParams();
   const documentFilter = document.getElementById("documentQuery").value.trim();
   const contractStatus = selectedValue("contractStatusFilter");
+  const companyAccountId = toOptionalInt(document.getElementById("summaryCompanyAccountId").value) || getActiveCompanyAccountId();
   if (documentFilter) query.set("document_q", documentFilter);
   if (contractStatus) query.set("contract_status", contractStatus);
+  if (companyAccountId) query.set("company_account_id", String(companyAccountId));
   query.set("sort_by", selectedValue("documentSortBy", "id"));
   query.set("sort_dir", selectedValue("documentSortDir", "desc"));
   openPanelDownload("/summary/contracts/export", query);

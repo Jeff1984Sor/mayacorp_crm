@@ -4,13 +4,22 @@ from app.models.tenant import AccountsPayable, AccountsReceivable, Client, Contr
 
 
 def serialize_sales_orders(items: list[SalesOrder]) -> list[dict]:
-    return [{"id": item.id, "status": item.status, "total_amount": float(item.total_amount)} for item in items]
+    return [
+        {
+            "id": item.id,
+            "status": item.status,
+            "total_amount": float(item.total_amount),
+            "company_account_id": item.company_account_id,
+        }
+        for item in items
+    ]
 
 
 def serialize_documents(items: list[Proposal] | list[Contract]) -> list[dict]:
     payload: list[dict] = []
     for item in items:
         row = {"id": item.id, "title": item.title, "sales_order_id": item.sales_order_id}
+        row["company_account_id"] = item.company_account_id
         if isinstance(item, Proposal):
             row["pdf_path"] = item.pdf_path
         else:

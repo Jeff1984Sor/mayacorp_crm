@@ -162,6 +162,7 @@ def admin_panel_workspace_summary(
     document_q: str | None = None,
     contract_status: str | None = None,
     order_status: str | None = None,
+    company_account_id: int | None = None,
     order_sort_by: str = "id",
     order_sort_dir: str = "desc",
     people_sort_by: str = "id",
@@ -193,6 +194,7 @@ def admin_panel_workspace_summary(
     sales_orders_query = apply_order_filters(
         session.query(SalesOrder),
         order_status=order_status,
+        company_account_id=company_account_id,
         sort_by=order_sort_by,
         sort_dir=order_sort_dir,
     )
@@ -204,6 +206,7 @@ def admin_panel_workspace_summary(
         session.query(Contract),
         document_q=document_q or q,
         contract_status=contract_status,
+        company_account_id=company_account_id,
         sort_by=document_sort_by,
         sort_dir=document_sort_dir,
     )
@@ -304,6 +307,7 @@ def admin_panel_workspace_summary(
             "document_query": document_q,
             "contract_status": contract_status,
             "order_status": order_status,
+            "company_account_id": company_account_id,
             "order_sort_by": order_sort_by,
             "order_sort_dir": order_sort_dir,
             "people_sort_by": people_sort_by,
@@ -322,12 +326,19 @@ def admin_panel_orders_summary(
     page: int = 1,
     page_size: int = 5,
     order_status: str | None = None,
+    company_account_id: int | None = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> dict:
-    sales_orders_query = apply_order_filters(session.query(SalesOrder), order_status=order_status, sort_by=sort_by, sort_dir=sort_dir)
+    sales_orders_query = apply_order_filters(
+        session.query(SalesOrder),
+        order_status=order_status,
+        company_account_id=company_account_id,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
     return panel_response(
         "Resumo de pedidos carregado.",
         _orders_payload(sales_orders_query, page=page, page_size=page_size, order_status=order_status),
@@ -370,6 +381,7 @@ def admin_panel_documents_summary(
     documents_page_size: int = 5,
     document_q: str | None = None,
     contract_status: str | None = None,
+    company_account_id: int | None = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
     session: Session = Depends(tenant_session_dep),
@@ -383,6 +395,7 @@ def admin_panel_documents_summary(
         session.query(Contract),
         document_q=document_q,
         contract_status=contract_status,
+        company_account_id=company_account_id,
         sort_by=sort_by,
         sort_dir=sort_dir,
     )
@@ -400,6 +413,7 @@ def admin_panel_documents_summary(
             "documents_total": max(proposals_total, contracts_total),
             "document_query": document_q,
             "contract_status": contract_status,
+            "company_account_id": company_account_id,
             "sort_by": sort_by,
             "sort_dir": sort_dir,
         },
@@ -549,6 +563,7 @@ def admin_panel_proposals_summary(
     page: int = 1,
     page_size: int = 5,
     document_q: str | None = None,
+    company_account_id: int | None = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
     session: Session = Depends(tenant_session_dep),
@@ -562,6 +577,7 @@ def admin_panel_proposals_summary(
         session.query(Contract),
         document_q=document_q,
         contract_status=None,
+        company_account_id=company_account_id,
         sort_by=sort_by,
         sort_dir=sort_dir,
     )
@@ -569,7 +585,14 @@ def admin_panel_proposals_summary(
     items = proposals_query.offset(offset).limit(page_size).all()
     return panel_response(
         "Resumo de propostas carregado.",
-        {"items": serialize_documents(items), "page": page, "page_size": page_size, "total": total, "document_query": document_q},
+        {
+            "items": serialize_documents(items),
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "document_query": document_q,
+            "company_account_id": company_account_id,
+        },
     )
 
 
@@ -579,6 +602,7 @@ def admin_panel_contracts_summary(
     page_size: int = 5,
     document_q: str | None = None,
     contract_status: str | None = None,
+    company_account_id: int | None = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
     session: Session = Depends(tenant_session_dep),
@@ -592,6 +616,7 @@ def admin_panel_contracts_summary(
         session.query(Contract),
         document_q=document_q,
         contract_status=contract_status,
+        company_account_id=company_account_id,
         sort_by=sort_by,
         sort_dir=sort_dir,
     )
@@ -606,6 +631,7 @@ def admin_panel_contracts_summary(
             "total": total,
             "document_query": document_q,
             "contract_status": contract_status,
+            "company_account_id": company_account_id,
         },
     )
 
@@ -624,14 +650,21 @@ def _csv_response(fieldnames: list[str], rows: list[dict], filename: str) -> Pla
 def admin_panel_orders_export(
     workspace_slug: str,
     order_status: str | None = None,
+    company_account_id: int | None = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
     session: Session = Depends(tenant_session_dep),
     _: User = Depends(panel_tenant_permission_dep("sales.write")),
 ) -> PlainTextResponse:
-    query = apply_order_filters(session.query(SalesOrder), order_status=order_status, sort_by=sort_by, sort_dir=sort_dir)
+    query = apply_order_filters(
+        session.query(SalesOrder),
+        order_status=order_status,
+        company_account_id=company_account_id,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
     rows = serialize_sales_orders(query.limit(200).all())
-    return _csv_response(["id", "status", "total_amount"], rows, f"{workspace_slug}-orders.csv")
+    return _csv_response(["id", "status", "total_amount", "company_account_id"], rows, f"{workspace_slug}-orders.csv")
 
 
 @panel_summary_router.get("/admin/panel/{workspace_slug}/summary/people/export")
@@ -687,6 +720,7 @@ def admin_panel_clients_export(
 def admin_panel_proposals_export(
     workspace_slug: str,
     document_q: str | None = None,
+    company_account_id: int | None = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
     session: Session = Depends(tenant_session_dep),
@@ -697,11 +731,16 @@ def admin_panel_proposals_export(
         session.query(Contract),
         document_q=document_q,
         contract_status=None,
+        company_account_id=company_account_id,
         sort_by=sort_by,
         sort_dir=sort_dir,
     )
     rows = serialize_documents(proposals_query.limit(200).all())
-    return _csv_response(["id", "title", "sales_order_id", "pdf_path"], rows, f"{workspace_slug}-proposals.csv")
+    return _csv_response(
+        ["id", "title", "sales_order_id", "pdf_path", "company_account_id"],
+        rows,
+        f"{workspace_slug}-proposals.csv",
+    )
 
 
 @panel_summary_router.get("/admin/panel/{workspace_slug}/summary/contracts/export")
@@ -709,6 +748,7 @@ def admin_panel_contracts_export(
     workspace_slug: str,
     document_q: str | None = None,
     contract_status: str | None = None,
+    company_account_id: int | None = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
     session: Session = Depends(tenant_session_dep),
@@ -719,11 +759,16 @@ def admin_panel_contracts_export(
         session.query(Contract),
         document_q=document_q,
         contract_status=contract_status,
+        company_account_id=company_account_id,
         sort_by=sort_by,
         sort_dir=sort_dir,
     )
     rows = serialize_documents(contracts_query.limit(200).all())
-    return _csv_response(["id", "title", "sales_order_id", "status", "signed_file_path"], rows, f"{workspace_slug}-contracts.csv")
+    return _csv_response(
+        ["id", "title", "sales_order_id", "status", "signed_file_path", "company_account_id"],
+        rows,
+        f"{workspace_slug}-contracts.csv",
+    )
 
 
 @panel_summary_router.get("/admin/panel/{workspace_slug}/summary/messages/export")

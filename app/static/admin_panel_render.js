@@ -2,6 +2,8 @@ function renderDataRow(targetId, items, mapper) {
   renderList(targetId, items, (item) => mapper(item));
 }
 
+// updateMessageStatus lives in admin_panel_actions.js and is used by rendered action buttons.
+
 function escapeInlineValue(value) {
   return String(value ?? "")
     .replace(/\\/g, "\\\\")
@@ -149,7 +151,7 @@ function renderSummary(summary) {
   renderDataRow("salesOrdersList", summary.sales_orders || [], (item) =>
     buildDataRow(
       `Pedido #${item.id}`,
-      `Total R$ ${Number(item.total_amount).toFixed(2)}`,
+      `Total R$ ${Number(item.total_amount).toFixed(2)} | Conta ${item.company_account_id || "-"}`,
       item.status,
       `
         <button class="table-action" onclick="openStatusEditor('sales_order', ${item.id}, '${item.status}')">Atualizar status</button>
@@ -158,9 +160,9 @@ function renderSummary(summary) {
       {
         entity: "pedido",
         title: `Pedido #${item.id}`,
-        subtitle: `Total R$ ${Number(item.total_amount).toFixed(2)}`,
+        subtitle: `Total R$ ${Number(item.total_amount).toFixed(2)} | Conta ${item.company_account_id || "-"}`,
         status: item.status,
-        meta: [`Pedido #${item.id}`, `Total R$ ${Number(item.total_amount).toFixed(2)}`]
+        meta: [`Pedido #${item.id}`, `Total R$ ${Number(item.total_amount).toFixed(2)}`, `Conta ${item.company_account_id || "-"}`]
       }
     )
   );
@@ -168,7 +170,7 @@ function renderSummary(summary) {
   renderDataRow("proposalsList", summary.proposals || [], (item) =>
     buildDataRow(
       item.title,
-      item.pdf_path || "Sem PDF gerado",
+      `${item.pdf_path || "Sem PDF gerado"} | Conta ${item.company_account_id || "-"}`,
       "proposta",
       `
         <button class="table-action" onclick="openProposalEditor(${item.id}, '${String(item.title).replace(/'/g, "\\'")}')">Renomear</button>
@@ -177,9 +179,9 @@ function renderSummary(summary) {
       {
         entity: "proposta",
         title: item.title,
-        subtitle: item.pdf_path || "Sem PDF gerado",
+        subtitle: `${item.pdf_path || "Sem PDF gerado"} | Conta ${item.company_account_id || "-"}`,
         status: "proposta",
-        meta: [`Proposta #${item.id}`, item.pdf_path || "Sem PDF gerado"]
+        meta: [`Proposta #${item.id}`, item.pdf_path || "Sem PDF gerado", `Conta ${item.company_account_id || "-"}`]
       }
     )
   );
@@ -187,7 +189,7 @@ function renderSummary(summary) {
   renderDataRow("contractsList", summary.contracts || [], (item) =>
     buildDataRow(
       item.title,
-      `Contrato #${item.id}`,
+      `Contrato #${item.id} | Conta ${item.company_account_id || "-"}`,
       item.status,
       `
         <button class="table-action" onclick="openContractEditor(${item.id}, '${String(item.title).replace(/'/g, "\\'")}')">Renomear</button>
@@ -197,9 +199,9 @@ function renderSummary(summary) {
       {
         entity: "contrato",
         title: item.title,
-        subtitle: `Contrato #${item.id}`,
+        subtitle: `Contrato #${item.id} | Conta ${item.company_account_id || "-"}`,
         status: item.status,
-        meta: [`Contrato #${item.id}`, `Status ${item.status}`]
+        meta: [`Contrato #${item.id}`, `Status ${item.status}`, `Conta ${item.company_account_id || "-"}`]
       }
     )
   );

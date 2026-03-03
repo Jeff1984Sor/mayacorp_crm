@@ -16,6 +16,7 @@ def apply_document_filters(
     *,
     document_q: str | None,
     contract_status: str | None,
+    company_account_id: int | None = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
 ) -> tuple[Query, Query]:
@@ -25,6 +26,9 @@ def apply_document_filters(
         contracts_query = contracts_query.filter(func.lower(Contract.title).like(doc_like))
     if contract_status:
         contracts_query = contracts_query.filter(Contract.status == contract_status)
+    if company_account_id is not None:
+        proposals_query = proposals_query.filter(Proposal.company_account_id == company_account_id)
+        contracts_query = contracts_query.filter(Contract.company_account_id == company_account_id)
     proposals_query = apply_document_sort(proposals_query, Proposal, sort_by=sort_by, sort_dir=sort_dir)
     contracts_query = apply_document_sort(contracts_query, Contract, sort_by=sort_by, sort_dir=sort_dir)
     return proposals_query, contracts_query
@@ -78,11 +82,14 @@ def apply_order_filters(
     query: Query,
     *,
     order_status: str | None,
+    company_account_id: int | None = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
 ) -> Query:
     if order_status:
         query = query.filter(SalesOrder.status == order_status)
+    if company_account_id is not None:
+        query = query.filter(SalesOrder.company_account_id == company_account_id)
     sort_attr = SalesOrder.id
     if sort_by == "status":
         sort_attr = SalesOrder.status

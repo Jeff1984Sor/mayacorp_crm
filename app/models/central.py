@@ -46,6 +46,20 @@ class Tenant(TimestampMixin, CentralBase):
     database_url: Mapped[str] = mapped_column(Text)
 
 
+class CompanyAccount(TimestampMixin, CentralBase):
+    __tablename__ = "company_accounts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), index=True)
+    lifecycle_stage: Mapped[str] = mapped_column(String(40), default="lead", index=True)
+    admin_email: Mapped[str | None] = mapped_column(String(255), index=True)
+    phone: Mapped[str | None] = mapped_column(String(40))
+    company_document: Mapped[str | None] = mapped_column(String(40))
+    tenant_id: Mapped[int | None] = mapped_column(ForeignKey("tenants.id"))
+    last_converted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
 class CentralSetting(TimestampMixin, CentralBase):
     __tablename__ = "central_settings"
 

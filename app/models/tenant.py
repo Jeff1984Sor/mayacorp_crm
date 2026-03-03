@@ -62,6 +62,7 @@ class Lead(TenantTimestampMixin, TenantBase):
     __tablename__ = "leads"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    company_account_id: Mapped[int | None] = mapped_column(Integer, index=True)
     name: Mapped[str] = mapped_column(String(255))
     email: Mapped[str | None] = mapped_column(String(255))
     phone: Mapped[str | None] = mapped_column(String(40))
@@ -75,6 +76,7 @@ class Client(TenantTimestampMixin, TenantBase):
     __tablename__ = "clients"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    company_account_id: Mapped[int | None] = mapped_column(Integer, index=True)
     name: Mapped[str] = mapped_column(String(255))
     email: Mapped[str | None] = mapped_column(String(255))
     phone: Mapped[str | None] = mapped_column(String(40))
@@ -106,6 +108,7 @@ class SalesOrder(TenantTimestampMixin, TenantBase):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     client_id: Mapped[int | None] = mapped_column(ForeignKey("clients.id"))
+    company_account_id: Mapped[int | None] = mapped_column(Integer, index=True)
     order_type: Mapped[str] = mapped_column(String(20), default="one_time")
     duration_months: Mapped[int | None] = mapped_column(Integer)
     total_amount: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
@@ -175,6 +178,7 @@ class Proposal(TenantTimestampMixin, TenantBase):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     client_id: Mapped[int | None] = mapped_column(ForeignKey("clients.id"))
+    company_account_id: Mapped[int | None] = mapped_column(Integer, index=True)
     sales_order_id: Mapped[int | None] = mapped_column(ForeignKey("sales_orders.id"))
     title: Mapped[str] = mapped_column(String(255))
     template_name: Mapped[str | None] = mapped_column(String(120))
@@ -187,6 +191,7 @@ class Contract(TenantTimestampMixin, TenantBase):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     client_id: Mapped[int | None] = mapped_column(ForeignKey("clients.id"))
+    company_account_id: Mapped[int | None] = mapped_column(Integer, index=True)
     sales_order_id: Mapped[int | None] = mapped_column(ForeignKey("sales_orders.id"))
     title: Mapped[str] = mapped_column(String(255))
     template_name: Mapped[str | None] = mapped_column(String(120))
