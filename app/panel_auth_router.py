@@ -94,10 +94,15 @@ def admin_panel_create_tenant(
 
     if payload.account_stage not in {"lead", "client"}:
         raise HTTPException(status_code=422, detail=f"Invalid account stage: {payload.account_stage}")
+    existing_slug = session.query(Tenant).filter(Tenant.slug == payload.workspace_slug).one_or_none()
+    if existing_slug is not None:
+        raise HTTPException(status_code=409, detail="Workspace slug already exists.")
     if payload.account_id is not None:
         account = session.query(CompanyAccount).filter(CompanyAccount.id == payload.account_id).one_or_none()
         if account is None:
             raise HTTPException(status_code=404, detail="Company account not found.")
+        if account.tenant_id:
+            raise HTTPException(status_code=409, detail="Company account already has a tenant.")
     tenant = create_tenant(
         session,
         TenantCreateRequest(

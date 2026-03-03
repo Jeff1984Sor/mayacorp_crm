@@ -75,6 +75,13 @@ def admin_panel_list_accounts(
     session: Session = Depends(central_session_dep),
 ) -> dict:
     accounts = session.query(CompanyAccount).order_by(CompanyAccount.updated_at.desc(), CompanyAccount.id.desc()).all()
+    tenant_ids = [account.tenant_id for account in accounts if account.tenant_id]
+    tenant_lookup = {}
+    if tenant_ids:
+        tenant_lookup = {
+            tenant.id: tenant
+            for tenant in session.query(Tenant).filter(Tenant.id.in_(tenant_ids)).all()
+        }
     return panel_response(
         "Contas carregadas.",
         {
@@ -87,6 +94,7 @@ def admin_panel_list_accounts(
                     "phone": account.phone,
                     "company_document": account.company_document,
                     "tenant_id": account.tenant_id,
+                    "tenant_slug": tenant_lookup.get(account.tenant_id).slug if account.tenant_id in tenant_lookup else None,
                     "notes": account.notes,
                     "last_converted_at": account.last_converted_at.isoformat() if account.last_converted_at else None,
                     "updated_at": account.updated_at.isoformat(),

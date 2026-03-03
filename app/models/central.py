@@ -138,6 +138,7 @@ class Addon(TimestampMixin, CentralBase):
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(80), unique=True)
     name: Mapped[str] = mapped_column(String(120))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     amount: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
 
 

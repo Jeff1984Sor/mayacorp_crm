@@ -48,29 +48,66 @@ async function centralDashboard() {
 }
 
 async function createTenant() {
+  const accountId = toOptionalInt(document.getElementById("tenantAccountId").value) || getActiveCompanyAccountId();
+  const selectedAccount = (getPanelCache("companyAccounts")?.items || []).find((item) => item.id === accountId) || null;
+  const companyName = document.getElementById("tenantCompanyName").value.trim();
+  const workspaceSlug = document.getElementById("tenantWorkspaceSlug").value.trim();
+  const adminName = document.getElementById("tenantAdminCreateName").value.trim();
+  const adminEmail = document.getElementById("tenantAdminCreateEmail").value.trim();
+  const passwordField = document.getElementById("tenantAdminCreatePassword");
+  const adminPassword = passwordField.value || "1234";
+  if (!accountId) {
+    showToast("Selecione um cliente antes de criar o tenant.", "error");
+    return;
+  }
+  if (selectedAccount?.tenant_id) {
+    showToast("Este cliente ja possui um tenant vinculado.", "error");
+    return;
+  }
+  if (!companyName || !workspaceSlug || !adminName || !adminEmail || !adminPassword) {
+    showToast("Preencha empresa, workspace, responsavel, email e senha para criar o tenant.", "error");
+    return;
+  }
+  if (!passwordField.value) {
+    passwordField.value = adminPassword;
+  }
   const response = await fetch("/admin/panel/tenant", {
     ...buildCentralRequestOptions({
       method: "POST",
       headers: { "Content-Type": "application/json" }
     }),
     body: JSON.stringify({
-      account_id: toOptionalInt(document.getElementById("tenantAccountId").value) || getActiveCompanyAccountId(),
-      company_name: document.getElementById("tenantCompanyName").value,
-      workspace_slug: document.getElementById("tenantWorkspaceSlug").value,
+      account_id: accountId,
+      company_name: companyName,
+      workspace_slug: workspaceSlug,
       account_stage: "client",
-      admin_name: document.getElementById("tenantAdminCreateName").value,
-      admin_email: document.getElementById("tenantAdminCreateEmail").value,
-      admin_password: document.getElementById("tenantAdminCreatePassword").value
+      admin_name: adminName,
+      admin_email: adminEmail,
+      admin_password: adminPassword
     })
   });
   const payload = await showResult(response);
   if (payload) {
     const tenantSlug = document.getElementById("tenantSlug");
     if (tenantSlug) {
-      tenantSlug.value = payload.workspace_slug || document.getElementById("tenantWorkspaceSlug").value;
+      tenantSlug.value = payload.workspace_slug || workspaceSlug;
+    }
+    const status = document.getElementById("tenantAccountTenantStatus");
+    if (status) {
+      status.textContent = `Tenant criado com sucesso. Workspace: ${payload.workspace_slug || workspaceSlug} | senha inicial: ${adminPassword}`;
     }
     await loadCompanyAccounts();
   }
+}
+
+function slugifyWorkspaceName(value) {
+  return (value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
 }
 
 function buildCompanyAccountPayload() {
@@ -165,20 +202,36 @@ function applyTenantAccountSelection(selected) {
   }
   if (status) {
     status.textContent = selected.tenant_id
-      ? `Tenant atual: ID ${selected.tenant_id} ja vinculado a este cliente.`
+      ? `Tenant atual: ID ${selected.tenant_id} | workspace ${selected.tenant_slug || "-"}`
       : "Este cliente ainda nao possui tenant vinculado.";
   }
   const companyName = document.getElementById("tenantCompanyName");
   const adminEmail = document.getElementById("tenantAdminCreateEmail");
+  const workspaceSlug = document.getElementById("tenantWorkspaceSlug");
+  const adminName = document.getElementById("tenantAdminCreateName");
+  const adminPassword = document.getElementById("tenantAdminCreatePassword");
   if (companyName) {
     companyName.value = selected.name || "";
   }
   if (adminEmail) {
     adminEmail.value = selected.admin_email || "";
   }
+  if (workspaceSlug) {
+    workspaceSlug.value = selected.tenant_slug || slugifyWorkspaceName(selected.name || "");
+  }
+  if (adminName) {
+    adminName.value = adminName.value || "Owner";
+  }
+  if (adminPassword && !selected.tenant_id) {
+    adminPassword.value = adminPassword.value || "1234";
+  }
   const tenantEmail = document.getElementById("tenantEmail");
+  const tenantSlug = document.getElementById("tenantSlug");
   if (tenantEmail) {
     tenantEmail.value = selected.admin_email || "";
+  }
+  if (tenantSlug) {
+    tenantSlug.value = selected.tenant_slug || "";
   }
 }
 

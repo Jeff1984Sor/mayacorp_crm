@@ -439,8 +439,8 @@
             <div class="section-heading">
               <div>
                 <div class="section-kicker">Comercial</div>
-                <h2>Vendas com ajuste direto no pedido</h2>
-                <p>Crie novas vendas e depois corrija valor, vencimento ou volume a partir do mesmo modulo.</p>
+                <h2>Vendas com fluxo mais claro</h2>
+                <p>Separe o processo em tres passos: montar a venda, ajustar um pedido existente e consultar o pipeline.</p>
               </div>
             </div>
             <div class="module-grid">
@@ -449,45 +449,71 @@
                   <span class="pill">Pedidos</span>
                   <span class="helper">Pipeline comercial</span>
                 </div>
-                <h3 class="card-title">Pedidos</h3>
-                  <details class="module-reveal">
-                    <summary>Abrir mesa de pedidos</summary>
+                <h3 class="card-title">Mesa de pedidos</h3>
+                <div class="sales-flow-grid">
+                  <section class="sales-panel-block">
+                    <div class="sales-panel-head">
+                      <span class="pill">1. Nova venda</span>
+                      <span class="helper">Montagem do pacote</span>
+                    </div>
+                    <p class="sales-panel-copy">Selecione a conta, monte o pacote comercial e gere o pedido inicial.</p>
                     <label for="salesCompanyAccountId">Conta central</label><input id="salesCompanyAccountId" placeholder="ID da conta selecionada">
-                    <label for="salesPlanId">Plano</label>
+                    <label for="salesPlanId">Plano principal</label>
                     <select id="salesPlanId" onchange="applySalesCatalogSelection()">
                       <option value="">Sem plano</option>
                     </select>
                     <label>Produtos adicionais</label>
-                    <div id="salesAddonList" class="listbox compact-list"></div>
-                    <label for="salesDescription">Descricao</label><input id="salesDescription">
+                    <div id="salesAddonList" class="listbox compact-list sales-addon-box"></div>
+                    <label for="salesDescription">Descricao comercial</label><input id="salesDescription" placeholder="Resumo do que esta sendo vendido">
                     <div class="row">
-                      <div><label for="salesQuantity">Quantidade</label><input id="salesQuantity"></div>
-                    <div><label for="salesPrice">Valor</label><input id="salesPrice"></div>
-                  </div>
-                  <label for="salesDueDate">Primeiro vencimento</label><input id="salesDueDate">
-                  <button onclick="createSalesOrder()">Criar pedido</button>
-                  <label for="salesEditOrderId">Pedido ID</label><input id="salesEditOrderId" placeholder="ID do pedido">
-                  <label for="salesEditDescription">Nova descricao</label><input id="salesEditDescription" value="Servico Mensal Ajustado">
-                  <div class="row">
-                    <div><label for="salesEditQuantity">Nova quantidade</label><input id="salesEditQuantity" value="1"></div>
-                    <div><label for="salesEditPrice">Novo valor</label><input id="salesEditPrice" value="250"></div>
-                  </div>
-                  <label for="salesEditDueDate">Novo vencimento</label><input id="salesEditDueDate" value="2026-03-10">
-                  <button onclick="updateSalesOrderDetails()">Atualizar pedido completo</button>
-                  <label for="salesOrderStatusUpdate">Status</label>
-                  <select id="salesOrderStatusUpdate"><option value="confirmed">confirmed</option><option value="pending">pending</option><option value="closed">closed</option><option value="cancelled">cancelled</option></select>
-                  <label for="orderStatusFilter">Filtro status pedido</label>
-                  <select id="orderStatusFilter"><option value="">Todos</option><option value="pending">pending</option><option value="confirmed">confirmed</option><option value="closed">closed</option><option value="cancelled">cancelled</option></select>
-                  <label for="orderSortBy">Ordenar pedidos</label>
-                  <select id="orderSortBy"><option value="id">id</option><option value="status">status</option><option value="total_amount">total_amount</option></select>
-                  <label for="orderSortDir">Direcao pedidos</label>
-                  <select id="orderSortDir"><option value="desc">desc</option><option value="asc">asc</option></select>
-                  <div class="row">
-                    <div><label for="summaryPage">Pagina</label><input id="summaryPage" value="1"></div>
-                    <div><label for="summaryPageSize">Itens</label><input id="summaryPageSize" value="5"></div>
-                  </div>
-                  <button onclick="loadOrdersSummary()">Carregar pedidos</button>
-                </details>
+                      <div><label for="salesQuantity">Quantidade</label><input id="salesQuantity" placeholder="1"></div>
+                      <div><label for="salesPrice">Valor total</label><input id="salesPrice" placeholder="0.00"></div>
+                    </div>
+                    <label for="salesDueDate">Primeiro vencimento</label><input id="salesDueDate" placeholder="AAAA-MM-DD">
+                    <button onclick="createSalesOrder()">Criar pedido</button>
+                  </section>
+                  <section class="sales-panel-block">
+                    <div class="sales-panel-head">
+                      <span class="pill">2. Ajustar pedido</span>
+                      <span class="helper">Correcao rapida</span>
+                    </div>
+                    <p class="sales-panel-copy">Use este bloco para revisar um pedido existente sem voltar ao cadastro inicial.</p>
+                    <label for="salesEditOrderId">Pedido ID</label><input id="salesEditOrderId" placeholder="ID do pedido">
+                    <label for="salesEditDescription">Nova descricao</label><input id="salesEditDescription" placeholder="Atualize a descricao comercial">
+                    <div class="row">
+                      <div><label for="salesEditQuantity">Nova quantidade</label><input id="salesEditQuantity" placeholder="1"></div>
+                      <div><label for="salesEditPrice">Novo valor</label><input id="salesEditPrice" placeholder="0.00"></div>
+                    </div>
+                    <label for="salesEditDueDate">Novo vencimento</label><input id="salesEditDueDate" placeholder="AAAA-MM-DD">
+                    <label for="salesOrderStatusUpdate">Status</label>
+                    <select id="salesOrderStatusUpdate"><option value="confirmed">confirmed</option><option value="pending">pending</option><option value="closed">closed</option><option value="cancelled">cancelled</option></select>
+                    <button onclick="updateSalesOrderDetails()">Atualizar pedido completo</button>
+                  </section>
+                  <section class="sales-panel-block">
+                    <div class="sales-panel-head">
+                      <span class="pill">3. Consultar</span>
+                      <span class="helper">Lista e filtros</span>
+                    </div>
+                    <p class="sales-panel-copy">Filtre os pedidos e recarregue o resumo sem misturar isso com o cadastro da venda.</p>
+                    <label for="orderStatusFilter">Filtro status pedido</label>
+                    <select id="orderStatusFilter"><option value="">Todos</option><option value="pending">pending</option><option value="confirmed">confirmed</option><option value="closed">closed</option><option value="cancelled">cancelled</option></select>
+                    <div class="row">
+                      <div>
+                        <label for="orderSortBy">Ordenar por</label>
+                        <select id="orderSortBy"><option value="id">id</option><option value="status">status</option><option value="total_amount">total_amount</option></select>
+                      </div>
+                      <div>
+                        <label for="orderSortDir">Direcao</label>
+                        <select id="orderSortDir"><option value="desc">desc</option><option value="asc">asc</option></select>
+                      </div>
+                    </div>
+                    <div class="row">
+                      <div><label for="summaryPage">Pagina</label><input id="summaryPage" value="1"></div>
+                      <div><label for="summaryPageSize">Itens por pagina</label><input id="summaryPageSize" value="5"></div>
+                    </div>
+                    <button onclick="loadOrdersSummary()">Carregar pedidos</button>
+                  </section>
+                </div>
               </div>
             </div>
           </section>
